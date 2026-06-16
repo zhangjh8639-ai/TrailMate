@@ -8,8 +8,8 @@
 - [x] Add personal gear and AI gear checklist to prototype.
 - [x] Write Superpowers design document.
 - [x] Write OpenSpec change proposal.
-- [ ] Review this OpenSpec change with the user.
-- [ ] After review, create a Superpowers implementation plan before coding.
+- [x] Review this OpenSpec change with the user.
+- [x] After review, create a Superpowers implementation plan before coding.
 
 ## Implementation Planning Backlog
 
