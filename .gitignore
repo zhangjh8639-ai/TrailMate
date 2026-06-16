@@ -3,3 +3,5 @@
 .android-sdk/
 .gradle/
 .tooling-downloads/
+local.properties
+**/build/
