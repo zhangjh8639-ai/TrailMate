@@ -24,6 +24,7 @@
 - [x] Add target-route GPX import prototype gate before route assessment tabs.
 - [x] Add tested target-route GPX parser for track/route points, distance, ascent, and point count.
 - [x] Harden prototype GPX XML parsing against DOCTYPE/XXE and mixed track/route ordering.
+- [x] Add Android system file-picker route import path with recoverable parse errors.
 - [x] Add deterministic questionnaire-based route assessment engine.
 - [x] Wire route detail tabs to dynamic assessment results after target route import.
 
@@ -31,7 +32,7 @@
 
 - [ ] Define baseline profile persistence and privacy rules.
 - [ ] Define real auth integration and post-login profile sync.
-- [ ] Define Android system file picker and production GPX import state machine.
+- [ ] Define production GPX import queue, persistence, and retry state machine.
 - [ ] Replace questionnaire fallback capacity with historical GPX capability profile.
 - [ ] Define gear inventory persistence and delete/export rules.
 - [ ] Define route experience navigation tabs in Android.
