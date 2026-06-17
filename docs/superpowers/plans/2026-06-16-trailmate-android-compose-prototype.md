@@ -1108,7 +1108,10 @@ Type consistency:
 
 ## Progress Update: 2026-06-17
 
+- Added a sign-in/register prototype step before questionnaire intake.
+- Replaced the static baseline profile panel with a real saveable questionnaire for exercise rhythm, session duration, outdoor experience, ascent history, height, weight, and pack weight.
+- Fed the completed questionnaire into the Home profile summary while preserving LOW confidence until GPX evidence exists; skipping leaves body and pack fields unset instead of applying sample values.
 - Added `GearInventory` rules so available owned gear can satisfy matching route recommendations without changing deterministic route assessment values.
 - Added a Home-level `Route` / `My Gear` switch, a saveable in-memory My Gear add form, availability switches, delete actions, and route Gear-tab actions that send missing categories into the inventory form.
 - Added unit tests for gear inventory matching, unavailable/deleted gear, optional brand/model entry, invalid input rejection, and Compose smoke-test coverage for the My Gear screen, matched gear copy, and route-to-gear add flow.
-- Still pending for production: Room persistence, edit/delete/export behavior, and a real AI gear advisor backend contract.
+- Still pending for production: real auth, Room persistence, profile/gear sync, edit/delete/export behavior, and a real AI gear advisor backend contract.

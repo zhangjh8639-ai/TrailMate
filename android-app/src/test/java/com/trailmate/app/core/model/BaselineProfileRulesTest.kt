@@ -20,4 +20,12 @@ class BaselineProfileRulesTest {
         assertEquals(ConfidenceLevel.LOW, profile.initialConfidence())
         assertTrue(profile.explanation().contains("GPX"))
     }
+
+    @Test
+    fun questionnaireProfileFormatsBodyAndPackSummary() {
+        val profile = TrailMateSampleData.baselineProfile
+
+        assertEquals("172cm / 68kg", profile.bodyMetricsLabel())
+        assertEquals("5 kg pack", profile.packWeightLabel())
+    }
 }

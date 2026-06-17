@@ -1,6 +1,16 @@
 package com.trailmate.app.core.model
 
 object TrailMateSampleData {
+    val skippedBaselineProfile = BaselineProfile(
+        exerciseFrequency = ExerciseFrequency.RARELY,
+        typicalDuration = TypicalDuration.UNDER_30,
+        experienceLevel = ExperienceLevel.BEGINNER,
+        ascentExperience = AscentExperience.UNDER_300,
+        heightCm = null,
+        weightKg = null,
+        commonPackWeightKg = null
+    )
+
     val baselineProfile = BaselineProfile(
         exerciseFrequency = ExerciseFrequency.ONE_TO_TWO_PER_WEEK,
         typicalDuration = TypicalDuration.MIN_30_TO_60,

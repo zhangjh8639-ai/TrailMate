@@ -21,6 +21,10 @@ import com.trailmate.app.core.design.TrailMateMetricRow
 import com.trailmate.app.core.design.TrailMatePanel
 import com.trailmate.app.core.design.TrailMatePanelTone
 import com.trailmate.app.core.design.TrailMateSegmentedControl
+import com.trailmate.app.core.model.AscentExperience
+import com.trailmate.app.core.model.BaselineProfile
+import com.trailmate.app.core.model.ExerciseFrequency
+import com.trailmate.app.core.model.ExperienceLevel
 import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.GearItem
 import com.trailmate.app.core.model.TrailMateSampleData
@@ -28,7 +32,7 @@ import com.trailmate.app.feature.gear.MyGearScreen
 import com.trailmate.app.feature.route.RouteDetailScreen
 
 @Composable
-fun HomeScreen() {
+fun HomeScreen(profile: BaselineProfile = TrailMateSampleData.baselineProfile) {
     var selectedSection by rememberSaveable { mutableStateOf(HomeSection.Route) }
     var requestedGearCategory by rememberSaveable { mutableStateOf("Trekking poles") }
     var inventory by rememberSaveable(stateSaver = GearInventoryStateSaver) {
@@ -50,9 +54,23 @@ fun HomeScreen() {
         )
         TrailMatePanel(
             title = "Temporary profile",
-            value = "LOW",
-            caption = "Import 3 GPX activities to calibrate with real history.",
+            value = profile.initialConfidence().name,
+            caption = profile.explanation(),
             tone = TrailMatePanelTone.Secondary
+        )
+        TrailMateMetricRow(
+            items = listOf(
+                "Exercise" to profile.exerciseFrequency.homeLabel(),
+                "Outdoors" to profile.experienceLevel.homeLabel(),
+                "Body" to profile.bodyMetricsLabel()
+            )
+        )
+        TrailMateMetricRow(
+            items = listOf(
+                "Ascent" to profile.ascentExperience.homeLabel(),
+                "Pack" to profile.packWeightLabel(),
+                "Evidence" to "0/3 GPX"
+            )
         )
         TrailMateMetricRow(
             items = listOf(
@@ -105,6 +123,27 @@ private enum class HomeSection(val label: String) {
     Route("Route"),
     MyGear("My Gear")
 }
+
+private fun ExerciseFrequency.homeLabel(): String =
+    when (this) {
+        ExerciseFrequency.RARELY -> "Rarely"
+        ExerciseFrequency.ONE_TO_TWO_PER_WEEK -> "1-2/wk"
+        ExerciseFrequency.THREE_PLUS_PER_WEEK -> "3+/wk"
+    }
+
+private fun ExperienceLevel.homeLabel(): String =
+    when (this) {
+        ExperienceLevel.BEGINNER -> "Beginner"
+        ExperienceLevel.REGULAR -> "Regular"
+        ExperienceLevel.EXPERIENCED -> "Experienced"
+    }
+
+private fun AscentExperience.homeLabel(): String =
+    when (this) {
+        AscentExperience.UNDER_300 -> "<300m"
+        AscentExperience.M300_TO_800 -> "300-800m"
+        AscentExperience.OVER_800 -> "800m+"
+    }
 
 @Suppress("UNCHECKED_CAST")
 private val GearInventoryStateSaver = mapSaver(

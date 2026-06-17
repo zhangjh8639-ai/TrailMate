@@ -13,6 +13,10 @@
 - [x] Scaffold Android Compose prototype client.
 - [x] Add prototype models and tests for baseline profile and AI gear advisor boundary.
 - [x] Add onboarding, temporary profile, light navigation route tabs, and gear checklist UI.
+- [x] Add sign-in/register prototype step before baseline profile questionnaire.
+- [x] Add baseline profile questionnaire inputs for exercise rhythm, session duration, outdoor experience, ascent, height, weight, and pack weight.
+- [x] Feed completed questionnaire profile into Home summary.
+- [x] Ensure skipping profile intake does not fabricate body or pack metrics.
 - [x] Add in-memory My Gear section with branded gear add form.
 - [x] Link route gear recommendations to available owned gear by category.
 - [x] Add in-memory gear availability and delete actions.
@@ -21,6 +25,7 @@
 ## Implementation Planning Backlog
 
 - [ ] Define baseline profile persistence and privacy rules.
+- [ ] Define real auth integration and post-login profile sync.
 - [ ] Define gear inventory persistence and delete/export rules.
 - [ ] Define route experience navigation tabs in Android.
 - [ ] Define AI gear advisor backend contract and validation.

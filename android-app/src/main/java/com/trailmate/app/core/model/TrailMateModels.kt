@@ -21,6 +21,16 @@ data class BaselineProfile(
 
     fun explanation(): String =
         "This temporary profile uses questionnaire defaults until enough GPX history is imported."
+
+    fun bodyMetricsLabel(): String {
+        val height = heightCm?.let { "${it}cm" }
+        val weight = weightKg?.let { "${it}kg" }
+
+        return listOfNotNull(height, weight).joinToString(" / ").ifBlank { "Not set" }
+    }
+
+    fun packWeightLabel(): String =
+        commonPackWeightKg?.let { "$it kg pack" } ?: "Pack TBD"
 }
 
 data class GearItem(

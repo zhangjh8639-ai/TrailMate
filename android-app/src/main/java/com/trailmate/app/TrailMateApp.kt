@@ -7,8 +7,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.mapSaver
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.trailmate.app.core.model.AscentExperience
+import com.trailmate.app.core.model.BaselineProfile
+import com.trailmate.app.core.model.ExerciseFrequency
+import com.trailmate.app.core.model.ExperienceLevel
+import com.trailmate.app.core.model.TrailMateSampleData
+import com.trailmate.app.core.model.TypicalDuration
 import com.trailmate.app.feature.home.HomeScreen
 import com.trailmate.app.feature.onboarding.OnboardingScreen
 
@@ -20,6 +27,9 @@ enum class TrailMateScreen {
 @Composable
 fun TrailMateApp() {
     var screen by rememberSaveable { mutableStateOf(TrailMateScreen.ONBOARDING) }
+    var baselineProfile by rememberSaveable(stateSaver = BaselineProfileStateSaver) {
+        mutableStateOf(TrailMateSampleData.baselineProfile)
+    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -27,9 +37,38 @@ fun TrailMateApp() {
     ) {
         when (screen) {
             TrailMateScreen.ONBOARDING -> OnboardingScreen(
-                onComplete = { screen = TrailMateScreen.HOME }
+                onComplete = { profile ->
+                    baselineProfile = profile
+                    screen = TrailMateScreen.HOME
+                }
             )
-            TrailMateScreen.HOME -> HomeScreen()
+            TrailMateScreen.HOME -> HomeScreen(profile = baselineProfile)
         }
     }
 }
+
+@Suppress("UNCHECKED_CAST")
+private val BaselineProfileStateSaver = mapSaver(
+    save = { profile ->
+        mapOf(
+            "exerciseFrequency" to profile.exerciseFrequency.name,
+            "typicalDuration" to profile.typicalDuration.name,
+            "experienceLevel" to profile.experienceLevel.name,
+            "ascentExperience" to profile.ascentExperience.name,
+            "heightCm" to (profile.heightCm ?: -1),
+            "weightKg" to (profile.weightKg ?: -1),
+            "commonPackWeightKg" to (profile.commonPackWeightKg ?: -1)
+        )
+    },
+    restore = { saved ->
+        BaselineProfile(
+            exerciseFrequency = ExerciseFrequency.valueOf(saved["exerciseFrequency"] as String),
+            typicalDuration = TypicalDuration.valueOf(saved["typicalDuration"] as String),
+            experienceLevel = ExperienceLevel.valueOf(saved["experienceLevel"] as String),
+            ascentExperience = AscentExperience.valueOf(saved["ascentExperience"] as String),
+            heightCm = (saved["heightCm"] as Int).takeIf { it >= 0 },
+            weightKg = (saved["weightKg"] as Int).takeIf { it >= 0 },
+            commonPackWeightKg = (saved["commonPackWeightKg"] as Int).takeIf { it >= 0 }
+        )
+    }
+)

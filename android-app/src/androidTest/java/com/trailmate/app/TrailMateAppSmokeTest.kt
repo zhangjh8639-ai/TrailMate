@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import com.trailmate.app.core.design.TrailMateTheme
 import com.trailmate.app.core.model.GearInventory
@@ -28,6 +29,42 @@ class TrailMateAppSmokeTest {
 
         compose.onNodeWithText("TrailMate").assertExists()
         compose.onNodeWithText("Start baseline profile").assertExists()
+    }
+
+    @Test
+    fun onboardingCollectsBaselineProfileBeforeHome() {
+        compose.setContent {
+            TrailMateTheme {
+                TrailMateApp()
+            }
+        }
+
+        compose.onNodeWithText("Start baseline profile").performClick()
+        compose.onNodeWithText("Height cm").performScrollTo().performTextInput("181")
+        compose.onNodeWithText("Weight kg").performScrollTo().performTextInput("76")
+        compose.onNodeWithText("Usual pack kg").performScrollTo().performTextInput("7")
+        compose.onNodeWithText("Save profile").performScrollTo().performClick()
+
+        compose.onNodeWithText("Trail coach").assertExists()
+        compose.onNodeWithText("181cm / 76kg").assertExists()
+        compose.onNodeWithText("7 kg pack").assertExists()
+    }
+
+    @Test
+    fun onboardingSkipDoesNotFabricateBodyMetrics() {
+        compose.setContent {
+            TrailMateTheme {
+                TrailMateApp()
+            }
+        }
+
+        compose.onNodeWithText("Start baseline profile").performClick()
+        compose.onNodeWithText("Skip for now").performScrollTo().performClick()
+
+        compose.onNodeWithText("Trail coach").assertExists()
+        compose.onNodeWithText("Not set").assertExists()
+        compose.onNodeWithText("Pack TBD").assertExists()
+        compose.onAllNodesWithText("172cm / 68kg").assertCountEquals(0)
     }
 
     @Test
