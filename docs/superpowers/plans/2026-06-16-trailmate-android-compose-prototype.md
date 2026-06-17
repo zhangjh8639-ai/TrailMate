@@ -1105,3 +1105,10 @@ Type consistency:
 - `BaselineProfile`, `GearItem`, `GearRecommendation`, and `RouteAssessmentSummary` are defined before UI code consumes them.
 - Route tab labels are exactly `Assessment`, `Route`, `Plan`, and `Gear`.
 - Gear statuses are exactly `COVERED`, `CHECK`, `MISSING`, and `OPTIONAL`.
+
+## Progress Update: 2026-06-17
+
+- Added `GearInventory` rules so available owned gear can satisfy matching route recommendations without changing deterministic route assessment values.
+- Added a Home-level `Route` / `My Gear` switch, an in-memory My Gear add form, availability switches, delete actions, and route Gear-tab actions that send missing categories into the inventory form.
+- Added unit tests for gear inventory matching, unavailable/deleted gear, optional brand/model entry, and Compose smoke-test coverage for the My Gear screen and route Gear-tab action.
+- Still pending for production: Room persistence, edit/delete/export behavior, and a real AI gear advisor backend contract.

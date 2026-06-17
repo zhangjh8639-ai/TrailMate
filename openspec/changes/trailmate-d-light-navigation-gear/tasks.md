@@ -13,6 +13,9 @@
 - [x] Scaffold Android Compose prototype client.
 - [x] Add prototype models and tests for baseline profile and AI gear advisor boundary.
 - [x] Add onboarding, temporary profile, light navigation route tabs, and gear checklist UI.
+- [x] Add in-memory My Gear section with branded gear add form.
+- [x] Link route gear recommendations to available owned gear by category.
+- [x] Add in-memory gear availability and delete actions.
 
 ## Implementation Planning Backlog
 

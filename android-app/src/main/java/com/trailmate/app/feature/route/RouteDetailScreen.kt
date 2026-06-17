@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,11 +28,18 @@ import com.trailmate.app.core.design.TrailMateMetricRow
 import com.trailmate.app.core.design.TrailMatePanel
 import com.trailmate.app.core.design.TrailMatePanelTone
 import com.trailmate.app.core.design.TrailMateSegmentedControl
+import com.trailmate.app.core.model.GearInventory
+import com.trailmate.app.core.model.GearItem
+import com.trailmate.app.core.model.GearRecommendation
 import com.trailmate.app.core.model.GearStatus
 import com.trailmate.app.core.model.TrailMateSampleData
 
 @Composable
-fun RouteDetailScreen() {
+fun RouteDetailScreen(
+    inventory: GearInventory = GearInventory(TrailMateSampleData.gearItems),
+    gearRecommendations: List<GearRecommendation> = inventory.applyTo(TrailMateSampleData.gearRecommendations),
+    onAddGearRequested: (String) -> Unit = {}
+) {
     var selected by rememberSaveable { mutableStateOf(RouteDetailTab.Assessment) }
     val assessment = TrailMateSampleData.routeAssessment
 
@@ -52,7 +60,11 @@ fun RouteDetailScreen() {
             RouteDetailTab.Assessment -> AssessmentTab()
             RouteDetailTab.Route -> RouteTab()
             RouteDetailTab.Plan -> PlanTab()
-            RouteDetailTab.Gear -> GearTab()
+            RouteDetailTab.Gear -> GearTab(
+                recommendations = gearRecommendations,
+                inventory = inventory,
+                onAddGearRequested = onAddGearRequested
+            )
         }
     }
 }
@@ -132,21 +144,48 @@ private fun PlanTab() {
 }
 
 @Composable
-private fun GearTab() {
+private fun GearTab(
+    recommendations: List<GearRecommendation>,
+    inventory: GearInventory,
+    onAddGearRequested: (String) -> Unit
+) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        TrailMateSampleData.gearRecommendations.forEach { item ->
+        recommendations.forEach { item ->
+            val matchedItem = item.matchedGearItemId?.let { matchedId ->
+                inventory.items.firstOrNull { it.id == matchedId }
+            }
             TrailMatePanel(
                 title = item.status.name.lowercase().replaceFirstChar { it.titlecase() },
                 value = item.category,
-                caption = item.rationale,
+                caption = gearRecommendationCaption(item, matchedItem),
                 tone = when (item.status) {
                     GearStatus.MISSING -> TrailMatePanelTone.Secondary
                     GearStatus.CHECK -> TrailMatePanelTone.Neutral
                     else -> TrailMatePanelTone.Primary
                 }
             )
+            if (item.status == GearStatus.MISSING) {
+                OutlinedButton(
+                    onClick = { onAddGearRequested(item.category) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Add ${item.category} to My Gear")
+                }
+            }
         }
     }
+}
+
+private fun gearRecommendationCaption(
+    recommendation: GearRecommendation,
+    matchedItem: GearItem?
+): String {
+    val matchedText = matchedItem?.let { item ->
+        val name = listOfNotNull(item.brand, item.model).joinToString(" ")
+        " Matched with ${name.ifBlank { item.category }}."
+    }.orEmpty()
+
+    return recommendation.rationale + matchedText
 }
 
 @Composable
