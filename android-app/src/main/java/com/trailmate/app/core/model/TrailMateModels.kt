@@ -11,6 +11,7 @@ enum class MatchLevel { RECOMMENDED, CAUTION, NOT_RECOMMENDED }
 enum class GearStatus { COVERED, CHECK, MISSING, OPTIONAL }
 enum class RouteImportStatus { EMPTY, PARSED }
 enum class HikePlanCheckpointType { START, ENERGY_CHECK, REST_CHECK, RISK_CHECK, FINISH }
+enum class HikeSessionStatus { READY, ACTIVE, PAUSED, COMPLETED }
 
 data class BaselineProfile(
     val exerciseFrequency: ExerciseFrequency,
@@ -186,3 +187,8 @@ data class HikePlanSummary(
     fun nextMovingCheckpoint(): HikePlanCheckpoint? =
         checkpoints.firstOrNull { checkpoint -> checkpoint.type != HikePlanCheckpointType.START }
 }
+
+data class HikeSessionState(
+    val status: HikeSessionStatus,
+    val reachedCheckpointIndex: Int
+)

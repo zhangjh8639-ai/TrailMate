@@ -1,5 +1,8 @@
 package com.trailmate.app
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onAllNodesWithText
@@ -182,6 +185,54 @@ class TrailMateAppSmokeTest {
         compose.onNodeWithText("Risk check").assertExists()
         compose.onNodeWithText("15.2 km /", substring = true).assertExists()
         compose.onAllNodesWithText("Plan checkpoints").assertCountEquals(0)
+    }
+
+    @Test
+    fun routeTabStartsAndAdvancesActiveHike() {
+        compose.setContent {
+            TrailMateTheme {
+                com.trailmate.app.feature.route.RouteDetailScreen()
+            }
+        }
+
+        compose.onNodeWithText("Route").performClick()
+        compose.onNodeWithText("Start hike").performClick()
+
+        compose.onNodeWithText("Pause").assertExists()
+        compose.onNodeWithText("Mark next checkpoint").assertExists()
+        compose.onNodeWithText("Energy check").assertExists()
+
+        compose.onNodeWithText("Mark next checkpoint").performClick()
+        compose.onNodeWithText("Rest check").assertExists()
+    }
+
+    @Test
+    fun activeHikeResetsWhenRouteChanges() {
+        var route by mutableStateOf(TrailMateSampleData.importedTargetRoute)
+
+        compose.setContent {
+            TrailMateTheme {
+                com.trailmate.app.feature.route.RouteDetailScreen(route = route)
+            }
+        }
+
+        compose.onNodeWithText("Route").performClick()
+        compose.onNodeWithText("Start hike").performClick()
+        compose.onNodeWithText("Pause").assertExists()
+
+        compose.runOnIdle {
+            route = route.copy(
+                routeName = "Replacement loop",
+                fileName = "replacement.gpx",
+                distanceKm = 4.8,
+                ascentMeters = 180,
+                pointCount = 64
+            )
+        }
+
+        compose.onNodeWithText("Replacement loop").assertExists()
+        compose.onNodeWithText("Start hike").assertExists()
+        compose.onAllNodesWithText("Pause").assertCountEquals(0)
     }
 
     @Test

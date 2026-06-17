@@ -8,7 +8,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -37,6 +40,9 @@ import com.trailmate.app.core.model.HikePlanCheckpoint
 import com.trailmate.app.core.model.HikePlanCheckpointType
 import com.trailmate.app.core.model.HikePlanEngine
 import com.trailmate.app.core.model.HikePlanSummary
+import com.trailmate.app.core.model.HikeSessionEngine
+import com.trailmate.app.core.model.HikeSessionState
+import com.trailmate.app.core.model.HikeSessionStatus
 import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.MatchLevel
 import com.trailmate.app.core.model.RouteAssessmentEngine
@@ -57,7 +63,18 @@ fun RouteDetailScreen(
     val resolvedGearRecommendations = gearRecommendations ?: inventory.applyTo(
         RouteGearAdvisorEngine.recommend(route = route, assessment = assessment)
     )
+    val routeSessionKey = route.sessionKey()
     var selected by rememberSaveable { mutableStateOf(RouteDetailTab.Assessment) }
+    var hikeStatus by rememberSaveable(routeSessionKey) { mutableStateOf(HikeSessionStatus.READY) }
+    var reachedCheckpointIndex by rememberSaveable(routeSessionKey) { mutableStateOf(0) }
+    val hikeSession = HikeSessionState(
+        status = hikeStatus,
+        reachedCheckpointIndex = reachedCheckpointIndex.coerceIn(0, plan.checkpoints.lastIndex.coerceAtLeast(0))
+    )
+    val updateHikeSession: (HikeSessionState) -> Unit = { session ->
+        hikeStatus = session.status
+        reachedCheckpointIndex = session.reachedCheckpointIndex
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text(
@@ -74,7 +91,12 @@ fun RouteDetailScreen(
         )
         when (selected) {
             RouteDetailTab.Assessment -> AssessmentTab(assessment = assessment, plan = plan)
-            RouteDetailTab.Route -> RouteTab(assessment = assessment, plan = plan)
+            RouteDetailTab.Route -> RouteTab(
+                assessment = assessment,
+                plan = plan,
+                hikeSession = hikeSession,
+                onHikeSessionChange = updateHikeSession
+            )
             RouteDetailTab.Plan -> PlanTab(plan = plan)
             RouteDetailTab.Gear -> GearTab(
                 recommendations = resolvedGearRecommendations,
@@ -119,7 +141,12 @@ private fun AssessmentTab(assessment: RouteAssessmentSummary, plan: HikePlanSumm
 }
 
 @Composable
-private fun RouteTab(assessment: RouteAssessmentSummary, plan: HikePlanSummary) {
+private fun RouteTab(
+    assessment: RouteAssessmentSummary,
+    plan: HikePlanSummary,
+    hikeSession: HikeSessionState,
+    onHikeSessionChange: (HikeSessionState) -> Unit
+) {
     val nextCheckpoint = plan.nextMovingCheckpoint()
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -141,6 +168,75 @@ private fun RouteTab(assessment: RouteAssessmentSummary, plan: HikePlanSummary) 
             } ?: "Assessment window ${assessment.estimatedDurationRange}.",
             tone = TrailMatePanelTone.Primary
         )
+        ActiveHikePanel(
+            plan = plan,
+            session = hikeSession,
+            onSessionChange = onHikeSessionChange
+        )
+    }
+}
+
+@Composable
+private fun ActiveHikePanel(
+    plan: HikePlanSummary,
+    session: HikeSessionState,
+    onSessionChange: (HikeSessionState) -> Unit
+) {
+    val current = HikeSessionEngine.currentCheckpoint(plan, session)
+    val next = HikeSessionEngine.nextCheckpoint(plan, session)
+    val progress = HikeSessionEngine.progressFraction(plan, session).toFloat()
+    val nextLabel = next?.title ?: "Finish reached"
+
+    TrailMatePanel(
+        title = "Active hike",
+        value = nextLabel,
+        caption = "Current ${current?.title.orEmpty().ifBlank { "Route" }} / ${session.status.displayLabel()}",
+        tone = TrailMatePanelTone.Neutral
+    )
+    LinearProgressIndicator(
+        progress = { progress },
+        modifier = Modifier.fillMaxWidth()
+    )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        when (session.status) {
+            HikeSessionStatus.READY -> Button(
+                onClick = { onSessionChange(HikeSessionEngine.start(session)) },
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Start hike")
+            }
+
+            HikeSessionStatus.ACTIVE -> OutlinedButton(
+                onClick = { onSessionChange(HikeSessionEngine.pause(session)) },
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Pause")
+            }
+
+            HikeSessionStatus.PAUSED -> Button(
+                onClick = { onSessionChange(HikeSessionEngine.resume(session)) },
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Resume")
+            }
+
+            HikeSessionStatus.COMPLETED -> OutlinedButton(
+                onClick = { onSessionChange(HikeSessionEngine.ready(plan)) },
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Reset")
+            }
+        }
+        OutlinedButton(
+            onClick = { onSessionChange(HikeSessionEngine.advance(plan, session)) },
+            modifier = Modifier.weight(1f),
+            enabled = session.status != HikeSessionStatus.READY && session.status != HikeSessionStatus.COMPLETED
+        ) {
+            Text("Mark next checkpoint")
+        }
     }
 }
 
@@ -209,6 +305,17 @@ private fun MatchLevel.displayTitle(): String =
         MatchLevel.CAUTION -> "Cautious attempt"
         MatchLevel.NOT_RECOMMENDED -> "Not recommended"
     }
+
+private fun HikeSessionStatus.displayLabel(): String =
+    when (this) {
+        HikeSessionStatus.READY -> "ready"
+        HikeSessionStatus.ACTIVE -> "active"
+        HikeSessionStatus.PAUSED -> "paused"
+        HikeSessionStatus.COMPLETED -> "completed"
+    }
+
+private fun ImportedRoute.sessionKey(): String =
+    "$fileName|$routeName|$distanceKm|$ascentMeters|$pointCount"
 
 private fun HikePlanCheckpoint.routeValue(): String =
     "${distanceKm} km / $timeFromStart"
