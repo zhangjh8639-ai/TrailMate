@@ -106,7 +106,7 @@ fun TrailMateSegmentedControl(
                     color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
                     fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center,
-                    maxLines = 1
+                    maxLines = 2
                 )
             }
         }

@@ -32,7 +32,7 @@ import com.trailmate.app.core.model.TrailMateSampleData
 
 @Composable
 fun RouteDetailScreen() {
-    var selected by rememberSaveable { mutableStateOf("Assessment") }
+    var selected by rememberSaveable { mutableStateOf(RouteDetailTab.Assessment) }
     val assessment = TrailMateSampleData.routeAssessment
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -42,17 +42,26 @@ fun RouteDetailScreen() {
             fontWeight = FontWeight.Bold
         )
         TrailMateSegmentedControl(
-            labels = listOf("Assessment", "Route", "Plan", "Gear"),
-            selected = selected,
-            onSelected = { selected = it }
+            labels = RouteDetailTab.entries.map { it.label },
+            selected = selected.label,
+            onSelected = { label ->
+                selected = RouteDetailTab.entries.first { it.label == label }
+            }
         )
         when (selected) {
-            "Assessment" -> AssessmentTab()
-            "Route" -> RouteTab()
-            "Plan" -> PlanTab()
-            "Gear" -> GearTab()
+            RouteDetailTab.Assessment -> AssessmentTab()
+            RouteDetailTab.Route -> RouteTab()
+            RouteDetailTab.Plan -> PlanTab()
+            RouteDetailTab.Gear -> GearTab()
         }
     }
+}
+
+private enum class RouteDetailTab(val label: String) {
+    Assessment("Assessment"),
+    Route("Route"),
+    Plan("Plan"),
+    Gear("Gear")
 }
 
 @Composable
