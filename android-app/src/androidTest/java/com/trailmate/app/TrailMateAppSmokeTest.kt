@@ -21,4 +21,18 @@ class TrailMateAppSmokeTest {
         compose.onNodeWithText("TrailMate").assertExists()
         compose.onNodeWithText("Start baseline profile").assertExists()
     }
+
+    @Test
+    fun routeDetailShowsAssessmentRoutePlanAndGearTabs() {
+        compose.setContent {
+            TrailMateTheme {
+                com.trailmate.app.feature.route.RouteDetailScreen()
+            }
+        }
+
+        compose.onNodeWithText("Assessment").assertExists()
+        compose.onNodeWithText("Route").assertExists()
+        compose.onNodeWithText("Plan").assertExists()
+        compose.onNodeWithText("Gear").assertExists()
+    }
 }
