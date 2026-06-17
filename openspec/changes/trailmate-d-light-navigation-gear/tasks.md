@@ -10,6 +10,9 @@
 - [x] Write OpenSpec change proposal.
 - [x] Review this OpenSpec change with the user.
 - [x] After review, create a Superpowers implementation plan before coding.
+- [x] Scaffold Android Compose prototype client.
+- [x] Add prototype models and tests for baseline profile and AI gear advisor boundary.
+- [x] Add onboarding, temporary profile, light navigation route tabs, and gear checklist UI.
 
 ## Implementation Planning Backlog
 
