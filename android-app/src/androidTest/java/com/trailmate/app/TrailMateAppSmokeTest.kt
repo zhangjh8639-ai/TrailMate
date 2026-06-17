@@ -15,6 +15,9 @@ import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.ExerciseFrequency
 import com.trailmate.app.core.model.ExperienceLevel
 import com.trailmate.app.core.model.GearInventory
+import com.trailmate.app.core.model.GearItem
+import com.trailmate.app.core.model.GearRecommendation
+import com.trailmate.app.core.model.GearStatus
 import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.AscentExperience
 import com.trailmate.app.core.model.TrailMateSampleData
@@ -154,6 +157,52 @@ class TrailMateAppSmokeTest {
         compose.onNodeWithText("Salomon X Ultra 4 GTX").assertExists()
         compose.onAllNodesWithText("Available").assertCountEquals(3)
         compose.onAllNodesWithText("Remove").assertCountEquals(3)
+    }
+
+    @Test
+    fun myGearDetailsTabShowsSelectedGearRouteContext() {
+        val inventory = GearInventory(
+            items = listOf(
+                GearItem(
+                    id = "shell-1",
+                    category = "Rain shell",
+                    brand = "Patagonia",
+                    model = "Torrentshell",
+                    weightGrams = 400,
+                    available = true
+                )
+            )
+        )
+        val recommendations = inventory.applyTo(
+            listOf(
+                GearRecommendation(
+                    category = "Rain shell",
+                    status = GearStatus.MISSING,
+                    rationale = "Existing shell covers wind and light rain."
+                )
+            )
+        )
+
+        compose.setContent {
+            TrailMateTheme {
+                MyGearScreen(
+                    inventory = inventory,
+                    routeGearRecommendations = recommendations,
+                    requestedCategory = "",
+                    onAddBrandGear = { _, _, _, _ -> },
+                    onSetAvailability = { _, _ -> },
+                    onDeleteGear = {}
+                )
+            }
+        }
+
+        compose.onNodeWithText("View details").performClick()
+
+        compose.onNodeWithText("Gear details").assertExists()
+        compose.onNodeWithText("Patagonia Torrentshell").assertExists()
+        compose.onNodeWithText("400g / ready").assertExists()
+        compose.onNodeWithText("Matches Rain shell recommendation.").assertExists()
+        compose.onNodeWithText("Existing shell covers wind and light rain.").assertExists()
     }
 
     @Test

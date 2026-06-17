@@ -18,6 +18,7 @@
 - [x] Feed completed questionnaire profile into Home summary.
 - [x] Ensure skipping profile intake does not fabricate body or pack metrics.
 - [x] Add in-memory My Gear section with branded gear add form.
+- [x] Add My Gear details tab with per-item route readiness.
 - [x] Link route gear recommendations to available owned gear by category.
 - [x] Add in-memory gear availability and delete actions.
 - [x] Add smoke coverage for route-to-gear add flow and matched gear copy.
@@ -39,6 +40,7 @@
 - [ ] Define production GPX import queue, persistence, and retry state machine.
 - [ ] Replace questionnaire fallback capacity with historical GPX capability profile.
 - [x] Define prototype gear inventory persistence in the local snapshot.
+- [x] Define prototype gear detail view and route readiness summary.
 - [ ] Define production delete/export rules for profile and gear data.
 - [x] Define prototype route experience navigation tabs and Active Hike controls in Android.
 - [ ] Define production GPS/location-backed navigation session.

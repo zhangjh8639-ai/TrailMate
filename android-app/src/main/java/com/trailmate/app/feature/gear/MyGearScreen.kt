@@ -26,6 +26,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.trailmate.app.core.design.TrailMateMetricRow
+import com.trailmate.app.core.design.TrailMatePanel
+import com.trailmate.app.core.design.TrailMatePanelTone
+import com.trailmate.app.core.design.TrailMateSegmentedControl
+import com.trailmate.app.core.model.GearDetailEngine
+import com.trailmate.app.core.model.GearDetailSummary
 import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.GearItem
 import com.trailmate.app.core.model.GearRecommendation
@@ -44,11 +49,20 @@ fun MyGearScreen(
     var brand by rememberSaveable { mutableStateOf("") }
     var model by rememberSaveable { mutableStateOf("") }
     var weightGrams by rememberSaveable { mutableStateOf("") }
+    var selectedTabLabel by rememberSaveable { mutableStateOf(MyGearTab.Inventory.label) }
+    var selectedGearId by rememberSaveable { mutableStateOf(inventory.items.firstOrNull()?.id.orEmpty()) }
+    val selectedTab = MyGearTab.entries.first { tab -> tab.label == selectedTabLabel }
+    val selectedGear = inventory.items.firstOrNull { item -> item.id == selectedGearId }
+        ?: inventory.items.firstOrNull()
     val missingCount = routeGearRecommendations.count { it.status == GearStatus.MISSING }
     val availableCount = inventory.items.count { it.available }
 
     LaunchedEffect(requestedCategory) {
         category = requestedCategory
+    }
+
+    LaunchedEffect(selectedGear?.id) {
+        selectedGearId = selectedGear?.id.orEmpty()
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -64,35 +78,58 @@ fun MyGearScreen(
                 "Route gaps" to missingCount.toString()
             )
         )
-        AddBrandGearPanel(
-            category = category,
-            brand = brand,
-            model = model,
-            weightGrams = weightGrams,
-            onCategoryChange = { category = it },
-            onBrandChange = { brand = it },
-            onModelChange = { model = it },
-            onWeightChange = { weightGrams = it.filter(Char::isDigit) },
-            onSubmit = {
-                onAddBrandGear(
-                    category.trim(),
-                    brand.trim(),
-                    model.trim(),
-                    weightGrams.toIntOrNull()
-                )
-                brand = ""
-                model = ""
-                weightGrams = ""
-            }
+        TrailMateSegmentedControl(
+            labels = MyGearTab.entries.map { it.label },
+            selected = selectedTab.label,
+            onSelected = { label -> selectedTabLabel = label }
         )
-        inventory.items.forEach { item ->
-            GearItemPanel(
-                item = item,
-                onSetAvailability = { available -> onSetAvailability(item.id, available) },
-                onDelete = { onDeleteGear(item.id) }
+        when (selectedTab) {
+            MyGearTab.Inventory -> {
+                AddBrandGearPanel(
+                    category = category,
+                    brand = brand,
+                    model = model,
+                    weightGrams = weightGrams,
+                    onCategoryChange = { category = it },
+                    onBrandChange = { brand = it },
+                    onModelChange = { model = it },
+                    onWeightChange = { weightGrams = it.filter(Char::isDigit) },
+                    onSubmit = {
+                        onAddBrandGear(
+                            category.trim(),
+                            brand.trim(),
+                            model.trim(),
+                            weightGrams.toIntOrNull()
+                        )
+                        brand = ""
+                        model = ""
+                        weightGrams = ""
+                    }
+                )
+                inventory.items.forEach { item ->
+                    GearItemPanel(
+                        item = item,
+                        onViewDetails = {
+                            selectedGearId = item.id
+                            selectedTabLabel = MyGearTab.Details.label
+                        },
+                        onSetAvailability = { available -> onSetAvailability(item.id, available) },
+                        onDelete = { onDeleteGear(item.id) }
+                    )
+                }
+            }
+
+            MyGearTab.Details -> GearDetailsTab(
+                selectedGear = selectedGear,
+                routeGearRecommendations = routeGearRecommendations
             )
         }
     }
+}
+
+private enum class MyGearTab(val label: String) {
+    Inventory("Inventory"),
+    Details("Details")
 }
 
 @Composable
@@ -171,6 +208,7 @@ private fun AddBrandGearPanel(
 @Composable
 private fun GearItemPanel(
     item: GearItem,
+    onViewDetails: () -> Unit,
     onSetAvailability: (Boolean) -> Unit,
     onDelete: () -> Unit
 ) {
@@ -213,13 +251,10 @@ private fun GearItemPanel(
                     color = colorScheme.onSurface.copy(alpha = 0.68f)
                 )
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
@@ -232,10 +267,65 @@ private fun GearItemPanel(
                         onCheckedChange = onSetAvailability
                     )
                 }
-                OutlinedButton(onClick = onDelete) {
-                    Text("Remove")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onViewDetails,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("View details")
+                    }
+                    OutlinedButton(
+                        onClick = onDelete,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Remove")
+                    }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun GearDetailsTab(
+    selectedGear: GearItem?,
+    routeGearRecommendations: List<GearRecommendation>
+) {
+    if (selectedGear == null) {
+        TrailMatePanel(
+            title = "Gear details",
+            value = "No gear yet",
+            caption = "Add brand gear before reviewing route readiness.",
+            tone = TrailMatePanelTone.Neutral
+        )
+        return
+    }
+
+    val summary = GearDetailEngine.summarize(
+        item = selectedGear,
+        routeGearRecommendations = routeGearRecommendations
+    )
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        GearDetailSummaryPanel(summary)
+        TrailMatePanel(
+            title = "Route readiness",
+            value = summary.routeMatchLine,
+            caption = summary.routeRationale,
+            tone = TrailMatePanelTone.Primary
+        )
+    }
+}
+
+@Composable
+private fun GearDetailSummaryPanel(summary: GearDetailSummary) {
+    TrailMatePanel(
+        title = "Gear details",
+        value = summary.title,
+        caption = "${summary.category} / ${summary.statusLine}",
+        tone = TrailMatePanelTone.Neutral
+    )
 }
