@@ -27,6 +27,14 @@ object TrailMateSampleData {
         GearItem("headlamp-1", "Headlamp", "Black Diamond", "Spot 400", 86, true)
     )
 
+    val importedTargetRoute = ImportedRoute(
+        routeName = "Longjing Ridge",
+        fileName = "longjing-ridge-target.gpx",
+        distanceKm = 15.2,
+        ascentMeters = 860,
+        status = RouteImportStatus.PARSED
+    )
+
     val routeAssessment = RouteAssessmentSummary(
         routeName = "Longjing Ridge",
         distanceKm = 15.2,

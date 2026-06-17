@@ -7,6 +7,7 @@ enum class AscentExperience { UNDER_300, M300_TO_800, OVER_800 }
 enum class ConfidenceLevel { LOW, MEDIUM, HIGH }
 enum class MatchLevel { RECOMMENDED, CAUTION, NOT_RECOMMENDED }
 enum class GearStatus { COVERED, CHECK, MISSING, OPTIONAL }
+enum class RouteImportStatus { EMPTY, PARSED }
 
 data class BaselineProfile(
     val exerciseFrequency: ExerciseFrequency,
@@ -141,6 +142,18 @@ data class GearInventory(
 
         return candidate
     }
+}
+
+data class ImportedRoute(
+    val routeName: String,
+    val fileName: String,
+    val distanceKm: Double,
+    val ascentMeters: Int,
+    val status: RouteImportStatus
+) {
+    fun readyForAssessment(): Boolean = status == RouteImportStatus.PARSED
+
+    fun summaryLabel(): String = "${distanceKm} km / +${ascentMeters} m"
 }
 
 data class RouteAssessmentSummary(

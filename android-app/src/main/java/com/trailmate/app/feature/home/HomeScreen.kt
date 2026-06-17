@@ -3,9 +3,11 @@ package com.trailmate.app.feature.home
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,6 +29,7 @@ import com.trailmate.app.core.model.ExerciseFrequency
 import com.trailmate.app.core.model.ExperienceLevel
 import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.GearItem
+import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.TrailMateSampleData
 import com.trailmate.app.feature.gear.MyGearScreen
 import com.trailmate.app.feature.route.RouteDetailScreen
@@ -35,10 +38,16 @@ import com.trailmate.app.feature.route.RouteDetailScreen
 fun HomeScreen(profile: BaselineProfile = TrailMateSampleData.baselineProfile) {
     var selectedSection by rememberSaveable { mutableStateOf(HomeSection.Route) }
     var requestedGearCategory by rememberSaveable { mutableStateOf("Trekking poles") }
+    var routeImported by rememberSaveable { mutableStateOf(false) }
     var inventory by rememberSaveable(stateSaver = GearInventoryStateSaver) {
         mutableStateOf(GearInventory(TrailMateSampleData.gearItems))
     }
-    val routeGearRecommendations = inventory.applyTo(TrailMateSampleData.gearRecommendations)
+    val importedRoute = TrailMateSampleData.importedTargetRoute.takeIf { routeImported }
+    val routeGearRecommendations = if (importedRoute?.readyForAssessment() == true) {
+        inventory.applyTo(TrailMateSampleData.gearRecommendations)
+    } else {
+        emptyList()
+    }
 
     Column(
         modifier = Modifier
@@ -87,14 +96,22 @@ fun HomeScreen(profile: BaselineProfile = TrailMateSampleData.baselineProfile) {
             }
         )
         when (selectedSection) {
-            HomeSection.Route -> RouteDetailScreen(
-                inventory = inventory,
-                gearRecommendations = routeGearRecommendations,
-                onAddGearRequested = { category ->
-                    requestedGearCategory = category
-                    selectedSection = HomeSection.MyGear
+            HomeSection.Route -> {
+                RouteImportPanel(
+                    importedRoute = importedRoute,
+                    onImportSampleRoute = { routeImported = true }
+                )
+                if (importedRoute?.readyForAssessment() == true) {
+                    RouteDetailScreen(
+                        inventory = inventory,
+                        gearRecommendations = routeGearRecommendations,
+                        onAddGearRequested = { category ->
+                            requestedGearCategory = category
+                            selectedSection = HomeSection.MyGear
+                        }
+                    )
                 }
-            )
+            }
 
             HomeSection.MyGear -> MyGearScreen(
                 inventory = inventory,
@@ -122,6 +139,34 @@ fun HomeScreen(profile: BaselineProfile = TrailMateSampleData.baselineProfile) {
 private enum class HomeSection(val label: String) {
     Route("Route"),
     MyGear("My Gear")
+}
+
+@Composable
+private fun RouteImportPanel(
+    importedRoute: ImportedRoute?,
+    onImportSampleRoute: () -> Unit
+) {
+    if (importedRoute == null) {
+        TrailMatePanel(
+            title = "Target route",
+            value = "Import GPX",
+            caption = "Pick a target route before viewing assessment, light navigation, plan, and gear checks.",
+            tone = TrailMatePanelTone.Primary
+        )
+        Button(
+            onClick = onImportSampleRoute,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Import sample GPX")
+        }
+    } else {
+        TrailMatePanel(
+            title = "Imported GPX",
+            value = importedRoute.routeName,
+            caption = "${importedRoute.fileName} / ${importedRoute.summaryLabel()} / ready for assessment",
+            tone = TrailMatePanelTone.Primary
+        )
+    }
 }
 
 private fun ExerciseFrequency.homeLabel(): String =

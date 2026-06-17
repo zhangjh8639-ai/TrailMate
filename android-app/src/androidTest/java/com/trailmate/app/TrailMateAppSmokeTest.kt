@@ -127,6 +127,7 @@ class TrailMateAppSmokeTest {
             }
         }
 
+        compose.onNodeWithText("Import sample GPX").performClick()
         compose.onNodeWithText("Gear").performClick()
         compose.onNodeWithText("Add Trekking poles to My Gear").performClick()
         compose.onNodeWithText("My Gear").assertExists()
@@ -139,5 +140,23 @@ class TrailMateAppSmokeTest {
         compose.onNodeWithText("Gear").performClick()
 
         compose.onNodeWithText("Matched with Leki Makalu Lite.", substring = true).assertExists()
+    }
+
+    @Test
+    fun homeRequiresRouteImportBeforeShowingRouteDetail() {
+        compose.setContent {
+            TrailMateTheme {
+                HomeScreen()
+            }
+        }
+
+        compose.onNodeWithText("Import GPX").assertExists()
+        compose.onAllNodesWithText("Assessment").assertCountEquals(0)
+
+        compose.onNodeWithText("Import sample GPX").performClick()
+
+        compose.onNodeWithText("Imported GPX").assertExists()
+        compose.onNodeWithText("Assessment").assertExists()
+        compose.onNodeWithText("Gear").assertExists()
     }
 }
