@@ -10,7 +10,8 @@ class GearAdvisorRulesTest {
         val checklist = TrailMateSampleData.gearRecommendations
 
         assertEquals(MatchLevel.CAUTION, assessment.matchLevel)
-        assertEquals("6:40-7:50", assessment.estimatedDurationRange)
+        assertEquals(ConfidenceLevel.LOW, assessment.confidenceLevel)
+        assertEquals(15.2, assessment.distanceKm, 0.0)
         assertEquals(GearStatus.MISSING, checklist.first { it.category == "Trekking poles" }.status)
     }
 }

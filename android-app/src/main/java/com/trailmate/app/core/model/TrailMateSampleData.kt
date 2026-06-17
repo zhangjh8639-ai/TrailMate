@@ -50,14 +50,9 @@ object TrailMateSampleData {
         </gpx>
     """.trimIndent()
 
-    val routeAssessment = RouteAssessmentSummary(
-        routeName = "Longjing Ridge",
-        distanceKm = 15.2,
-        ascentMeters = 860,
-        matchLevel = MatchLevel.CAUTION,
-        confidenceLevel = ConfidenceLevel.MEDIUM,
-        estimatedDurationRange = "6:40-7:50",
-        risks = listOf("Late-stage ascent remains high", "Long climb before checkpoint")
+    val routeAssessment = RouteAssessmentEngine.assess(
+        profile = baselineProfile,
+        route = importedTargetRoute
     )
 
     val gearRecommendations = listOf(

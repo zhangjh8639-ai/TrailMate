@@ -159,6 +159,7 @@ class TrailMateAppSmokeTest {
         compose.onNodeWithText("Imported GPX").assertExists()
         compose.onNodeWithText("3 points", substring = true).assertExists()
         compose.onNodeWithText("Assessment").assertExists()
+        compose.onNodeWithText("CAUTION").assertExists()
         compose.onNodeWithText("Gear").assertExists()
     }
 }

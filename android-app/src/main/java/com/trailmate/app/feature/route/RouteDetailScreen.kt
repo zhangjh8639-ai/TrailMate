@@ -32,16 +32,18 @@ import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.GearItem
 import com.trailmate.app.core.model.GearRecommendation
 import com.trailmate.app.core.model.GearStatus
+import com.trailmate.app.core.model.MatchLevel
+import com.trailmate.app.core.model.RouteAssessmentSummary
 import com.trailmate.app.core.model.TrailMateSampleData
 
 @Composable
 fun RouteDetailScreen(
+    assessment: RouteAssessmentSummary = TrailMateSampleData.routeAssessment,
     inventory: GearInventory = GearInventory(TrailMateSampleData.gearItems),
     gearRecommendations: List<GearRecommendation> = inventory.applyTo(TrailMateSampleData.gearRecommendations),
     onAddGearRequested: (String) -> Unit = {}
 ) {
     var selected by rememberSaveable { mutableStateOf(RouteDetailTab.Assessment) }
-    val assessment = TrailMateSampleData.routeAssessment
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text(
@@ -57,9 +59,9 @@ fun RouteDetailScreen(
             }
         )
         when (selected) {
-            RouteDetailTab.Assessment -> AssessmentTab()
-            RouteDetailTab.Route -> RouteTab()
-            RouteDetailTab.Plan -> PlanTab()
+            RouteDetailTab.Assessment -> AssessmentTab(assessment = assessment)
+            RouteDetailTab.Route -> RouteTab(assessment = assessment)
+            RouteDetailTab.Plan -> PlanTab(assessment = assessment)
             RouteDetailTab.Gear -> GearTab(
                 recommendations = gearRecommendations,
                 inventory = inventory,
@@ -77,12 +79,10 @@ private enum class RouteDetailTab(val label: String) {
 }
 
 @Composable
-private fun AssessmentTab() {
-    val assessment = TrailMateSampleData.routeAssessment
-
+private fun AssessmentTab(assessment: RouteAssessmentSummary) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         TrailMatePanel(
-            title = "Cautious attempt",
+            title = assessment.matchLevel.displayTitle(),
             value = assessment.estimatedDurationRange,
             caption = "${assessment.distanceKm} km / +${assessment.ascentMeters} m / confidence ${assessment.confidenceLevel}"
         )
@@ -105,7 +105,7 @@ private fun AssessmentTab() {
 }
 
 @Composable
-private fun RouteTab() {
+private fun RouteTab(assessment: RouteAssessmentSummary) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Box(
             modifier = Modifier
@@ -120,14 +120,14 @@ private fun RouteTab() {
         TrailMatePanel(
             title = "Next checkpoint",
             value = "1.8 km",
-            caption = "Expected 38-46 min. Fuel check before the long climb.",
+            caption = "Assessment window ${assessment.estimatedDurationRange}. Fuel check before the long climb.",
             tone = TrailMatePanelTone.Primary
         )
     }
 }
 
 @Composable
-private fun PlanTab() {
+private fun PlanTab(assessment: RouteAssessmentSummary) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         TrailMatePanel(
             title = "Start window",
@@ -136,8 +136,8 @@ private fun PlanTab() {
         )
         TrailMatePanel(
             title = "Plan checkpoints",
-            value = "4 stops",
-            caption = "Fuel check, risk start, rest check, descend before dusk.",
+            value = "${assessment.risks.size + 2} stops",
+            caption = "Risk checks are generated from deterministic assessment inputs.",
             tone = TrailMatePanelTone.Neutral
         )
     }
@@ -187,6 +187,13 @@ private fun gearRecommendationCaption(
 
     return recommendation.rationale + matchedText
 }
+
+private fun MatchLevel.displayTitle(): String =
+    when (this) {
+        MatchLevel.RECOMMENDED -> "Recommended"
+        MatchLevel.CAUTION -> "Cautious attempt"
+        MatchLevel.NOT_RECOMMENDED -> "Not recommended"
+    }
 
 @Composable
 private fun RouteSketch() {

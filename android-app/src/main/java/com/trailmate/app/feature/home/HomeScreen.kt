@@ -32,6 +32,7 @@ import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.GearItem
 import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.RouteImportStatus
+import com.trailmate.app.core.model.RouteAssessmentEngine
 import com.trailmate.app.core.model.TrailMateSampleData
 import com.trailmate.app.feature.gear.MyGearScreen
 import com.trailmate.app.feature.route.RouteDetailScreen
@@ -60,6 +61,9 @@ fun HomeScreen(profile: BaselineProfile = TrailMateSampleData.baselineProfile) {
         )
     } else {
         null
+    }
+    val routeAssessment = importedRoute?.takeIf { it.readyForAssessment() }?.let { route ->
+        RouteAssessmentEngine.assess(profile = profile, route = route)
     }
     val routeGearRecommendations = if (importedRoute?.readyForAssessment() == true) {
         inventory.applyTo(TrailMateSampleData.gearRecommendations)
@@ -103,7 +107,7 @@ fun HomeScreen(profile: BaselineProfile = TrailMateSampleData.baselineProfile) {
             items = listOf(
                 "Distance" to (importedRoute?.let { String.format(java.util.Locale.US, "%.1f km", it.distanceKm) } ?: "--"),
                 "Ascent" to (importedRoute?.let { "+${it.ascentMeters} m" } ?: "--"),
-                "ETA" to (importedRoute?.let { "6:40" } ?: "--")
+                "ETA" to (routeAssessment?.estimatedDurationRange?.substringBefore("-") ?: "--")
             )
         )
         TrailMateSegmentedControl(
@@ -130,8 +134,9 @@ fun HomeScreen(profile: BaselineProfile = TrailMateSampleData.baselineProfile) {
                         routeImported = true
                     }
                 )
-                if (importedRoute?.readyForAssessment() == true) {
+                if (importedRoute?.readyForAssessment() == true && routeAssessment != null) {
                     RouteDetailScreen(
+                        assessment = routeAssessment,
                         inventory = inventory,
                         gearRecommendations = routeGearRecommendations,
                         onAddGearRequested = { category ->
