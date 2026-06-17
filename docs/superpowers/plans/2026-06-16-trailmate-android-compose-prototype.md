@@ -1116,6 +1116,7 @@ Type consistency:
 - Added Android `OpenDocument` route import wiring so users can pick a GPX file through the system picker; parse failures are shown as recoverable UI errors while any previous valid route remains available.
 - Added a deterministic route assessment engine that uses the temporary questionnaire profile plus parsed route distance/ascent to produce match level, confidence, duration range, and risk text.
 - Added a deterministic hike plan engine that converts the imported route assessment into start, energy, rest, risk, and finish checkpoints, and wired Route/Plan tabs to those checkpoints.
+- Added a deterministic route-aware gear advisor fallback so route distance, ascent, ETA, and concrete route risks generate the Gear tab checklist while leaving route assessment unchanged.
 - Added `GearInventory` rules so available owned gear can satisfy matching route recommendations without changing deterministic route assessment values.
 - Added a prototype `SharedPreferences` snapshot store with a tested codec so baseline profile, personal gear, and the last imported target route can be restored after app restart.
 - Added a Home-level `Route` / `My Gear` switch, a saveable in-memory My Gear add form, availability switches, delete actions, and route Gear-tab actions that send missing categories into the inventory form.

@@ -43,6 +43,7 @@ import com.trailmate.app.core.model.GearItem
 import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.RouteImportStatus
 import com.trailmate.app.core.model.RouteAssessmentEngine
+import com.trailmate.app.core.model.RouteGearAdvisorEngine
 import com.trailmate.app.core.model.TrailMateSampleData
 import com.trailmate.app.feature.gear.MyGearScreen
 import com.trailmate.app.feature.route.RouteDetailScreen
@@ -88,8 +89,13 @@ fun HomeScreen(
     val routeAssessment = importedRoute?.takeIf { it.readyForAssessment() }?.let { route ->
         RouteAssessmentEngine.assess(profile = profile, route = route)
     }
-    val routeGearRecommendations = if (importedRoute?.readyForAssessment() == true) {
-        inventory.applyTo(TrailMateSampleData.gearRecommendations)
+    val routeGearRecommendations = if (importedRoute?.readyForAssessment() == true && routeAssessment != null) {
+        inventory.applyTo(
+            RouteGearAdvisorEngine.recommend(
+                route = importedRoute,
+                assessment = routeAssessment
+            )
+        )
     } else {
         emptyList()
     }

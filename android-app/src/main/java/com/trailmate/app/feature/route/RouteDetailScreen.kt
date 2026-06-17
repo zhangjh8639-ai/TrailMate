@@ -41,6 +41,7 @@ import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.MatchLevel
 import com.trailmate.app.core.model.RouteAssessmentEngine
 import com.trailmate.app.core.model.RouteAssessmentSummary
+import com.trailmate.app.core.model.RouteGearAdvisorEngine
 import com.trailmate.app.core.model.TrailMateSampleData
 
 @Composable
@@ -48,11 +49,14 @@ fun RouteDetailScreen(
     route: ImportedRoute = TrailMateSampleData.importedTargetRoute,
     profile: BaselineProfile = TrailMateSampleData.baselineProfile,
     inventory: GearInventory = GearInventory(TrailMateSampleData.gearItems),
-    gearRecommendations: List<GearRecommendation> = inventory.applyTo(TrailMateSampleData.gearRecommendations),
+    gearRecommendations: List<GearRecommendation>? = null,
     onAddGearRequested: (String) -> Unit = {}
 ) {
     val assessment = RouteAssessmentEngine.assess(profile = profile, route = route)
     val plan = HikePlanEngine.build(route = route, assessment = assessment)
+    val resolvedGearRecommendations = gearRecommendations ?: inventory.applyTo(
+        RouteGearAdvisorEngine.recommend(route = route, assessment = assessment)
+    )
     var selected by rememberSaveable { mutableStateOf(RouteDetailTab.Assessment) }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -73,7 +77,7 @@ fun RouteDetailScreen(
             RouteDetailTab.Route -> RouteTab(assessment = assessment, plan = plan)
             RouteDetailTab.Plan -> PlanTab(plan = plan)
             RouteDetailTab.Gear -> GearTab(
-                recommendations = gearRecommendations,
+                recommendations = resolvedGearRecommendations,
                 inventory = inventory,
                 onAddGearRequested = onAddGearRequested
             )
