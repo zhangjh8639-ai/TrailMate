@@ -1,12 +1,14 @@
 package com.trailmate.app.core.design
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -15,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -78,6 +81,7 @@ fun TrailMateSegmentedControl(
             .fillMaxWidth()
             .clip(RoundedCornerShape(999.dp))
             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.09f))
+            .selectableGroup()
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
@@ -86,8 +90,13 @@ fun TrailMateSegmentedControl(
             Surface(
                 modifier = Modifier
                     .weight(1f)
+                    .heightIn(min = 48.dp)
                     .clip(RoundedCornerShape(999.dp))
-                    .clickable { onSelected(label) },
+                    .selectable(
+                        selected = active,
+                        onClick = { onSelected(label) },
+                        role = Role.Tab
+                    ),
                 color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface.copy(alpha = 0f),
                 shape = RoundedCornerShape(999.dp)
             ) {
