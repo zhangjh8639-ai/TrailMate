@@ -28,14 +28,16 @@
 - [x] Add deterministic questionnaire-based route assessment engine.
 - [x] Wire route detail tabs to dynamic assessment results after target route import.
 - [x] Add deterministic hike plan checkpoints for the Route and Plan tabs after target route import.
+- [x] Add local snapshot persistence for baseline profile, imported route, and personal gear state.
 
 ## Implementation Planning Backlog
 
-- [ ] Define baseline profile persistence and privacy rules.
+- [x] Define baseline profile persistence and privacy rules for the prototype local snapshot.
 - [ ] Define real auth integration and post-login profile sync.
 - [ ] Define production GPX import queue, persistence, and retry state machine.
 - [ ] Replace questionnaire fallback capacity with historical GPX capability profile.
-- [ ] Define gear inventory persistence and delete/export rules.
+- [x] Define prototype gear inventory persistence in the local snapshot.
+- [ ] Define production delete/export rules for profile and gear data.
 - [ ] Define route experience navigation tabs in Android.
 - [ ] Define AI gear advisor backend contract and validation.
 - [ ] Define deterministic fallback gear checklist.

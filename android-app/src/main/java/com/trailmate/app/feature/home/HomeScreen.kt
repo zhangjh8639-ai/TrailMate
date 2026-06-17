@@ -51,21 +51,27 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-fun HomeScreen(profile: BaselineProfile = TrailMateSampleData.baselineProfile) {
+fun HomeScreen(
+    profile: BaselineProfile = TrailMateSampleData.baselineProfile,
+    initialInventory: GearInventory = GearInventory(TrailMateSampleData.gearItems),
+    initialImportedRoute: ImportedRoute? = null,
+    onInventoryChanged: (GearInventory) -> Unit = {},
+    onRouteImported: (ImportedRoute) -> Unit = {}
+) {
     val context = LocalContext.current
     val importScope = rememberCoroutineScope()
     var selectedSection by rememberSaveable { mutableStateOf(HomeSection.Route) }
     var requestedGearCategory by rememberSaveable { mutableStateOf("Trekking poles") }
-    var routeImported by rememberSaveable { mutableStateOf(false) }
+    var routeImported by rememberSaveable { mutableStateOf(initialImportedRoute != null) }
     var routeImporting by remember { mutableStateOf(false) }
     var routeImportError by rememberSaveable { mutableStateOf<String?>(null) }
-    var routeName by rememberSaveable { mutableStateOf("") }
-    var routeFileName by rememberSaveable { mutableStateOf("") }
-    var routeDistanceKm by rememberSaveable { mutableStateOf(0.0) }
-    var routeAscentMeters by rememberSaveable { mutableStateOf(0) }
-    var routePointCount by rememberSaveable { mutableStateOf(0) }
+    var routeName by rememberSaveable { mutableStateOf(initialImportedRoute?.routeName.orEmpty()) }
+    var routeFileName by rememberSaveable { mutableStateOf(initialImportedRoute?.fileName.orEmpty()) }
+    var routeDistanceKm by rememberSaveable { mutableStateOf(initialImportedRoute?.distanceKm ?: 0.0) }
+    var routeAscentMeters by rememberSaveable { mutableStateOf(initialImportedRoute?.ascentMeters ?: 0) }
+    var routePointCount by rememberSaveable { mutableStateOf(initialImportedRoute?.pointCount ?: 0) }
     var inventory by rememberSaveable(stateSaver = GearInventoryStateSaver) {
-        mutableStateOf(GearInventory(TrailMateSampleData.gearItems))
+        mutableStateOf(initialInventory)
     }
     val importedRoute = if (routeImported) {
         ImportedRoute(
@@ -98,6 +104,7 @@ fun HomeScreen(profile: BaselineProfile = TrailMateSampleData.baselineProfile) {
                 routePointCount = state.route.pointCount
                 routeImported = true
                 routeImportError = null
+                onRouteImported(state.route)
             }
             is TargetRouteImportState.Failed -> {
                 routeImportError = "${state.fileName}: ${state.message}"
@@ -199,18 +206,24 @@ fun HomeScreen(profile: BaselineProfile = TrailMateSampleData.baselineProfile) {
                 routeGearRecommendations = routeGearRecommendations,
                 requestedCategory = requestedGearCategory,
                 onAddBrandGear = { category, brand, model, weightGrams ->
-                    inventory = inventory.addBrandGear(
+                    val updatedInventory = inventory.addBrandGear(
                         category = category,
                         brand = brand,
                         model = model,
                         weightGrams = weightGrams
                     )
+                    inventory = updatedInventory
+                    onInventoryChanged(updatedInventory)
                 },
                 onSetAvailability = { itemId, available ->
-                    inventory = inventory.setAvailability(itemId = itemId, available = available)
+                    val updatedInventory = inventory.setAvailability(itemId = itemId, available = available)
+                    inventory = updatedInventory
+                    onInventoryChanged(updatedInventory)
                 },
                 onDeleteGear = { itemId ->
-                    inventory = inventory.remove(itemId)
+                    val updatedInventory = inventory.remove(itemId)
+                    inventory = updatedInventory
+                    onInventoryChanged(updatedInventory)
                 }
             )
         }

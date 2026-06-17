@@ -6,16 +6,20 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.mapSaver
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import com.trailmate.app.core.model.AscentExperience
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.ExerciseFrequency
 import com.trailmate.app.core.model.ExperienceLevel
 import com.trailmate.app.core.model.TrailMateSampleData
 import com.trailmate.app.core.model.TypicalDuration
+import com.trailmate.app.core.persistence.SharedPreferencesTrailMateSessionStore
+import com.trailmate.app.core.persistence.TrailMateSessionStore
 import com.trailmate.app.feature.home.HomeScreen
 import com.trailmate.app.feature.onboarding.OnboardingScreen
 
@@ -25,10 +29,21 @@ enum class TrailMateScreen {
 }
 
 @Composable
-fun TrailMateApp() {
-    var screen by rememberSaveable { mutableStateOf(TrailMateScreen.ONBOARDING) }
+fun TrailMateApp(sessionStore: TrailMateSessionStore? = null) {
+    val defaultSessionStore = rememberTrailMateSessionStore()
+    val activeSessionStore = sessionStore ?: defaultSessionStore
+    val initialSnapshot = remember(activeSessionStore) { activeSessionStore.load() }
+    var screen by rememberSaveable {
+        mutableStateOf(
+            if (initialSnapshot.profile != null) {
+                TrailMateScreen.HOME
+            } else {
+                TrailMateScreen.ONBOARDING
+            }
+        )
+    }
     var baselineProfile by rememberSaveable(stateSaver = BaselineProfileStateSaver) {
-        mutableStateOf(TrailMateSampleData.baselineProfile)
+        mutableStateOf(initialSnapshot.profile ?: TrailMateSampleData.baselineProfile)
     }
 
     Surface(
@@ -39,11 +54,27 @@ fun TrailMateApp() {
             TrailMateScreen.ONBOARDING -> OnboardingScreen(
                 onComplete = { profile ->
                     baselineProfile = profile
+                    activeSessionStore.saveProfile(profile)
                     screen = TrailMateScreen.HOME
                 }
             )
-            TrailMateScreen.HOME -> HomeScreen(profile = baselineProfile)
+            TrailMateScreen.HOME -> HomeScreen(
+                profile = baselineProfile,
+                initialInventory = initialSnapshot.inventory,
+                initialImportedRoute = initialSnapshot.importedRoute,
+                onInventoryChanged = activeSessionStore::saveInventory,
+                onRouteImported = activeSessionStore::saveImportedRoute
+            )
         }
+    }
+}
+
+@Composable
+private fun rememberTrailMateSessionStore(): TrailMateSessionStore {
+    val context = LocalContext.current
+
+    return remember(context) {
+        SharedPreferencesTrailMateSessionStore(context)
     }
 }
 
