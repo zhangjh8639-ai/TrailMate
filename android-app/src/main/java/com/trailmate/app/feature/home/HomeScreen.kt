@@ -182,7 +182,8 @@ fun HomeScreen(profile: BaselineProfile = TrailMateSampleData.baselineProfile) {
                 )
                 if (importedRoute?.readyForAssessment() == true && routeAssessment != null) {
                     RouteDetailScreen(
-                        assessment = routeAssessment,
+                        route = importedRoute,
+                        profile = profile,
                         inventory = inventory,
                         gearRecommendations = routeGearRecommendations,
                         onAddGearRequested = { category ->

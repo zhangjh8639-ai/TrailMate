@@ -120,6 +120,22 @@ class TrailMateAppSmokeTest {
     }
 
     @Test
+    fun routePlanTabShowsDynamicCheckpoints() {
+        compose.setContent {
+            TrailMateTheme {
+                com.trailmate.app.feature.route.RouteDetailScreen()
+            }
+        }
+
+        compose.onNodeWithText("Plan").performClick()
+
+        compose.onNodeWithText("Energy check").assertExists()
+        compose.onNodeWithText("Risk check").assertExists()
+        compose.onNodeWithText("15.2 km /", substring = true).assertExists()
+        compose.onAllNodesWithText("Plan checkpoints").assertCountEquals(0)
+    }
+
+    @Test
     fun homeGearAddFlowPrefillsCategoryAndUpdatesRouteMatch() {
         compose.setContent {
             TrailMateTheme {

@@ -1115,6 +1115,7 @@ Type consistency:
 - Added a tested target-route GPX parser for trkpt/rtept points, route name, distance, ascent, and point count, currently wired to the sample import action. The parser rejects DOCTYPE declarations and chooses track points before route points when both are present.
 - Added Android `OpenDocument` route import wiring so users can pick a GPX file through the system picker; parse failures are shown as recoverable UI errors while any previous valid route remains available.
 - Added a deterministic route assessment engine that uses the temporary questionnaire profile plus parsed route distance/ascent to produce match level, confidence, duration range, and risk text.
+- Added a deterministic hike plan engine that converts the imported route assessment into start, energy, rest, risk, and finish checkpoints, and wired Route/Plan tabs to those checkpoints.
 - Added `GearInventory` rules so available owned gear can satisfy matching route recommendations without changing deterministic route assessment values.
 - Added a Home-level `Route` / `My Gear` switch, a saveable in-memory My Gear add form, availability switches, delete actions, and route Gear-tab actions that send missing categories into the inventory form.
 - Added unit tests for gear inventory matching, unavailable/deleted gear, optional brand/model entry, invalid input rejection, and Compose smoke-test coverage for the My Gear screen, matched gear copy, and route-to-gear add flow.

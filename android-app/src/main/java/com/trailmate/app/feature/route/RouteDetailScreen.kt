@@ -28,21 +28,31 @@ import com.trailmate.app.core.design.TrailMateMetricRow
 import com.trailmate.app.core.design.TrailMatePanel
 import com.trailmate.app.core.design.TrailMatePanelTone
 import com.trailmate.app.core.design.TrailMateSegmentedControl
+import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.GearItem
 import com.trailmate.app.core.model.GearRecommendation
 import com.trailmate.app.core.model.GearStatus
+import com.trailmate.app.core.model.HikePlanCheckpoint
+import com.trailmate.app.core.model.HikePlanCheckpointType
+import com.trailmate.app.core.model.HikePlanEngine
+import com.trailmate.app.core.model.HikePlanSummary
+import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.MatchLevel
+import com.trailmate.app.core.model.RouteAssessmentEngine
 import com.trailmate.app.core.model.RouteAssessmentSummary
 import com.trailmate.app.core.model.TrailMateSampleData
 
 @Composable
 fun RouteDetailScreen(
-    assessment: RouteAssessmentSummary = TrailMateSampleData.routeAssessment,
+    route: ImportedRoute = TrailMateSampleData.importedTargetRoute,
+    profile: BaselineProfile = TrailMateSampleData.baselineProfile,
     inventory: GearInventory = GearInventory(TrailMateSampleData.gearItems),
     gearRecommendations: List<GearRecommendation> = inventory.applyTo(TrailMateSampleData.gearRecommendations),
     onAddGearRequested: (String) -> Unit = {}
 ) {
+    val assessment = RouteAssessmentEngine.assess(profile = profile, route = route)
+    val plan = HikePlanEngine.build(route = route, assessment = assessment)
     var selected by rememberSaveable { mutableStateOf(RouteDetailTab.Assessment) }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -59,9 +69,9 @@ fun RouteDetailScreen(
             }
         )
         when (selected) {
-            RouteDetailTab.Assessment -> AssessmentTab(assessment = assessment)
-            RouteDetailTab.Route -> RouteTab(assessment = assessment)
-            RouteDetailTab.Plan -> PlanTab(assessment = assessment)
+            RouteDetailTab.Assessment -> AssessmentTab(assessment = assessment, plan = plan)
+            RouteDetailTab.Route -> RouteTab(assessment = assessment, plan = plan)
+            RouteDetailTab.Plan -> PlanTab(plan = plan)
             RouteDetailTab.Gear -> GearTab(
                 recommendations = gearRecommendations,
                 inventory = inventory,
@@ -79,7 +89,7 @@ private enum class RouteDetailTab(val label: String) {
 }
 
 @Composable
-private fun AssessmentTab(assessment: RouteAssessmentSummary) {
+private fun AssessmentTab(assessment: RouteAssessmentSummary, plan: HikePlanSummary) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         TrailMatePanel(
             title = assessment.matchLevel.displayTitle(),
@@ -90,7 +100,7 @@ private fun AssessmentTab(assessment: RouteAssessmentSummary) {
             items = listOf(
                 "Match" to assessment.matchLevel.name,
                 "Risk flags" to assessment.risks.size.toString(),
-                "Checkpoints" to "4"
+                "Checkpoints" to plan.checkpointCount.toString()
             )
         )
         assessment.risks.forEach { risk ->
@@ -105,7 +115,9 @@ private fun AssessmentTab(assessment: RouteAssessmentSummary) {
 }
 
 @Composable
-private fun RouteTab(assessment: RouteAssessmentSummary) {
+private fun RouteTab(assessment: RouteAssessmentSummary, plan: HikePlanSummary) {
+    val nextCheckpoint = plan.nextMovingCheckpoint()
+
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Box(
             modifier = Modifier
@@ -119,27 +131,26 @@ private fun RouteTab(assessment: RouteAssessmentSummary) {
         }
         TrailMatePanel(
             title = "Next checkpoint",
-            value = "1.8 km",
-            caption = "Assessment window ${assessment.estimatedDurationRange}. Fuel check before the long climb.",
+            value = nextCheckpoint?.routeValue().orEmpty().ifBlank { assessment.estimatedDurationRange },
+            caption = nextCheckpoint?.let { checkpoint ->
+                "${checkpoint.title}: ${checkpoint.note}"
+            } ?: "Assessment window ${assessment.estimatedDurationRange}.",
             tone = TrailMatePanelTone.Primary
         )
     }
 }
 
 @Composable
-private fun PlanTab(assessment: RouteAssessmentSummary) {
+private fun PlanTab(plan: HikePlanSummary) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        TrailMatePanel(
-            title = "Start window",
-            value = "08:45",
-            caption = "Offline route saved, weather check needed before departure."
-        )
-        TrailMatePanel(
-            title = "Plan checkpoints",
-            value = "${assessment.risks.size + 2} stops",
-            caption = "Risk checks are generated from deterministic assessment inputs.",
-            tone = TrailMatePanelTone.Neutral
-        )
+        plan.checkpoints.forEach { checkpoint ->
+            TrailMatePanel(
+                title = checkpoint.title,
+                value = checkpoint.routeValue(),
+                caption = checkpoint.note,
+                tone = checkpoint.panelTone()
+            )
+        }
     }
 }
 
@@ -193,6 +204,16 @@ private fun MatchLevel.displayTitle(): String =
         MatchLevel.RECOMMENDED -> "Recommended"
         MatchLevel.CAUTION -> "Cautious attempt"
         MatchLevel.NOT_RECOMMENDED -> "Not recommended"
+    }
+
+private fun HikePlanCheckpoint.routeValue(): String =
+    "${distanceKm} km / $timeFromStart"
+
+private fun HikePlanCheckpoint.panelTone(): TrailMatePanelTone =
+    when (type) {
+        HikePlanCheckpointType.RISK_CHECK -> TrailMatePanelTone.Secondary
+        HikePlanCheckpointType.FINISH -> TrailMatePanelTone.Primary
+        else -> TrailMatePanelTone.Neutral
     }
 
 @Composable

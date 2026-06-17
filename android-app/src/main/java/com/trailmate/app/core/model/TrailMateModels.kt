@@ -10,6 +10,7 @@ enum class ConfidenceLevel { LOW, MEDIUM, HIGH }
 enum class MatchLevel { RECOMMENDED, CAUTION, NOT_RECOMMENDED }
 enum class GearStatus { COVERED, CHECK, MISSING, OPTIONAL }
 enum class RouteImportStatus { EMPTY, PARSED }
+enum class HikePlanCheckpointType { START, ENERGY_CHECK, REST_CHECK, RISK_CHECK, FINISH }
 
 data class BaselineProfile(
     val exerciseFrequency: ExerciseFrequency,
@@ -168,3 +169,20 @@ data class RouteAssessmentSummary(
     val estimatedDurationRange: String,
     val risks: List<String>
 )
+
+data class HikePlanCheckpoint(
+    val type: HikePlanCheckpointType,
+    val title: String,
+    val distanceKm: Double,
+    val timeFromStart: String,
+    val note: String
+)
+
+data class HikePlanSummary(
+    val checkpoints: List<HikePlanCheckpoint>
+) {
+    val checkpointCount: Int get() = checkpoints.size
+
+    fun nextMovingCheckpoint(): HikePlanCheckpoint? =
+        checkpoints.firstOrNull { checkpoint -> checkpoint.type != HikePlanCheckpointType.START }
+}
