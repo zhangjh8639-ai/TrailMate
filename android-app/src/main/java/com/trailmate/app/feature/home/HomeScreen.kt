@@ -23,6 +23,7 @@ import com.trailmate.app.core.design.TrailMateMetricRow
 import com.trailmate.app.core.design.TrailMatePanel
 import com.trailmate.app.core.design.TrailMatePanelTone
 import com.trailmate.app.core.design.TrailMateSegmentedControl
+import com.trailmate.app.core.gpx.TargetRouteGpxParser
 import com.trailmate.app.core.model.AscentExperience
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.ExerciseFrequency
@@ -30,6 +31,7 @@ import com.trailmate.app.core.model.ExperienceLevel
 import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.GearItem
 import com.trailmate.app.core.model.ImportedRoute
+import com.trailmate.app.core.model.RouteImportStatus
 import com.trailmate.app.core.model.TrailMateSampleData
 import com.trailmate.app.feature.gear.MyGearScreen
 import com.trailmate.app.feature.route.RouteDetailScreen
@@ -39,10 +41,26 @@ fun HomeScreen(profile: BaselineProfile = TrailMateSampleData.baselineProfile) {
     var selectedSection by rememberSaveable { mutableStateOf(HomeSection.Route) }
     var requestedGearCategory by rememberSaveable { mutableStateOf("Trekking poles") }
     var routeImported by rememberSaveable { mutableStateOf(false) }
+    var routeName by rememberSaveable { mutableStateOf("") }
+    var routeFileName by rememberSaveable { mutableStateOf("") }
+    var routeDistanceKm by rememberSaveable { mutableStateOf(0.0) }
+    var routeAscentMeters by rememberSaveable { mutableStateOf(0) }
+    var routePointCount by rememberSaveable { mutableStateOf(0) }
     var inventory by rememberSaveable(stateSaver = GearInventoryStateSaver) {
         mutableStateOf(GearInventory(TrailMateSampleData.gearItems))
     }
-    val importedRoute = TrailMateSampleData.importedTargetRoute.takeIf { routeImported }
+    val importedRoute = if (routeImported) {
+        ImportedRoute(
+            routeName = routeName,
+            fileName = routeFileName,
+            distanceKm = routeDistanceKm,
+            ascentMeters = routeAscentMeters,
+            status = RouteImportStatus.PARSED,
+            pointCount = routePointCount
+        )
+    } else {
+        null
+    }
     val routeGearRecommendations = if (importedRoute?.readyForAssessment() == true) {
         inventory.applyTo(TrailMateSampleData.gearRecommendations)
     } else {
@@ -83,9 +101,9 @@ fun HomeScreen(profile: BaselineProfile = TrailMateSampleData.baselineProfile) {
         )
         TrailMateMetricRow(
             items = listOf(
-                "Distance" to "15.2 km",
-                "Ascent" to "+860 m",
-                "ETA" to "6:40"
+                "Distance" to (importedRoute?.let { String.format(java.util.Locale.US, "%.1f km", it.distanceKm) } ?: "--"),
+                "Ascent" to (importedRoute?.let { "+${it.ascentMeters} m" } ?: "--"),
+                "ETA" to (importedRoute?.let { "6:40" } ?: "--")
             )
         )
         TrailMateSegmentedControl(
@@ -99,7 +117,18 @@ fun HomeScreen(profile: BaselineProfile = TrailMateSampleData.baselineProfile) {
             HomeSection.Route -> {
                 RouteImportPanel(
                     importedRoute = importedRoute,
-                    onImportSampleRoute = { routeImported = true }
+                    onImportSampleRoute = {
+                        val parsedRoute = TargetRouteGpxParser.parse(
+                            fileName = "longjing-ridge-target.gpx",
+                            content = TrailMateSampleData.sampleTargetGpx
+                        )
+                        routeName = parsedRoute.routeName
+                        routeFileName = parsedRoute.fileName
+                        routeDistanceKm = parsedRoute.distanceKm
+                        routeAscentMeters = parsedRoute.ascentMeters
+                        routePointCount = parsedRoute.pointCount
+                        routeImported = true
+                    }
                 )
                 if (importedRoute?.readyForAssessment() == true) {
                     RouteDetailScreen(
@@ -163,7 +192,7 @@ private fun RouteImportPanel(
         TrailMatePanel(
             title = "Imported GPX",
             value = importedRoute.routeName,
-            caption = "${importedRoute.fileName} / ${importedRoute.summaryLabel()} / ready for assessment",
+            caption = "${importedRoute.fileName} / ${importedRoute.summaryLabel()} / ${importedRoute.pointCount} points",
             tone = TrailMatePanelTone.Primary
         )
     }

@@ -22,12 +22,14 @@
 - [x] Add in-memory gear availability and delete actions.
 - [x] Add smoke coverage for route-to-gear add flow and matched gear copy.
 - [x] Add target-route GPX import prototype gate before route assessment tabs.
+- [x] Add tested target-route GPX parser for track/route points, distance, ascent, and point count.
+- [x] Harden prototype GPX XML parsing against DOCTYPE/XXE and mixed track/route ordering.
 
 ## Implementation Planning Backlog
 
 - [ ] Define baseline profile persistence and privacy rules.
 - [ ] Define real auth integration and post-login profile sync.
-- [ ] Define Android system file picker and real GPX import state machine.
+- [ ] Define Android system file picker and production GPX import state machine.
 - [ ] Define gear inventory persistence and delete/export rules.
 - [ ] Define route experience navigation tabs in Android.
 - [ ] Define AI gear advisor backend contract and validation.

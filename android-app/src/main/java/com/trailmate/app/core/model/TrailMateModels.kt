@@ -1,5 +1,7 @@
 package com.trailmate.app.core.model
 
+import java.util.Locale
+
 enum class ExerciseFrequency { RARELY, ONE_TO_TWO_PER_WEEK, THREE_PLUS_PER_WEEK }
 enum class TypicalDuration { UNDER_30, MIN_30_TO_60, OVER_60 }
 enum class ExperienceLevel { BEGINNER, REGULAR, EXPERIENCED }
@@ -149,11 +151,12 @@ data class ImportedRoute(
     val fileName: String,
     val distanceKm: Double,
     val ascentMeters: Int,
-    val status: RouteImportStatus
+    val status: RouteImportStatus,
+    val pointCount: Int = 0
 ) {
     fun readyForAssessment(): Boolean = status == RouteImportStatus.PARSED
 
-    fun summaryLabel(): String = "${distanceKm} km / +${ascentMeters} m"
+    fun summaryLabel(): String = String.format(Locale.US, "%.1f km / +%d m", distanceKm, ascentMeters)
 }
 
 data class RouteAssessmentSummary(

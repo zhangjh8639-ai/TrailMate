@@ -32,8 +32,23 @@ object TrailMateSampleData {
         fileName = "longjing-ridge-target.gpx",
         distanceKm = 15.2,
         ascentMeters = 860,
-        status = RouteImportStatus.PARSED
+        status = RouteImportStatus.PARSED,
+        pointCount = 3
     )
+
+    val sampleTargetGpx = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <gpx version="1.1" creator="TrailMate">
+          <trk>
+            <name>Longjing Ridge</name>
+            <trkseg>
+              <trkpt lat="30.250000" lon="120.120000"><ele>100</ele></trkpt>
+              <trkpt lat="30.317000" lon="120.120000"><ele>420</ele></trkpt>
+              <trkpt lat="30.386700" lon="120.120000"><ele>960</ele></trkpt>
+            </trkseg>
+          </trk>
+        </gpx>
+    """.trimIndent()
 
     val routeAssessment = RouteAssessmentSummary(
         routeName = "Longjing Ridge",
