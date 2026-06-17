@@ -1,6 +1,7 @@
 package com.trailmate.app.core.model
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -124,5 +125,29 @@ class GearInventoryRulesTest {
 
         assertEquals(GearStatus.MISSING, updated.status)
         assertEquals(null, updated.matchedGearItemId)
+    }
+
+    @Test
+    fun addingGearRequiresCategory() {
+        assertThrows(IllegalArgumentException::class.java) {
+            GearInventory(emptyList()).addBrandGear(
+                category = " ",
+                brand = "Rab",
+                model = "Xenair Alpine Light",
+                weightGrams = 309
+            )
+        }
+    }
+
+    @Test
+    fun addingGearRejectsNegativeWeight() {
+        assertThrows(IllegalArgumentException::class.java) {
+            GearInventory(emptyList()).addBrandGear(
+                category = "Warm layer",
+                brand = "Rab",
+                model = "Xenair Alpine Light",
+                weightGrams = -1
+            )
+        }
     }
 }

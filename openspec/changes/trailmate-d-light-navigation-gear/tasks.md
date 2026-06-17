@@ -16,6 +16,7 @@
 - [x] Add in-memory My Gear section with branded gear add form.
 - [x] Link route gear recommendations to available owned gear by category.
 - [x] Add in-memory gear availability and delete actions.
+- [x] Add smoke coverage for route-to-gear add flow and matched gear copy.
 
 ## Implementation Planning Backlog
 

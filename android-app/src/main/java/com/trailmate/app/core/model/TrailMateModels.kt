@@ -48,9 +48,13 @@ data class GearInventory(
         model: String?,
         weightGrams: Int?
     ): GearInventory {
+        val normalizedCategory = category.trim()
+        require(normalizedCategory.isNotBlank()) { "Gear category is required." }
+        require(weightGrams == null || weightGrams >= 0) { "Gear weight cannot be negative." }
+
         val item = GearItem(
-            id = nextItemId(category = category, brand = brand.orEmpty(), model = model.orEmpty()),
-            category = category.trim(),
+            id = nextItemId(category = normalizedCategory, brand = brand.orEmpty(), model = model.orEmpty()),
+            category = normalizedCategory,
             brand = brand?.trim().orEmpty().ifBlank { null },
             model = model?.trim().orEmpty().ifBlank { null },
             weightGrams = weightGrams,

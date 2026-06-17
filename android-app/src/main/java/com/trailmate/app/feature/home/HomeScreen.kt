@@ -11,8 +11,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.mapSaver
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -22,6 +22,7 @@ import com.trailmate.app.core.design.TrailMatePanel
 import com.trailmate.app.core.design.TrailMatePanelTone
 import com.trailmate.app.core.design.TrailMateSegmentedControl
 import com.trailmate.app.core.model.GearInventory
+import com.trailmate.app.core.model.GearItem
 import com.trailmate.app.core.model.TrailMateSampleData
 import com.trailmate.app.feature.gear.MyGearScreen
 import com.trailmate.app.feature.route.RouteDetailScreen
@@ -30,7 +31,9 @@ import com.trailmate.app.feature.route.RouteDetailScreen
 fun HomeScreen() {
     var selectedSection by rememberSaveable { mutableStateOf(HomeSection.Route) }
     var requestedGearCategory by rememberSaveable { mutableStateOf("Trekking poles") }
-    var inventory by remember { mutableStateOf(GearInventory(TrailMateSampleData.gearItems)) }
+    var inventory by rememberSaveable(stateSaver = GearInventoryStateSaver) {
+        mutableStateOf(GearInventory(TrailMateSampleData.gearItems))
+    }
     val routeGearRecommendations = inventory.applyTo(TrailMateSampleData.gearRecommendations)
 
     Column(
@@ -102,3 +105,38 @@ private enum class HomeSection(val label: String) {
     Route("Route"),
     MyGear("My Gear")
 }
+
+@Suppress("UNCHECKED_CAST")
+private val GearInventoryStateSaver = mapSaver(
+    save = { inventory ->
+        mapOf(
+            "ids" to inventory.items.map { it.id },
+            "categories" to inventory.items.map { it.category },
+            "brands" to inventory.items.map { it.brand.orEmpty() },
+            "models" to inventory.items.map { it.model.orEmpty() },
+            "weights" to inventory.items.map { it.weightGrams ?: -1 },
+            "availability" to inventory.items.map { it.available }
+        )
+    },
+    restore = { saved ->
+        val ids = saved["ids"] as List<String>
+        val categories = saved["categories"] as List<String>
+        val brands = saved["brands"] as List<String>
+        val models = saved["models"] as List<String>
+        val weights = saved["weights"] as List<Int>
+        val availability = saved["availability"] as List<Boolean>
+
+        GearInventory(
+            items = ids.indices.map { index ->
+                GearItem(
+                    id = ids[index],
+                    category = categories[index],
+                    brand = brands[index].ifBlank { null },
+                    model = models[index].ifBlank { null },
+                    weightGrams = weights[index].takeIf { it >= 0 },
+                    available = availability[index]
+                )
+            }
+        )
+    }
+)

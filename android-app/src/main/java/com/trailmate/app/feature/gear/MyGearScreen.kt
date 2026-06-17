@@ -60,7 +60,7 @@ fun MyGearScreen(
         TrailMateMetricRow(
             items = listOf(
                 "Owned" to inventory.items.size.toString(),
-                "Available" to availableCount.toString(),
+                "Ready" to availableCount.toString(),
                 "Route gaps" to missingCount.toString()
             )
         )
