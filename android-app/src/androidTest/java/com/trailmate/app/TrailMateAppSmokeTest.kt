@@ -400,6 +400,24 @@ class TrailMateAppSmokeTest {
         compose.onNodeWithText("Gear").assertExists()
     }
 
+    @Test
+    fun homeCanApplySampleHistoricalGpxEvidence() {
+        compose.setContent {
+            TrailMateTheme {
+                HomeScreen()
+            }
+        }
+
+        compose.onNodeWithText("0/3 GPX").assertExists()
+        compose.onNodeWithText("Use sample history").performClick()
+
+        compose.onNodeWithText("Historical profile").assertExists()
+        compose.onNodeWithText("MEDIUM").assertExists()
+        compose.onNodeWithText("3/3 GPX").assertExists()
+        compose.onNodeWithText("Longest 18.6 km / +980 m").assertExists()
+        compose.onNodeWithText("Average 13.7 km / +720 m", substring = true).assertExists()
+    }
+
     private fun savedProfile(): BaselineProfile =
         BaselineProfile(
             exerciseFrequency = ExerciseFrequency.THREE_PLUS_PER_WEEK,

@@ -31,6 +31,7 @@
 - [x] Wire route detail tabs to dynamic assessment results after target route import.
 - [x] Add deterministic hike plan checkpoints for the Route and Plan tabs after target route import.
 - [x] Add Active Hike prototype controls for start, pause/resume, and checkpoint advancement.
+- [x] Add prototype historical GPX capability profile summary with sample-history calibration.
 - [x] Add local snapshot persistence for baseline profile, imported route, and personal gear state.
 - [x] Add local Data tab with export preview and clear-local-data flow.
 - [x] Add deterministic route-aware fallback gear checklist after target route import.

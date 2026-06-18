@@ -41,10 +41,12 @@ import com.trailmate.app.core.persistence.TrailMateDataControlSummary
 import com.trailmate.app.core.persistence.TrailMateSnapshot
 import com.trailmate.app.core.model.AscentExperience
 import com.trailmate.app.core.model.BaselineProfile
+import com.trailmate.app.core.model.CapabilityProfileEngine
 import com.trailmate.app.core.model.ExerciseFrequency
 import com.trailmate.app.core.model.ExperienceLevel
 import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.GearItem
+import com.trailmate.app.core.model.HistoricalActivity
 import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.RouteImportStatus
 import com.trailmate.app.core.model.RouteAssessmentEngine
@@ -72,10 +74,17 @@ fun HomeScreen(
     var routeImportQueue by rememberSaveable(stateSaver = TargetRouteImportQueueStateSaver) {
         mutableStateOf(TargetRouteImportQueueState.fromRoute(initialImportedRoute))
     }
+    var historicalActivities by rememberSaveable(stateSaver = HistoricalActivitiesStateSaver) {
+        mutableStateOf(emptyList<HistoricalActivity>())
+    }
     var inventory by rememberSaveable(stateSaver = GearInventoryStateSaver) {
         mutableStateOf(initialInventory)
     }
     val importedRoute = routeImportQueue.lastImportedRoute
+    val capabilityProfile = CapabilityProfileEngine.build(
+        baselineProfile = profile,
+        historicalActivities = historicalActivities
+    )
     val routeAssessment = importedRoute?.takeIf { it.readyForAssessment() }?.let { route ->
         RouteAssessmentEngine.assess(profile = profile, route = route)
     }
@@ -127,11 +136,20 @@ fun HomeScreen(
             fontWeight = FontWeight.Bold
         )
         TrailMatePanel(
-            title = "Temporary profile",
-            value = profile.initialConfidence().name,
-            caption = profile.explanation(),
+            title = capabilityProfile.title,
+            value = capabilityProfile.value,
+            caption = capabilityProfile.caption,
             tone = TrailMatePanelTone.Secondary
         )
+        OutlinedButton(
+            onClick = {
+                historicalActivities = TrailMateSampleData.historicalActivities
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = historicalActivities.size < TrailMateSampleData.historicalActivities.size
+        ) {
+            Text("Use sample history")
+        }
         TrailMateMetricRow(
             items = listOf(
                 "Exercise" to profile.exerciseFrequency.homeLabel(),
@@ -143,7 +161,14 @@ fun HomeScreen(
             items = listOf(
                 "Ascent" to profile.ascentExperience.homeLabel(),
                 "Pack" to profile.packWeightLabel(),
-                "Evidence" to "0/3 GPX"
+                "Evidence" to capabilityProfile.evidenceLabel
+            )
+        )
+        TrailMateMetricRow(
+            items = listOf(
+                "Capability" to capabilityProfile.confidenceLevel.name,
+                "Source" to if (historicalActivities.size >= 3) "History" else "Survey",
+                "History" to "${historicalActivities.size} routes"
             )
         )
         TrailMateMetricRow(
@@ -441,6 +466,33 @@ private val TargetRouteImportQueueStateSaver = mapSaver(
             failedFileName = (saved["failedFileName"] as String).ifBlank { null },
             failureMessage = (saved["failureMessage"] as String).ifBlank { null }
         )
+    }
+)
+
+@Suppress("UNCHECKED_CAST")
+private val HistoricalActivitiesStateSaver = mapSaver(
+    save = { activities ->
+        mapOf(
+            "routeNames" to activities.map { it.routeName },
+            "distances" to activities.map { it.distanceKm },
+            "ascents" to activities.map { it.ascentMeters },
+            "durations" to activities.map { it.durationMinutes }
+        )
+    },
+    restore = { saved ->
+        val routeNames = saved["routeNames"] as List<String>
+        val distances = saved["distances"] as List<Double>
+        val ascents = saved["ascents"] as List<Int>
+        val durations = saved["durations"] as List<Int>
+
+        routeNames.indices.map { index ->
+            HistoricalActivity(
+                routeName = routeNames[index],
+                distanceKm = distances[index],
+                ascentMeters = ascents[index],
+                durationMinutes = durations[index]
+            )
+        }
     }
 )
 

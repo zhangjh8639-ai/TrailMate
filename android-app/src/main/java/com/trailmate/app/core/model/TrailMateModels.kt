@@ -161,6 +161,21 @@ data class ImportedRoute(
     fun summaryLabel(): String = String.format(Locale.US, "%.1f km / +%d m", distanceKm, ascentMeters)
 }
 
+data class HistoricalActivity(
+    val routeName: String,
+    val distanceKm: Double,
+    val ascentMeters: Int,
+    val durationMinutes: Int
+)
+
+data class CapabilityProfileSummary(
+    val title: String,
+    val value: String,
+    val caption: String,
+    val confidenceLevel: ConfidenceLevel,
+    val evidenceLabel: String
+)
+
 data class RouteAssessmentSummary(
     val routeName: String,
     val distanceKm: Double,

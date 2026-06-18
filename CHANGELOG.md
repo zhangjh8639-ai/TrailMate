@@ -12,6 +12,7 @@
 - Added a deterministic questionnaire-based route assessment engine and wired route detail to dynamic assessment results.
 - Added deterministic hike plan checkpoints and wired the Route/Plan tabs to the imported GPX route assessment.
 - Added Active Hike prototype controls for starting, pausing, resuming, and advancing light-navigation checkpoints.
+- Added a prototype historical GPX capability profile summary with sample-history calibration from questionnaire fallback to GPX evidence.
 - Added a deterministic route-aware gear advisor fallback for the Gear tab while keeping route risk scoring separate.
 - Added an AI gear advisor request/response contract with assessment fingerprint validation and a fallback-active Gear tab status.
 - Added a saveable in-memory My Gear prototype with branded gear add, availability, delete, and route gear recommendation matching.

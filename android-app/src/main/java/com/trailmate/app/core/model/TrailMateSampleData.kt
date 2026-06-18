@@ -36,6 +36,27 @@ object TrailMateSampleData {
         pointCount = 3
     )
 
+    val historicalActivities = listOf(
+        HistoricalActivity(
+            routeName = "Morning Ridge Loop",
+            distanceKm = 9.8,
+            ascentMeters = 420,
+            durationMinutes = 165
+        ),
+        HistoricalActivity(
+            routeName = "Cloudline Traverse",
+            distanceKm = 12.7,
+            ascentMeters = 760,
+            durationMinutes = 285
+        ),
+        HistoricalActivity(
+            routeName = "North Peak Outing",
+            distanceKm = 18.6,
+            ascentMeters = 980,
+            durationMinutes = 420
+        )
+    )
+
     val sampleTargetGpx = """
         <?xml version="1.0" encoding="UTF-8"?>
         <gpx version="1.1" creator="TrailMate">
