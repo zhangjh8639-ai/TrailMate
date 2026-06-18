@@ -75,3 +75,31 @@ Gear advice shall use preparation language and avoid medical, safety guarantee, 
 - THEN the app explains why the category may help for this route
 - AND the app may let the user add owned gear with brand and model
 - AND the app does not require buying a specific brand or claim the route becomes safe
+
+### Requirement: AI gear advisor backend service SHALL be connected behind a validation boundary
+
+The app SHALL call the production AI gear advisor through a backend service boundary that validates response fingerprints and checklist fields before any recommendation is displayed.
+
+#### Scenario: Backend returns validated checklist
+
+- GIVEN a target route has a deterministic assessment and fallback checklist
+- WHEN the backend returns a checklist with the current assessment fingerprint
+- THEN the app validates the response through the gear advisor contract
+- AND refreshes covered or missing status against the current gear inventory
+- AND displays the checklist as AI-ready without changing route assessment values
+
+#### Scenario: Backend fails or times out
+
+- GIVEN a user opens the Gear tab for an assessed route
+- WHEN the backend is unavailable, times out, or throws an error
+- THEN the app displays the deterministic fallback checklist
+- AND labels retry as available
+- AND does not treat the fallback as a successful AI response
+
+#### Scenario: Backend returns stale checklist
+
+- GIVEN the user has changed or re-imported the target route
+- WHEN a backend response references a previous assessment fingerprint
+- THEN the app labels the response as stale
+- AND displays the deterministic fallback checklist for the current route
+- AND stale checklist categories are not shown as current recommendations

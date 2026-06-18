@@ -143,6 +143,8 @@ AI output:
 
 The backend must validate and normalize AI output before storing or returning it. Invalid AI output is discarded and the client falls back to deterministic essentials.
 
+Android connects to the backend through a pure service boundary. The boundary sends the structured `AiGearAdvisorRequest`, converts timeout, unavailable, thrown, stale, and invalid responses into explicit backend statuses, and always resolves display recommendations through the existing validation and inventory-refresh contract before the Gear tab can present them. The concrete HTTP transport, backend URL, auth token handling, and persistence of generated checklist artifacts remain integration work outside this Android core boundary.
+
 ## Safety And Privacy
 
 Safety:

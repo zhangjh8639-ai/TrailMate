@@ -1133,6 +1133,7 @@ Type consistency:
 - Added an AI gear advisor request/response contract with assessment fingerprint validation and a Gear-tab fallback-active status, while keeping real backend service integration pending.
 - Added stale AI gear response handling so old assessment fingerprints are labeled in the Gear tab and the current route keeps using deterministic fallback recommendations.
 - Refreshed validated AI gear recommendations against current personal gear inventory before displaying covered or missing states.
+- Added an Android AI gear advisor backend service boundary so backend success, timeout, unavailable, thrown, stale, and invalid responses resolve through the same validation, retry, and deterministic fallback rules before UI presentation.
 - Added `GearInventory` rules so available owned gear can satisfy matching route recommendations without changing deterministic route assessment values.
 - Added a prototype `SharedPreferences` snapshot store with a tested codec so baseline profile, personal gear, and the last imported target route can be restored after app restart.
 - Added a local session repository boundary so Compose app state depends on a repository interface while `SharedPreferences` remains a local adapter ahead of Room and cloud sync.
@@ -1141,4 +1142,4 @@ Type consistency:
 - Added a Home-level `Route` / `My Gear` switch, a saveable in-memory My Gear add form, availability switches, delete actions, and route Gear-tab actions that send missing categories into the inventory form.
 - Added a My Gear `Inventory` / `Details` split plus per-item route readiness summaries so owned brand gear can show why it does or does not satisfy the current route checklist.
 - Added unit tests for gear inventory matching, detail summaries, unavailable/deleted gear, optional brand/model entry, invalid input rejection, and Compose smoke-test coverage for the My Gear screen, details tab, matched gear copy, and route-to-gear add flow.
-- Still pending for production: real auth, Room/cloud-backed GPX file storage, cloud-safe historical GPX de-duplication, Android foreground-location permission and provider wiring, Room persistence, profile/gear sync execution, and real AI gear advisor service integration.
+- Still pending for production: real auth, Room/cloud-backed GPX file storage, cloud-safe historical GPX de-duplication, Android foreground-location permission and provider wiring, Room persistence, profile/gear sync execution, and concrete AI gear advisor HTTP transport/auth configuration.

@@ -57,7 +57,8 @@
 - [x] Define prototype route experience navigation tabs and Active Hike controls in Android.
 - [x] Define location-backed hike session core.
 - [x] Define AI gear advisor backend contract shape and Android validation.
-- [ ] Connect production AI gear advisor backend service.
+- [x] Connect Android AI gear advisor backend service boundary.
+- [ ] Connect concrete AI gear advisor HTTP transport, auth, and checklist artifact persistence.
 - [x] Define deterministic fallback gear checklist.
 - [x] Define tests for AI boundary: route score cannot be changed by gear advisor.
 - [x] Define tests for prototype delete/export of profile, route, and gear data.
