@@ -28,6 +28,23 @@ Fields:
 
 The baseline profile creates conservative defaults for missing denominators in profile and assessment logic. It does not replace GPX evidence.
 
+## Historical GPX Capability Profile
+
+Historical GPX activities become the production capability profile once at least three activities are available.
+
+The derived profile stores:
+
+- activity count
+- stable distance
+- stable ascent
+- average distance
+- average ascent
+- average pace when durations are usable
+- effective speed when durations and effective distance are usable
+- confidence level
+
+Route assessment and the Home capability summary read from this single derived profile. When fewer than three historical activities exist, the app uses the questionnaire fallback with LOW confidence. Malformed historical durations must not produce NaN, Infinity, or zero-duration ETA output.
+
 ## Auth And Profile Sync
 
 Production auth is a boundary around account identity, not a source of route scoring.

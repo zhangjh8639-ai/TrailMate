@@ -19,6 +19,7 @@
 - Added a local historical activity list with duplicate suppression and remove controls.
 - Parsed historical GPX point timestamps for activity duration when available, with estimate fallback and local state preservation.
 - Added historical pace calibration so GPX evidence can tune capability copy and route ETA ranges.
+- Added a production historical GPX capability profile engine that centralizes stable distance, ascent, pace, and effective-speed evidence.
 - Wired prototype historical GPX capability evidence into route assessment confidence, risk text, and match level.
 - Persisted prototype historical GPX activities in the local snapshot and Data export preview.
 - Added a deterministic route-aware gear advisor fallback for the Gear tab while keeping route risk scoring separate.

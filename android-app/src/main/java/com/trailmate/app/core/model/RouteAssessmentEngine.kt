@@ -5,10 +5,7 @@ import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 object RouteAssessmentEngine {
-    private const val MIN_HISTORICAL_DISTANCE_KM = 1.0
-    private const val MIN_HISTORICAL_ASCENT_METERS = 100.0
     private const val ASCENT_METERS_PER_EFFECTIVE_KM = 100.0
-    private const val MIN_HISTORICAL_EFFECTIVE_SPEED_KMH = 1.0
 
     fun assess(
         profile: BaselineProfile,
@@ -157,19 +154,17 @@ object RouteAssessmentEngine {
                 profile: BaselineProfile,
                 historicalActivities: List<HistoricalActivity>
             ): AssessmentCapacity {
-                if (historicalActivities.size >= 3) {
-                    val longestDistance = historicalActivities.maxOf { activity -> activity.distanceKm }
-                    val longestAscent = historicalActivities.maxOf { activity -> activity.ascentMeters }
-
+                val historicalProfile = HistoricalCapabilityProfileEngine.build(historicalActivities)
+                if (historicalProfile != null) {
                     return AssessmentCapacity(
-                        stableDistanceKm = longestDistance.coerceAtLeast(MIN_HISTORICAL_DISTANCE_KM),
-                        stableAscentMeters = longestAscent.toDouble().coerceAtLeast(MIN_HISTORICAL_ASCENT_METERS),
-                        confidenceLevel = ConfidenceLevel.MEDIUM,
+                        stableDistanceKm = historicalProfile.stableDistanceKm,
+                        stableAscentMeters = historicalProfile.stableAscentMeters,
+                        confidenceLevel = historicalProfile.confidenceLevel,
                         sourceLabel = "historical GPX",
                         evidenceLine = "Historical GPX evidence covers up to ${
-                            String.format(Locale.US, "%.1f", longestDistance)
-                        } km / +$longestAscent m.",
-                        historicalEffectiveSpeedKmh = historicalActivities.historicalEffectiveSpeedKmh()
+                            String.format(Locale.US, "%.1f", historicalProfile.stableDistanceKm)
+                        } km / +${historicalProfile.stableAscentMeters.toInt()} m.",
+                        historicalEffectiveSpeedKmh = historicalProfile.effectiveSpeedKmh
                     )
                 }
 
@@ -210,22 +205,6 @@ object RouteAssessmentEngine {
 
         return durationBase * exerciseBoost * experienceBoost
     }
-
-    private fun List<HistoricalActivity>.historicalEffectiveSpeedKmh(): Double? {
-        val validActivities = filter { activity ->
-            activity.durationMinutes > 0 && activity.effectiveDistanceKm() > 0.0
-        }
-        val totalHours = validActivities.sumOf { activity -> activity.durationMinutes }.toDouble() / 60.0
-        val totalEffectiveDistanceKm = validActivities.sumOf { activity -> activity.effectiveDistanceKm() }
-        val speedKmh = totalEffectiveDistanceKm / totalHours
-
-        return speedKmh
-            .takeIf { it.isFinite() && it > 0.0 }
-            ?.coerceAtLeast(MIN_HISTORICAL_EFFECTIVE_SPEED_KMH)
-    }
-
-    private fun HistoricalActivity.effectiveDistanceKm(): Double =
-        distanceKm + ascentMeters / ASCENT_METERS_PER_EFFECTIVE_KM
 
     private fun ImportedRoute.effectiveDistanceKm(): Double =
         distanceKm + ascentMeters / ASCENT_METERS_PER_EFFECTIVE_KM
