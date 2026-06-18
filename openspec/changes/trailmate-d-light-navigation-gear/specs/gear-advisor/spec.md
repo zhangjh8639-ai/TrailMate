@@ -4,7 +4,7 @@
 
 ### Requirement: Users shall be able to manage a private gear inventory
 
-The app shall allow users to add, edit, delete, and mark personal gear items as available or unavailable.
+The app SHALL allow users to add, edit, delete, and mark personal gear items as available or unavailable.
 
 #### Scenario: User adds branded gear
 
@@ -22,7 +22,7 @@ The app shall allow users to add, edit, delete, and mark personal gear items as 
 
 ### Requirement: Gear advisor shall generate route preparation checklist after route assessment
 
-After a target route assessment exists, the Gear tab shall provide an equipment checklist based on route facts, plan context, terrain tags, risk factors, and the user's gear inventory.
+After a target route assessment exists, the Gear tab SHALL provide an equipment checklist based on route facts, plan context, terrain tags, risk factors, and the user's gear inventory.
 
 #### Scenario: User opens Gear tab for assessed route
 
@@ -35,7 +35,7 @@ After a target route assessment exists, the Gear tab shall provide an equipment 
 
 ### Requirement: AI gear advisor shall not affect deterministic route assessment
 
-AI-generated gear output shall not modify match score, match level, confidence level, estimated duration, risk severity, risk segment geometry, or plan checkpoints.
+AI-generated gear output SHALL NOT modify match score, match level, confidence level, estimated duration, risk severity, risk segment geometry, or plan checkpoints.
 
 #### Scenario: AI returns gear checklist
 
@@ -46,7 +46,7 @@ AI-generated gear output shall not modify match score, match level, confidence l
 
 ### Requirement: Gear advisor shall degrade gracefully when AI is unavailable
 
-If AI generation fails, the app shall keep assessment and plan workflows usable.
+If AI generation fails, the app SHALL keep assessment and plan workflows usable.
 
 #### Scenario: AI service fails
 
@@ -66,7 +66,7 @@ If AI generation fails, the app shall keep assessment and plan workflows usable.
 
 ### Requirement: Gear advice shall avoid medical and shopping claims
 
-Gear advice shall use preparation language and avoid medical, safety guarantee, affiliate, or purchase-command language.
+Gear advice SHALL use preparation language and avoid medical, safety guarantee, affiliate, or purchase-command language.
 
 #### Scenario: Gear checklist includes missing items
 

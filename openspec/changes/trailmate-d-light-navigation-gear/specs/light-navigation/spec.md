@@ -4,7 +4,7 @@
 
 ### Requirement: Route details shall include a light navigation route tab
 
-After target route import and assessment, the Android app shall expose a Route tab that provides route-following context without turn-by-turn navigation.
+After target route import and assessment, the Android app SHALL expose a Route tab that provides route-following context without turn-by-turn navigation.
 
 #### Scenario: User opens assessed route
 
@@ -15,7 +15,7 @@ After target route import and assessment, the Android app shall expose a Route t
 
 ### Requirement: Saved route and plan context shall be available offline
 
-The app shall cache the assessed route summary, route visualization data, and plan checkpoints for offline viewing.
+The app SHALL cache the assessed route summary, route visualization data, and plan checkpoints for offline viewing.
 
 #### Scenario: User opens route with no network
 
@@ -27,7 +27,7 @@ The app shall cache the assessed route summary, route visualization data, and pl
 
 ### Requirement: Full navigation features shall remain out of MVP unless explicitly promoted
 
-The MVP shall not implement turn-by-turn navigation, background GPS tracking, nationwide offline basemaps, voice guidance, or rescue dispatch.
+The MVP SHALL NOT implement turn-by-turn navigation, background GPS tracking, nationwide offline basemaps, voice guidance, or rescue dispatch.
 
 #### Scenario: User expects navigation
 
@@ -38,7 +38,7 @@ The MVP shall not implement turn-by-turn navigation, background GPS tracking, na
 
 ### Requirement: Location-backed hike sessions shall keep light-navigation safety boundaries
 
-Foreground location updates may assist an active hike session by advancing checkpoints and surfacing route-check prompts, but shall not become turn-by-turn navigation or emergency support.
+Foreground location updates may assist an active hike session by advancing checkpoints and surfacing route-check prompts, but SHALL NOT become turn-by-turn navigation or emergency support.
 
 #### Scenario: Accurate foreground location reaches a checkpoint
 

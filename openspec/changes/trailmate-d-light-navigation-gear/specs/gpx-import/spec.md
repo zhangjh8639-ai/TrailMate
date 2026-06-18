@@ -4,7 +4,7 @@
 
 ### Requirement: GPX imports shall use a persistent retryable job queue
 
-Target-route and historical-activity GPX imports shall be represented as persisted jobs before parsing starts.
+Target-route and historical-activity GPX imports SHALL be represented as persisted jobs before parsing starts.
 
 #### Scenario: User selects a GPX file for import
 

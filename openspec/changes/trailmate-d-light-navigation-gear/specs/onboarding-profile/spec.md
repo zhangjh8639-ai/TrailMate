@@ -4,7 +4,7 @@
 
 ### Requirement: Users shall be able to provide a skippable baseline profile after authentication
 
-After registration or first login, the app shall offer a short baseline profile questionnaire before prompting for historical GPX import.
+After registration or first login, the app SHALL offer a short baseline profile questionnaire before prompting for historical GPX import.
 
 #### Scenario: User completes baseline profile
 
@@ -22,7 +22,7 @@ After registration or first login, the app shall offer a short baseline profile 
 
 ### Requirement: Production auth shall bind profile data to the authenticated account
 
-The production app shall treat baseline profile, capability evidence, gear inventory, imported routes, and data controls as account-bound data after login.
+The production app SHALL treat baseline profile, capability evidence, gear inventory, imported routes, and data controls as account-bound data after login.
 
 #### Scenario: First login has a completed local profile draft
 
@@ -64,7 +64,7 @@ The production app shall treat baseline profile, capability evidence, gear inven
 
 ### Requirement: Profile sync shall avoid silent overwrite of newer local or remote edits
 
-Profile sync shall use server revision metadata and local dirty state to decide whether to upload, download, or ask the user to resolve a conflict.
+Profile sync SHALL use server revision metadata and local dirty state to decide whether to upload, download, or ask the user to resolve a conflict.
 
 #### Scenario: Offline profile edit waits for connectivity
 
@@ -97,7 +97,7 @@ Profile sync shall use server revision metadata and local dirty state to decide 
 
 ### Requirement: Baseline profile shall not override GPX-derived capability evidence
 
-The baseline profile shall provide conservative defaults only when GPX-derived evidence is missing or insufficient.
+The baseline profile SHALL provide conservative defaults only when GPX-derived evidence is missing or insufficient.
 
 #### Scenario: User has three usable historical GPX activities
 
@@ -108,7 +108,7 @@ The baseline profile shall provide conservative defaults only when GPX-derived e
 
 ### Requirement: Body and pack fields shall be optional and non-medical
 
-Height, weight, and pack weight shall be optional and used only for conservative load context.
+Height, weight, and pack weight SHALL be optional and used only for conservative load context.
 
 #### Scenario: User enters height and weight
 

@@ -4,7 +4,7 @@
 
 ### Requirement: Historical GPX evidence shall produce a production capability profile
 
-The app shall derive route assessment capacity from a single historical GPX capability profile once enough historical activities are available.
+The app SHALL derive route assessment capacity from a single historical GPX capability profile once enough historical activities are available.
 
 #### Scenario: User has insufficient historical GPX evidence
 
