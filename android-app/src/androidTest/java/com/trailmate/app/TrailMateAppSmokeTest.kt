@@ -347,12 +347,13 @@ class TrailMateAppSmokeTest {
 
     @Test
     fun dataTabShowsExportPreviewAndClearsLocalData() {
+        val initialSnapshot = TrailMateSnapshot(
+            profile = savedProfile(),
+            inventory = GearInventory(TrailMateSampleData.gearItems),
+            importedRoute = TrailMateSampleData.importedTargetRoute
+        )
         val store = FakeTrailMateSessionRepository(
-            TrailMateSnapshot(
-                profile = savedProfile(),
-                inventory = GearInventory(TrailMateSampleData.gearItems),
-                importedRoute = TrailMateSampleData.importedTargetRoute
-            )
+            initialSnapshot
         )
 
         compose.setContent {
@@ -373,6 +374,17 @@ class TrailMateAppSmokeTest {
         compose.onNodeWithText("Gear: 3 items, 3 ready", substring = true).assertExists()
 
         compose.onNodeWithText("Clear local data").performClick()
+
+        compose.onNodeWithText("Clear local data?").assertExists()
+        compose.onNodeWithText("Confirm clear data").assertExists()
+        compose.onNodeWithText("Cancel").assertExists()
+        assertEquals(initialSnapshot, store.snapshot)
+
+        compose.onNodeWithText("Cancel").performClick()
+        compose.onAllNodesWithText("Confirm clear data").assertCountEquals(0)
+
+        compose.onNodeWithText("Clear local data").performClick()
+        compose.onNodeWithText("Confirm clear data").performClick()
 
         assertEquals(TrailMateSnapshot.empty(), store.snapshot)
         compose.onNodeWithText("TrailMate").assertExists()

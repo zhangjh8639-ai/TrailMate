@@ -40,7 +40,7 @@
 - [x] Persist prototype historical GPX activities in the local snapshot and export preview.
 - [x] Add local snapshot persistence for baseline profile, imported route, and personal gear state.
 - [x] Add a local session repository boundary ahead of Room and cloud sync integration.
-- [x] Add local Data tab with readable export preview and clear-local-data flow.
+- [x] Add local Data tab with readable export preview and confirmed clear-local-data flow.
 - [x] Add deterministic route-aware fallback gear checklist after target route import.
 - [x] Add AI gear advisor request/response contract and assessment fingerprint validation.
 

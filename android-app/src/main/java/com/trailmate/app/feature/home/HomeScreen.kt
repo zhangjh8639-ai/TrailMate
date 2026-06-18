@@ -373,6 +373,9 @@ private fun DataControlPanel(
     summary: TrailMateDataControlSummary,
     onClearLocalData: () -> Unit
 ) {
+    var isConfirmingClear by rememberSaveable { mutableStateOf(false) }
+    val clearUiState = DataControlClearUiState(isConfirmingClear = isConfirmingClear)
+
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         TrailMatePanel(
             title = "Local data",
@@ -398,11 +401,38 @@ private fun DataControlPanel(
             caption = summary.exportPreview,
             tone = TrailMatePanelTone.Primary
         )
-        OutlinedButton(
-            onClick = onClearLocalData,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Clear local data")
+        if (clearUiState.isConfirmingClear) {
+            TrailMatePanel(
+                title = "Clear local data?",
+                value = "Confirm",
+                caption = "This removes profile, route, history, and gear from this device.",
+                tone = TrailMatePanelTone.Secondary
+            )
+            Button(
+                onClick = {
+                    isConfirmingClear = clearUiState.confirmClear(onClearLocalData).isConfirmingClear
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Confirm clear data")
+            }
+            OutlinedButton(
+                onClick = {
+                    isConfirmingClear = clearUiState.cancelClear().isConfirmingClear
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Cancel")
+            }
+        } else {
+            OutlinedButton(
+                onClick = {
+                    isConfirmingClear = clearUiState.requestClear().isConfirmingClear
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Clear local data")
+            }
         }
     }
 }
