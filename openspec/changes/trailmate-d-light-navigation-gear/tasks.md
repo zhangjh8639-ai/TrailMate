@@ -32,6 +32,7 @@
 - [x] Add deterministic hike plan checkpoints for the Route and Plan tabs after target route import.
 - [x] Add Active Hike prototype controls for start, pause/resume, and checkpoint advancement.
 - [x] Add prototype historical GPX capability profile summary with sample-history calibration.
+- [x] Add Android system file-picker historical GPX import path with partial failure reporting.
 - [x] Use prototype historical GPX capability evidence in route assessment confidence, risk text, and match level.
 - [x] Persist prototype historical GPX activities in the local snapshot and export preview.
 - [x] Add local snapshot persistence for baseline profile, imported route, and personal gear state.

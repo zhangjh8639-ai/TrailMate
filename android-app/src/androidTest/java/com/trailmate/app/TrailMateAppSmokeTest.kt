@@ -421,6 +421,9 @@ class TrailMateAppSmokeTest {
         }
 
         compose.onNodeWithText("0/3 GPX").assertExists()
+        compose.onNodeWithText("History import").assertExists()
+        compose.onNodeWithText("Ready for history GPX").assertExists()
+        compose.onNodeWithText("Choose history GPX").assertExists()
         compose.onNodeWithText("Use sample history").performClick()
 
         compose.onNodeWithText("Historical profile").assertExists()

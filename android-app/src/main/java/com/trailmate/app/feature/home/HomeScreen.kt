@@ -32,6 +32,12 @@ import com.trailmate.app.core.design.TrailMateMetricRow
 import com.trailmate.app.core.design.TrailMatePanel
 import com.trailmate.app.core.design.TrailMatePanelTone
 import com.trailmate.app.core.design.TrailMateSegmentedControl
+import com.trailmate.app.core.gpx.HistoricalActivityImportBatch
+import com.trailmate.app.core.gpx.HistoricalActivityImportFailure
+import com.trailmate.app.core.gpx.HistoricalActivityImportFile
+import com.trailmate.app.core.gpx.HistoricalActivityImportUiReducer
+import com.trailmate.app.core.gpx.HistoricalActivityImportUiState
+import com.trailmate.app.core.gpx.HistoricalActivityImporter
 import com.trailmate.app.core.gpx.TargetRouteImportState
 import com.trailmate.app.core.gpx.TargetRouteImportQueueState
 import com.trailmate.app.core.gpx.TargetRouteImportQueueSummary
@@ -54,6 +60,7 @@ import com.trailmate.app.core.model.RouteGearAdvisorEngine
 import com.trailmate.app.core.model.TrailMateSampleData
 import com.trailmate.app.feature.gear.MyGearScreen
 import com.trailmate.app.feature.route.RouteDetailScreen
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -73,6 +80,7 @@ fun HomeScreen(
     val importScope = rememberCoroutineScope()
     var selectedSection by rememberSaveable { mutableStateOf(HomeSection.Route) }
     var requestedGearCategory by rememberSaveable { mutableStateOf("Trekking poles") }
+    var historyImportUiState by remember { mutableStateOf(HistoricalActivityImportUiState()) }
     var routeImportQueue by rememberSaveable(stateSaver = TargetRouteImportQueueStateSaver) {
         mutableStateOf(TargetRouteImportQueueState.fromRoute(initialImportedRoute))
     }
@@ -129,6 +137,38 @@ fun HomeScreen(
             }
         }
     }
+    val historyPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        if (uris.isNotEmpty()) {
+            historyImportUiState = historyImportUiState.importing(uris.size)
+            importScope.launch {
+                try {
+                    val batch = withContext(Dispatchers.IO) {
+                        context.importHistoricalActivitiesFromUris(uris)
+                    }
+                    val result = HistoricalActivityImportUiReducer.applyBatch(
+                        currentActivities = historicalActivities,
+                        batch = batch
+                    )
+                    if (batch.activities.isNotEmpty()) {
+                        historicalActivities = result.activities
+                        onHistoricalActivitiesChanged(result.activities)
+                    }
+                    historyImportUiState = result.uiState
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: Exception) {
+                    historyImportUiState = HistoricalActivityImportUiReducer.applyFailure(
+                        currentActivities = historicalActivities,
+                        message = error.message ?: "Unable to import selected GPX files."
+                    ).uiState
+                } finally {
+                    if (historyImportUiState.isImporting) {
+                        historyImportUiState = historyImportUiState.copy(isImporting = false)
+                    }
+                }
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -148,6 +188,21 @@ fun HomeScreen(
             caption = capabilityProfile.caption,
             tone = TrailMatePanelTone.Secondary
         )
+        TrailMatePanel(
+            title = "History import",
+            value = historyImportUiState.value,
+            caption = historyImportUiState.caption,
+            tone = TrailMatePanelTone.Neutral
+        )
+        Button(
+            onClick = {
+                historyPicker.launch(GPX_MIME_TYPES)
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !historyImportUiState.isImporting
+        ) {
+            Text(if (historyImportUiState.isImporting) "Importing history GPX" else "Choose history GPX")
+        }
         OutlinedButton(
             onClick = {
                 val sampleHistory = TrailMateSampleData.historicalActivities
@@ -523,6 +578,41 @@ private fun Context.importRouteFromUri(uri: Uri): TargetRouteImportState {
     )
 
     return TargetRouteImporter.importText(fileName = fileName, content = content)
+}
+
+private fun Context.importHistoricalActivitiesFromUris(uris: List<Uri>): HistoricalActivityImportBatch {
+    val files = mutableListOf<HistoricalActivityImportFile>()
+    val failures = mutableListOf<HistoricalActivityImportFailure>()
+
+    uris.forEach { uri ->
+        val fileName = runCatching { displayNameFor(uri) }.getOrDefault("history.gpx")
+        val content = runCatching {
+            contentResolver.openInputStream(uri)
+                ?.bufferedReader()
+                ?.use { it.readText() }
+        }.getOrElse { error ->
+            failures += HistoricalActivityImportFailure(
+                fileName = fileName,
+                message = error.message ?: "Unable to open selected GPX file."
+            )
+            return@forEach
+        }
+
+        if (content == null) {
+            failures += HistoricalActivityImportFailure(
+                fileName = fileName,
+                message = "Unable to open selected GPX file."
+            )
+        } else {
+            files += HistoricalActivityImportFile(fileName = fileName, content = content)
+        }
+    }
+
+    val imported = HistoricalActivityImporter.importFiles(files)
+    return HistoricalActivityImportBatch(
+        activities = imported.activities,
+        failures = failures + imported.failures
+    )
 }
 
 private fun Context.displayNameFor(uri: Uri): String {
