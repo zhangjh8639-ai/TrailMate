@@ -1122,6 +1122,7 @@ Type consistency:
 - Added Android `OpenMultipleDocuments` historical GPX import so real local GPX files can append capability evidence with partial failure reporting.
 - Added a local historical activity list so users can inspect imported GPX evidence, suppress duplicate route facts, and remove a mistaken activity.
 - Parsed historical GPX point timestamps into activity duration when available, while keeping the distance/ascent estimate as a fallback for untimed or invalid GPX history and preserving parsed duration through local route state.
+- Added historical pace calibration so capability copy reports GPX-derived pace and route ETA ranges can use historical duration evidence.
 - Wired the prototype historical GPX capability evidence into target-route assessment confidence, risk text, match level, and downstream route detail tabs.
 - Persisted prototype historical GPX activities in the local snapshot and included the history count in the Data tab export preview.
 - Added a deterministic route-aware gear advisor fallback so route distance, ascent, ETA, and concrete route risks generate the Gear tab checklist while leaving route assessment unchanged.

@@ -7,6 +7,8 @@ import kotlin.math.roundToInt
 object RouteAssessmentEngine {
     private const val MIN_HISTORICAL_DISTANCE_KM = 1.0
     private const val MIN_HISTORICAL_ASCENT_METERS = 100.0
+    private const val ASCENT_METERS_PER_EFFECTIVE_KM = 100.0
+    private const val MIN_HISTORICAL_EFFECTIVE_SPEED_KMH = 1.0
 
     fun assess(
         profile: BaselineProfile,
@@ -29,6 +31,7 @@ object RouteAssessmentEngine {
         val durationHours = estimatedDurationHours(
             route = route,
             profile = profile,
+            capacity = capacity,
             distanceRatio = distanceRatio,
             ascentRatio = ascentRatio
         )
@@ -73,10 +76,16 @@ object RouteAssessmentEngine {
     private fun estimatedDurationHours(
         route: ImportedRoute,
         profile: BaselineProfile,
+        capacity: AssessmentCapacity,
         distanceRatio: Double,
         ascentRatio: Double
     ): Double {
-        val baseHours = route.distanceKm / profile.flatSpeedKmh() + route.ascentMeters / profile.ascentMetersPerHour()
+        val historicalEffectiveSpeedKmh = capacity.historicalEffectiveSpeedKmh
+        val baseHours = if (historicalEffectiveSpeedKmh != null) {
+            route.effectiveDistanceKm() / historicalEffectiveSpeedKmh
+        } else {
+            route.distanceKm / profile.flatSpeedKmh() + route.ascentMeters / profile.ascentMetersPerHour()
+        }
         val overloadPenalty = 1.0 + maxOf(distanceRatio - 1.0, 0.0) * 0.08 + maxOf(ascentRatio - 1.0, 0.0) * 0.12
         return baseHours * overloadPenalty
     }
@@ -140,7 +149,8 @@ object RouteAssessmentEngine {
         val stableAscentMeters: Double,
         val confidenceLevel: ConfidenceLevel,
         val sourceLabel: String,
-        val evidenceLine: String
+        val evidenceLine: String,
+        val historicalEffectiveSpeedKmh: Double? = null
     ) {
         companion object {
             fun from(
@@ -158,7 +168,8 @@ object RouteAssessmentEngine {
                         sourceLabel = "historical GPX",
                         evidenceLine = "Historical GPX evidence covers up to ${
                             String.format(Locale.US, "%.1f", longestDistance)
-                        } km / +$longestAscent m."
+                        } km / +$longestAscent m.",
+                        historicalEffectiveSpeedKmh = historicalActivities.historicalEffectiveSpeedKmh()
                     )
                 }
 
@@ -199,4 +210,23 @@ object RouteAssessmentEngine {
 
         return durationBase * exerciseBoost * experienceBoost
     }
+
+    private fun List<HistoricalActivity>.historicalEffectiveSpeedKmh(): Double? {
+        val validActivities = filter { activity ->
+            activity.durationMinutes > 0 && activity.effectiveDistanceKm() > 0.0
+        }
+        val totalHours = validActivities.sumOf { activity -> activity.durationMinutes }.toDouble() / 60.0
+        val totalEffectiveDistanceKm = validActivities.sumOf { activity -> activity.effectiveDistanceKm() }
+        val speedKmh = totalEffectiveDistanceKm / totalHours
+
+        return speedKmh
+            .takeIf { it.isFinite() && it > 0.0 }
+            ?.coerceAtLeast(MIN_HISTORICAL_EFFECTIVE_SPEED_KMH)
+    }
+
+    private fun HistoricalActivity.effectiveDistanceKm(): Double =
+        distanceKm + ascentMeters / ASCENT_METERS_PER_EFFECTIVE_KM
+
+    private fun ImportedRoute.effectiveDistanceKm(): Double =
+        distanceKm + ascentMeters / ASCENT_METERS_PER_EFFECTIVE_KM
 }

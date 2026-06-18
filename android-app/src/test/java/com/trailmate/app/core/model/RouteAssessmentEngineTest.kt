@@ -99,6 +99,59 @@ class RouteAssessmentEngineTest {
     }
 
     @Test
+    fun historicalGpxDurationCalibratesEstimatedDuration() {
+        val route = ImportedRoute(
+            routeName = "Slow Fit Check",
+            fileName = "slow-fit-check.gpx",
+            distanceKm = 6.0,
+            ascentMeters = 100,
+            status = RouteImportStatus.PARSED,
+            pointCount = 32
+        )
+        val slowHistory = listOf(
+            HistoricalActivity("Slow Loop A", distanceKm = 5.0, ascentMeters = 100, durationMinutes = 180),
+            HistoricalActivity("Slow Loop B", distanceKm = 5.0, ascentMeters = 100, durationMinutes = 180),
+            HistoricalActivity("Slow Loop C", distanceKm = 5.0, ascentMeters = 100, durationMinutes = 180)
+        )
+
+        val assessment = RouteAssessmentEngine.assess(
+            profile = TrailMateSampleData.baselineProfile,
+            route = route,
+            historicalActivities = slowHistory
+        )
+
+        assertEquals("3:13-4:17", assessment.estimatedDurationRange)
+    }
+
+    @Test
+    fun unusableHistoricalDurationsDoNotProduceInvalidEta() {
+        val route = ImportedRoute(
+            routeName = "Duration Guard",
+            fileName = "duration-guard.gpx",
+            distanceKm = 6.0,
+            ascentMeters = 100,
+            status = RouteImportStatus.PARSED,
+            pointCount = 32
+        )
+        val malformedHistory = listOf(
+            HistoricalActivity("Bad A", distanceKm = 5.0, ascentMeters = 100, durationMinutes = 0),
+            HistoricalActivity("Bad B", distanceKm = 5.0, ascentMeters = 100, durationMinutes = 0),
+            HistoricalActivity("Bad C", distanceKm = 5.0, ascentMeters = 100, durationMinutes = 0)
+        )
+
+        val assessment = RouteAssessmentEngine.assess(
+            profile = TrailMateSampleData.baselineProfile,
+            route = route,
+            historicalActivities = malformedHistory
+        )
+
+        assertEquals(ConfidenceLevel.MEDIUM, assessment.confidenceLevel)
+        assertFalse(assessment.estimatedDurationRange.contains("NaN"))
+        assertFalse(assessment.estimatedDurationRange.contains("Infinity"))
+        assertFalse(assessment.estimatedDurationRange.startsWith("0:00"))
+    }
+
+    @Test
     fun flatHistoricalGpxEvidenceKeepsAssessmentFinite() {
         val flatRoute = ImportedRoute(
             routeName = "Park Connector",
