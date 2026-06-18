@@ -97,4 +97,15 @@ class TrailMateSnapshotCodecTest {
         assertEquals(3, decoded.inventory.items.size)
         assertNull(decoded.importedRoute)
     }
+
+    @Test
+    fun explicitEmptySnapshotRoundTripsWithoutPrototypeDefaults() {
+        val decoded = TrailMateSnapshotCodec.decode(
+            TrailMateSnapshotCodec.encode(TrailMateSnapshot.empty())
+        )
+
+        assertNull(decoded.profile)
+        assertEquals(0, decoded.inventory.items.size)
+        assertNull(decoded.importedRoute)
+    }
 }

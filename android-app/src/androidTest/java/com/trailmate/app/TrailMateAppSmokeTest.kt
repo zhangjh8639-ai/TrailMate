@@ -338,6 +338,44 @@ class TrailMateAppSmokeTest {
     }
 
     @Test
+    fun dataTabShowsExportPreviewAndClearsLocalData() {
+        val store = FakeTrailMateSessionStore(
+            TrailMateSnapshot(
+                profile = savedProfile(),
+                inventory = GearInventory(TrailMateSampleData.gearItems),
+                importedRoute = TrailMateSampleData.importedTargetRoute
+            )
+        )
+
+        compose.setContent {
+            TrailMateTheme {
+                TrailMateApp(sessionStore = store)
+            }
+        }
+
+        compose.onNodeWithText("Data").performClick()
+        compose.onNodeWithText("Local data").assertExists()
+        compose.onNodeWithText("Profile saved").assertExists()
+        compose.onNodeWithText("Longjing Ridge / 15.2 km / +860 m").assertExists()
+        compose.onNodeWithText("3 items / 3 ready").assertExists()
+        compose.onNodeWithText("Export preview").assertExists()
+
+        compose.onNodeWithText("Clear local data").performClick()
+
+        assertEquals(TrailMateSnapshot.empty(), store.snapshot)
+        compose.onNodeWithText("TrailMate").assertExists()
+        compose.onNodeWithText("Start baseline profile").assertExists()
+
+        compose.onNodeWithText("Start baseline profile").performClick()
+        compose.onNodeWithText("Skip for now").performScrollTo().performClick()
+        compose.onNodeWithText("Data").performClick()
+
+        compose.onNodeWithText("No route imported").assertExists()
+        compose.onNodeWithText("0 items / 0 ready").assertExists()
+        compose.onAllNodesWithText("Longjing Ridge / 15.2 km / +860 m").assertCountEquals(0)
+    }
+
+    @Test
     fun homeRequiresRouteImportBeforeShowingRouteDetail() {
         compose.setContent {
             TrailMateTheme {
@@ -388,6 +426,10 @@ class TrailMateAppSmokeTest {
 
         override fun saveImportedRoute(route: ImportedRoute) {
             snapshot = snapshot.copy(importedRoute = route)
+        }
+
+        override fun clear() {
+            snapshot = TrailMateSnapshot.empty()
         }
     }
 }

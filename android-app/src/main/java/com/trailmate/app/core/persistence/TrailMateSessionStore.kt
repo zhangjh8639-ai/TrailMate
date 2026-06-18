@@ -12,4 +12,6 @@ interface TrailMateSessionStore {
     fun saveInventory(inventory: GearInventory)
 
     fun saveImportedRoute(route: ImportedRoute)
+
+    fun clear()
 }

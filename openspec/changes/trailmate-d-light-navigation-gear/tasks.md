@@ -31,6 +31,7 @@
 - [x] Add deterministic hike plan checkpoints for the Route and Plan tabs after target route import.
 - [x] Add Active Hike prototype controls for start, pause/resume, and checkpoint advancement.
 - [x] Add local snapshot persistence for baseline profile, imported route, and personal gear state.
+- [x] Add local Data tab with export preview and clear-local-data flow.
 - [x] Add deterministic route-aware fallback gear checklist after target route import.
 - [x] Add AI gear advisor request/response contract and assessment fingerprint validation.
 
@@ -42,12 +43,13 @@
 - [ ] Replace questionnaire fallback capacity with historical GPX capability profile.
 - [x] Define prototype gear inventory persistence in the local snapshot.
 - [x] Define prototype gear detail view and route readiness summary.
-- [ ] Define production delete/export rules for profile and gear data.
+- [x] Define prototype local delete/export controls for profile, route, and gear data.
+- [ ] Define production cloud delete/export rules for profile and gear data.
 - [x] Define prototype route experience navigation tabs and Active Hike controls in Android.
 - [ ] Define production GPS/location-backed navigation session.
 - [x] Define AI gear advisor backend contract shape and Android validation.
 - [ ] Connect production AI gear advisor backend service.
 - [x] Define deterministic fallback gear checklist.
 - [x] Define tests for AI boundary: route score cannot be changed by gear advisor.
-- [ ] Define tests for delete/export of profile and gear data.
+- [x] Define tests for prototype delete/export of profile, route, and gear data.
 - [ ] Define UI tests for questionnaire skip, save, and stale gear checklist states.

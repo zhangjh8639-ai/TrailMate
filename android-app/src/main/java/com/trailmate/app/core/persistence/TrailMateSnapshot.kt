@@ -9,4 +9,13 @@ data class TrailMateSnapshot(
     val profile: BaselineProfile? = null,
     val inventory: GearInventory = GearInventory(TrailMateSampleData.gearItems),
     val importedRoute: ImportedRoute? = null
-)
+) {
+    companion object {
+        fun empty(): TrailMateSnapshot =
+            TrailMateSnapshot(
+                profile = null,
+                inventory = GearInventory(emptyList()),
+                importedRoute = null
+            )
+    }
+}

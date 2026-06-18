@@ -2,6 +2,7 @@
 .worktrees/
 .android-sdk/
 .gradle/
+.kotlin/
 .tooling-downloads/
 local.properties
 **/build/

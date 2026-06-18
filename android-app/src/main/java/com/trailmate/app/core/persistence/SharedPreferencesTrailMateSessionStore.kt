@@ -28,6 +28,12 @@ class SharedPreferencesTrailMateSessionStore(context: Context) : TrailMateSessio
         update { snapshot -> snapshot.copy(importedRoute = route) }
     }
 
+    override fun clear() {
+        preferences.edit()
+            .putString(KEY_SNAPSHOT, TrailMateSnapshotCodec.encode(TrailMateSnapshot.empty()))
+            .apply()
+    }
+
     private fun update(transform: (TrailMateSnapshot) -> TrailMateSnapshot) {
         val updated = transform(load())
         preferences.edit()

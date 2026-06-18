@@ -34,6 +34,9 @@ import com.trailmate.app.core.design.TrailMatePanelTone
 import com.trailmate.app.core.design.TrailMateSegmentedControl
 import com.trailmate.app.core.gpx.TargetRouteImportState
 import com.trailmate.app.core.gpx.TargetRouteImporter
+import com.trailmate.app.core.persistence.TrailMateDataControlEngine
+import com.trailmate.app.core.persistence.TrailMateDataControlSummary
+import com.trailmate.app.core.persistence.TrailMateSnapshot
 import com.trailmate.app.core.model.AscentExperience
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.ExerciseFrequency
@@ -57,7 +60,8 @@ fun HomeScreen(
     initialInventory: GearInventory = GearInventory(TrailMateSampleData.gearItems),
     initialImportedRoute: ImportedRoute? = null,
     onInventoryChanged: (GearInventory) -> Unit = {},
-    onRouteImported: (ImportedRoute) -> Unit = {}
+    onRouteImported: (ImportedRoute) -> Unit = {},
+    onClearLocalData: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val importScope = rememberCoroutineScope()
@@ -99,6 +103,13 @@ fun HomeScreen(
     } else {
         emptyList()
     }
+    val dataControlSummary = TrailMateDataControlEngine.summarize(
+        TrailMateSnapshot(
+            profile = profile,
+            inventory = inventory,
+            importedRoute = importedRoute
+        )
+    )
     val applyImportState: (TargetRouteImportState) -> Unit = { state ->
         when (state) {
             TargetRouteImportState.Empty -> Unit
@@ -232,13 +243,58 @@ fun HomeScreen(
                     onInventoryChanged(updatedInventory)
                 }
             )
+
+            HomeSection.Data -> DataControlPanel(
+                summary = dataControlSummary,
+                onClearLocalData = onClearLocalData
+            )
         }
     }
 }
 
 private enum class HomeSection(val label: String) {
     Route("Route"),
-    MyGear("My Gear")
+    MyGear("My Gear"),
+    Data("Data")
+}
+
+@Composable
+private fun DataControlPanel(
+    summary: TrailMateDataControlSummary,
+    onClearLocalData: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        TrailMatePanel(
+            title = "Local data",
+            value = summary.profileLine,
+            caption = "Stored on this device for the prototype.",
+            tone = TrailMatePanelTone.Neutral
+        )
+        TrailMatePanel(
+            title = "Route data",
+            value = summary.routeLine,
+            caption = "Last imported target route.",
+            tone = TrailMatePanelTone.Neutral
+        )
+        TrailMatePanel(
+            title = "Gear data",
+            value = summary.inventoryLine,
+            caption = "Current personal gear inventory.",
+            tone = TrailMatePanelTone.Neutral
+        )
+        TrailMatePanel(
+            title = "Export preview",
+            value = "Ready",
+            caption = summary.exportPreview,
+            tone = TrailMatePanelTone.Primary
+        )
+        OutlinedButton(
+            onClick = onClearLocalData,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Clear local data")
+        }
+    }
 }
 
 @Composable

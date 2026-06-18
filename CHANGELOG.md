@@ -16,4 +16,6 @@
 - Added a saveable in-memory My Gear prototype with branded gear add, availability, delete, and route gear recommendation matching.
 - Added a My Gear details tab with per-item route readiness and recommendation rationale.
 - Added a local SharedPreferences snapshot store for baseline profile, imported target route, and personal gear state.
+- Added a Data tab with local export preview and clear-local-data flow returning users to onboarding.
+- Fixed local clear-data state so re-onboarding cannot resurrect a previously imported route or gear inventory.
 - Added unit and Compose smoke-test coverage for baseline profile confidence, AI gear boundaries, onboarding, and route tabs.

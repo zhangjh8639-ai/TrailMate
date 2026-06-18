@@ -33,9 +33,12 @@ fun TrailMateApp(sessionStore: TrailMateSessionStore? = null) {
     val defaultSessionStore = rememberTrailMateSessionStore()
     val activeSessionStore = sessionStore ?: defaultSessionStore
     val initialSnapshot = remember(activeSessionStore) { activeSessionStore.load() }
+    var appSession by remember(activeSessionStore) {
+        mutableStateOf(TrailMateAppSession(initialSnapshot))
+    }
     var screen by rememberSaveable {
         mutableStateOf(
-            if (initialSnapshot.profile != null) {
+            if (appSession.hasProfile) {
                 TrailMateScreen.HOME
             } else {
                 TrailMateScreen.ONBOARDING
@@ -43,7 +46,7 @@ fun TrailMateApp(sessionStore: TrailMateSessionStore? = null) {
         )
     }
     var baselineProfile by rememberSaveable(stateSaver = BaselineProfileStateSaver) {
-        mutableStateOf(initialSnapshot.profile ?: TrailMateSampleData.baselineProfile)
+        mutableStateOf(appSession.baselineProfile)
     }
 
     Surface(
@@ -53,6 +56,7 @@ fun TrailMateApp(sessionStore: TrailMateSessionStore? = null) {
         when (screen) {
             TrailMateScreen.ONBOARDING -> OnboardingScreen(
                 onComplete = { profile ->
+                    appSession = appSession.withProfile(profile)
                     baselineProfile = profile
                     activeSessionStore.saveProfile(profile)
                     screen = TrailMateScreen.HOME
@@ -60,10 +64,22 @@ fun TrailMateApp(sessionStore: TrailMateSessionStore? = null) {
             )
             TrailMateScreen.HOME -> HomeScreen(
                 profile = baselineProfile,
-                initialInventory = initialSnapshot.inventory,
-                initialImportedRoute = initialSnapshot.importedRoute,
-                onInventoryChanged = activeSessionStore::saveInventory,
-                onRouteImported = activeSessionStore::saveImportedRoute
+                initialInventory = appSession.snapshot.inventory,
+                initialImportedRoute = appSession.snapshot.importedRoute,
+                onInventoryChanged = { inventory ->
+                    appSession = appSession.withInventory(inventory)
+                    activeSessionStore.saveInventory(inventory)
+                },
+                onRouteImported = { route ->
+                    appSession = appSession.withImportedRoute(route)
+                    activeSessionStore.saveImportedRoute(route)
+                },
+                onClearLocalData = {
+                    activeSessionStore.clear()
+                    appSession = appSession.clear()
+                    baselineProfile = TrailMateSampleData.baselineProfile
+                    screen = TrailMateScreen.ONBOARDING
+                }
             )
         }
     }
