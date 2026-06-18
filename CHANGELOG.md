@@ -8,6 +8,7 @@
 - Added a target-route sample GPX import gate before showing route assessment, light navigation, plan, and gear tabs.
 - Added a tested target-route GPX parser for track/route points, route name, distance, ascent, and point count.
 - Added an Android system file-picker route import path with recoverable GPX parse errors.
+- Added a prototype GPX import queue state with parsed, importing, failed, and retry-available UI feedback.
 - Added a deterministic questionnaire-based route assessment engine and wired route detail to dynamic assessment results.
 - Added deterministic hike plan checkpoints and wired the Route/Plan tabs to the imported GPX route assessment.
 - Added Active Hike prototype controls for starting, pausing, resuming, and advancing light-navigation checkpoints.

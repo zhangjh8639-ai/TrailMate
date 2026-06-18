@@ -26,6 +26,7 @@
 - [x] Add tested target-route GPX parser for track/route points, distance, ascent, and point count.
 - [x] Harden prototype GPX XML parsing against DOCTYPE/XXE and mixed track/route ordering.
 - [x] Add Android system file-picker route import path with recoverable parse errors.
+- [x] Add prototype GPX import queue and retry-available UI state.
 - [x] Add deterministic questionnaire-based route assessment engine.
 - [x] Wire route detail tabs to dynamic assessment results after target route import.
 - [x] Add deterministic hike plan checkpoints for the Route and Plan tabs after target route import.

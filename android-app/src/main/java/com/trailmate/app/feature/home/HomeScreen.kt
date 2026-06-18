@@ -33,6 +33,8 @@ import com.trailmate.app.core.design.TrailMatePanel
 import com.trailmate.app.core.design.TrailMatePanelTone
 import com.trailmate.app.core.design.TrailMateSegmentedControl
 import com.trailmate.app.core.gpx.TargetRouteImportState
+import com.trailmate.app.core.gpx.TargetRouteImportQueueState
+import com.trailmate.app.core.gpx.TargetRouteImportQueueSummary
 import com.trailmate.app.core.gpx.TargetRouteImporter
 import com.trailmate.app.core.persistence.TrailMateDataControlEngine
 import com.trailmate.app.core.persistence.TrailMateDataControlSummary
@@ -67,29 +69,13 @@ fun HomeScreen(
     val importScope = rememberCoroutineScope()
     var selectedSection by rememberSaveable { mutableStateOf(HomeSection.Route) }
     var requestedGearCategory by rememberSaveable { mutableStateOf("Trekking poles") }
-    var routeImported by rememberSaveable { mutableStateOf(initialImportedRoute != null) }
-    var routeImporting by remember { mutableStateOf(false) }
-    var routeImportError by rememberSaveable { mutableStateOf<String?>(null) }
-    var routeName by rememberSaveable { mutableStateOf(initialImportedRoute?.routeName.orEmpty()) }
-    var routeFileName by rememberSaveable { mutableStateOf(initialImportedRoute?.fileName.orEmpty()) }
-    var routeDistanceKm by rememberSaveable { mutableStateOf(initialImportedRoute?.distanceKm ?: 0.0) }
-    var routeAscentMeters by rememberSaveable { mutableStateOf(initialImportedRoute?.ascentMeters ?: 0) }
-    var routePointCount by rememberSaveable { mutableStateOf(initialImportedRoute?.pointCount ?: 0) }
+    var routeImportQueue by rememberSaveable(stateSaver = TargetRouteImportQueueStateSaver) {
+        mutableStateOf(TargetRouteImportQueueState.fromRoute(initialImportedRoute))
+    }
     var inventory by rememberSaveable(stateSaver = GearInventoryStateSaver) {
         mutableStateOf(initialInventory)
     }
-    val importedRoute = if (routeImported) {
-        ImportedRoute(
-            routeName = routeName,
-            fileName = routeFileName,
-            distanceKm = routeDistanceKm,
-            ascentMeters = routeAscentMeters,
-            status = RouteImportStatus.PARSED,
-            pointCount = routePointCount
-        )
-    } else {
-        null
-    }
+    val importedRoute = routeImportQueue.lastImportedRoute
     val routeAssessment = importedRoute?.takeIf { it.readyForAssessment() }?.let { route ->
         RouteAssessmentEngine.assess(profile = profile, route = route)
     }
@@ -111,33 +97,19 @@ fun HomeScreen(
         )
     )
     val applyImportState: (TargetRouteImportState) -> Unit = { state ->
-        when (state) {
-            TargetRouteImportState.Empty -> Unit
-            is TargetRouteImportState.Imported -> {
-                routeName = state.route.routeName
-                routeFileName = state.route.fileName
-                routeDistanceKm = state.route.distanceKm
-                routeAscentMeters = state.route.ascentMeters
-                routePointCount = state.route.pointCount
-                routeImported = true
-                routeImportError = null
-                onRouteImported(state.route)
-            }
-            is TargetRouteImportState.Failed -> {
-                routeImportError = "${state.fileName}: ${state.message}"
-            }
+        routeImportQueue = routeImportQueue.complete(state)
+        if (state is TargetRouteImportState.Imported) {
+            onRouteImported(state.route)
         }
     }
     val routePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
-            routeImporting = true
-            routeImportError = null
+            routeImportQueue = routeImportQueue.start("selected-route.gpx")
             importScope.launch {
                 val state = withContext(Dispatchers.IO) {
                     context.importRouteFromUri(uri)
                 }
                 applyImportState(state)
-                routeImporting = false
             }
         }
     }
@@ -192,12 +164,14 @@ fun HomeScreen(
             HomeSection.Route -> {
                 RouteImportPanel(
                     importedRoute = importedRoute,
-                    isImporting = routeImporting,
-                    importError = routeImportError,
+                    importSummary = routeImportQueue.summary(),
+                    isImporting = routeImportQueue.isImporting,
+                    canRetry = routeImportQueue.canRetry,
                     onPickRouteFile = {
                         routePicker.launch(GPX_MIME_TYPES)
                     },
                     onImportSampleRoute = {
+                        routeImportQueue = routeImportQueue.start("longjing-ridge-target.gpx")
                         applyImportState(TargetRouteImporter.importText(
                             fileName = "longjing-ridge-target.gpx",
                             content = TrailMateSampleData.sampleTargetGpx
@@ -300,8 +274,9 @@ private fun DataControlPanel(
 @Composable
 private fun RouteImportPanel(
     importedRoute: ImportedRoute?,
+    importSummary: TargetRouteImportQueueSummary,
     isImporting: Boolean,
-    importError: String?,
+    canRetry: Boolean,
     onPickRouteFile: () -> Unit,
     onImportSampleRoute: () -> Unit
 ) {
@@ -312,6 +287,7 @@ private fun RouteImportPanel(
             caption = "Pick a target route before viewing assessment, light navigation, plan, and gear checks.",
             tone = TrailMatePanelTone.Primary
         )
+        ImportQueuePanel(importSummary = importSummary, canRetry = canRetry)
         Button(
             onClick = onPickRouteFile,
             modifier = Modifier.fillMaxWidth(),
@@ -326,13 +302,14 @@ private fun RouteImportPanel(
         ) {
             Text("Use sample GPX")
         }
-        if (importError != null) {
-            TrailMatePanel(
-                title = "Import issue",
-                value = "Check GPX",
-                caption = importError,
-                tone = TrailMatePanelTone.Secondary
-            )
+        if (canRetry) {
+            OutlinedButton(
+                onClick = onPickRouteFile,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isImporting
+            ) {
+                Text("Retry GPX import")
+            }
         }
     } else {
         TrailMatePanel(
@@ -341,6 +318,7 @@ private fun RouteImportPanel(
             caption = "${importedRoute.fileName} / ${importedRoute.summaryLabel()} / ${importedRoute.pointCount} points",
             tone = TrailMatePanelTone.Primary
         )
+        ImportQueuePanel(importSummary = importSummary, canRetry = canRetry)
         Button(
             onClick = onPickRouteFile,
             modifier = Modifier.fillMaxWidth(),
@@ -348,15 +326,29 @@ private fun RouteImportPanel(
         ) {
             Text(if (isImporting) "Importing GPX" else "Replace GPX file")
         }
-        if (importError != null) {
-            TrailMatePanel(
-                title = "Import issue",
-                value = "Keeping current route",
-                caption = importError,
-                tone = TrailMatePanelTone.Secondary
-            )
+        if (canRetry) {
+            OutlinedButton(
+                onClick = onPickRouteFile,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isImporting
+            ) {
+                Text("Retry GPX import")
+            }
         }
     }
+}
+
+@Composable
+private fun ImportQueuePanel(
+    importSummary: TargetRouteImportQueueSummary,
+    canRetry: Boolean
+) {
+    TrailMatePanel(
+        title = "Import queue",
+        value = importSummary.value,
+        caption = importSummary.caption,
+        tone = if (canRetry) TrailMatePanelTone.Secondary else TrailMatePanelTone.Neutral
+    )
 }
 
 private fun ExerciseFrequency.homeLabel(): String =
@@ -411,6 +403,43 @@ private val GearInventoryStateSaver = mapSaver(
                     available = availability[index]
                 )
             }
+        )
+    }
+)
+
+@Suppress("UNCHECKED_CAST")
+private val TargetRouteImportQueueStateSaver = mapSaver(
+    save = { queue ->
+        val route = queue.lastImportedRoute
+        mapOf(
+            "routeName" to route?.routeName.orEmpty(),
+            "fileName" to route?.fileName.orEmpty(),
+            "distanceKm" to (route?.distanceKm ?: -1.0),
+            "ascentMeters" to (route?.ascentMeters ?: -1),
+            "pointCount" to (route?.pointCount ?: -1),
+            "failedFileName" to queue.failedFileName.orEmpty(),
+            "failureMessage" to queue.failureMessage.orEmpty()
+        )
+    },
+    restore = { saved ->
+        val routeName = saved["routeName"] as String
+        val route = if (routeName.isBlank()) {
+            null
+        } else {
+            ImportedRoute(
+                routeName = routeName,
+                fileName = saved["fileName"] as String,
+                distanceKm = saved["distanceKm"] as Double,
+                ascentMeters = saved["ascentMeters"] as Int,
+                status = RouteImportStatus.PARSED,
+                pointCount = saved["pointCount"] as Int
+            )
+        }
+
+        TargetRouteImportQueueState(
+            lastImportedRoute = route,
+            failedFileName = (saved["failedFileName"] as String).ifBlank { null },
+            failureMessage = (saved["failureMessage"] as String).ifBlank { null }
         )
     }
 )

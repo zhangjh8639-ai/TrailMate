@@ -1114,6 +1114,7 @@ Type consistency:
 - Added a target-route import gate so route assessment, light navigation, plan, and gear tabs appear after a GPX import action rather than as the default Home state.
 - Added a tested target-route GPX parser for trkpt/rtept points, route name, distance, ascent, and point count, currently wired to the sample import action. The parser rejects DOCTYPE declarations and chooses track points before route points when both are present.
 - Added Android `OpenDocument` route import wiring so users can pick a GPX file through the system picker; parse failures are shown as recoverable UI errors while any previous valid route remains available.
+- Added a prototype target-route import queue state so GPX import UI can show ready, importing, parsed, failed, and retry-available states while preserving the current valid route after a failed replacement.
 - Added a deterministic route assessment engine that uses the temporary questionnaire profile plus parsed route distance/ascent to produce match level, confidence, duration range, and risk text.
 - Added a deterministic hike plan engine that converts the imported route assessment into start, energy, rest, risk, and finish checkpoints, and wired Route/Plan tabs to those checkpoints.
 - Added an Active Hike route-tab prototype so users can start, pause/resume, advance to the next deterministic checkpoint, and see progress without claiming GPS-grade navigation yet.

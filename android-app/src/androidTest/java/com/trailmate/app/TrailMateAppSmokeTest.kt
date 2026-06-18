@@ -384,6 +384,8 @@ class TrailMateAppSmokeTest {
         }
 
         compose.onNodeWithText("Import GPX").assertExists()
+        compose.onNodeWithText("Import queue").assertExists()
+        compose.onNodeWithText("Ready for GPX").assertExists()
         compose.onNodeWithText("Choose GPX file").assertExists()
         compose.onAllNodesWithText("15.2 km").assertCountEquals(0)
         compose.onAllNodesWithText("Assessment").assertCountEquals(0)
@@ -391,6 +393,7 @@ class TrailMateAppSmokeTest {
         compose.onNodeWithText("Use sample GPX").performClick()
 
         compose.onNodeWithText("Imported GPX").assertExists()
+        compose.onNodeWithText("Parsed").assertExists()
         compose.onNodeWithText("3 points", substring = true).assertExists()
         compose.onNodeWithText("Assessment").assertExists()
         compose.onNodeWithText("CAUTION").assertExists()
