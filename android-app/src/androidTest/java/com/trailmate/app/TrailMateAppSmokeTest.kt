@@ -214,6 +214,8 @@ class TrailMateAppSmokeTest {
         }
 
         compose.onNodeWithText("Gear").performClick()
+        compose.onNodeWithText("AI advisor").assertExists()
+        compose.onNodeWithText("Fallback active").assertExists()
         compose.onNodeWithText("Rain shell").assertExists()
         compose.onNodeWithText("Matched with Patagonia Torrentshell.", substring = true).assertExists()
         compose.onNodeWithText("Extra water").assertExists()

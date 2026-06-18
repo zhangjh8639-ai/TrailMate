@@ -1118,9 +1118,10 @@ Type consistency:
 - Added a deterministic hike plan engine that converts the imported route assessment into start, energy, rest, risk, and finish checkpoints, and wired Route/Plan tabs to those checkpoints.
 - Added an Active Hike route-tab prototype so users can start, pause/resume, advance to the next deterministic checkpoint, and see progress without claiming GPS-grade navigation yet.
 - Added a deterministic route-aware gear advisor fallback so route distance, ascent, ETA, and concrete route risks generate the Gear tab checklist while leaving route assessment unchanged.
+- Added an AI gear advisor request/response contract with assessment fingerprint validation and a Gear-tab fallback-active status, while keeping real backend service integration pending.
 - Added `GearInventory` rules so available owned gear can satisfy matching route recommendations without changing deterministic route assessment values.
 - Added a prototype `SharedPreferences` snapshot store with a tested codec so baseline profile, personal gear, and the last imported target route can be restored after app restart.
 - Added a Home-level `Route` / `My Gear` switch, a saveable in-memory My Gear add form, availability switches, delete actions, and route Gear-tab actions that send missing categories into the inventory form.
 - Added a My Gear `Inventory` / `Details` split plus per-item route readiness summaries so owned brand gear can show why it does or does not satisfy the current route checklist.
 - Added unit tests for gear inventory matching, detail summaries, unavailable/deleted gear, optional brand/model entry, invalid input rejection, and Compose smoke-test coverage for the My Gear screen, details tab, matched gear copy, and route-to-gear add flow.
-- Still pending for production: real auth, production import queue/retry state machine, historical GPX capability profile, GPS/location-backed navigation session, Room persistence, profile/gear sync, edit/delete/export behavior, and a real AI gear advisor backend contract.
+- Still pending for production: real auth, production import queue/retry state machine, historical GPX capability profile, GPS/location-backed navigation session, Room persistence, profile/gear sync, edit/delete/export behavior, and real AI gear advisor service integration.

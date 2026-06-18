@@ -31,6 +31,8 @@ import com.trailmate.app.core.design.TrailMateMetricRow
 import com.trailmate.app.core.design.TrailMatePanel
 import com.trailmate.app.core.design.TrailMatePanelTone
 import com.trailmate.app.core.design.TrailMateSegmentedControl
+import com.trailmate.app.core.model.AiGearAdvisorContract
+import com.trailmate.app.core.model.AiGearAdvisorRequest
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.GearItem
@@ -62,6 +64,13 @@ fun RouteDetailScreen(
     val plan = HikePlanEngine.build(route = route, assessment = assessment)
     val resolvedGearRecommendations = gearRecommendations ?: inventory.applyTo(
         RouteGearAdvisorEngine.recommend(route = route, assessment = assessment)
+    )
+    val aiGearAdvisorRequest = AiGearAdvisorContract.buildRequest(
+        route = route,
+        profile = profile,
+        assessment = assessment,
+        inventory = inventory,
+        fallbackRecommendations = resolvedGearRecommendations
     )
     val routeSessionKey = route.sessionKey()
     var selected by rememberSaveable { mutableStateOf(RouteDetailTab.Assessment) }
@@ -101,6 +110,7 @@ fun RouteDetailScreen(
             RouteDetailTab.Gear -> GearTab(
                 recommendations = resolvedGearRecommendations,
                 inventory = inventory,
+                aiGearAdvisorRequest = aiGearAdvisorRequest,
                 onAddGearRequested = onAddGearRequested
             )
         }
@@ -258,9 +268,20 @@ private fun PlanTab(plan: HikePlanSummary) {
 private fun GearTab(
     recommendations: List<GearRecommendation>,
     inventory: GearInventory,
+    aiGearAdvisorRequest: AiGearAdvisorRequest,
     onAddGearRequested: (String) -> Unit
 ) {
+    val aiAdvisorCaption =
+        "${aiGearAdvisorRequest.fallbackRecommendations.size} checks prepared; " +
+            "route assessment locked to ${aiGearAdvisorRequest.assessment.matchLevel.name}."
+
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        TrailMatePanel(
+            title = "AI advisor",
+            value = "Fallback active",
+            caption = aiAdvisorCaption,
+            tone = TrailMatePanelTone.Neutral
+        )
         recommendations.forEach { item ->
             val matchedItem = item.matchedGearItemId?.let { matchedId ->
                 inventory.items.firstOrNull { it.id == matchedId }
