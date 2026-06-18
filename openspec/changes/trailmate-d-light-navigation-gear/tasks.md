@@ -53,7 +53,7 @@
 - [x] Define prototype gear inventory persistence in the local snapshot.
 - [x] Define prototype gear detail view and route readiness summary.
 - [x] Define prototype local delete/export controls for profile, route, and gear data.
-- [ ] Define production cloud delete/export rules for profile and gear data.
+- [x] Define production cloud delete/export rules for profile and gear data.
 - [x] Define prototype route experience navigation tabs and Active Hike controls in Android.
 - [x] Define location-backed hike session core.
 - [x] Define AI gear advisor backend contract shape and Android validation.

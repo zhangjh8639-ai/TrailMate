@@ -156,7 +156,9 @@ Privacy:
 - Gear and body metrics are private.
 - Prompts should use the minimum fields required.
 - Do not log AI prompts containing personal profile or exact route detail.
-- Export and delete workflows must include baseline profile, gear inventory, and gear checklist records.
+- Cloud profile/gear export includes baseline profile, gear inventory, related gear checklist records, and an audit record. It does not include imported target routes, historical GPX activities, or persisted GPX import queue jobs; those require separate route/GPX export scopes.
+- Cloud profile/gear delete removes account profile, gear inventory, related checklist artifacts, local profile/gear caches, and an audit tombstone. It does not delete route library records, historical GPX evidence, or persisted GPX import queue jobs in the same operation.
+- Pending sync or conflict state may allow a stale-labeled export snapshot, but must block cloud profile/gear deletion until sync or conflict resolution completes.
 
 ## Failure Modes
 

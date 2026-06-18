@@ -34,4 +34,5 @@
 - Added a Data tab with local export preview and confirmed clear-local-data flow returning users to onboarding.
 - Improved the Data tab export preview with readable local data summaries.
 - Fixed local clear-data state so re-onboarding cannot resurrect a previously imported route or gear inventory.
+- Defined production cloud export/delete rules for profile and gear data without sweeping route or historical GPX evidence into the same operation.
 - Added unit and Compose smoke-test coverage for baseline profile confidence, AI gear boundaries, onboarding, and route tabs.
