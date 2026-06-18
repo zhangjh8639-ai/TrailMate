@@ -24,7 +24,7 @@ import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.AscentExperience
 import com.trailmate.app.core.model.TrailMateSampleData
 import com.trailmate.app.core.model.TypicalDuration
-import com.trailmate.app.core.persistence.TrailMateSessionStore
+import com.trailmate.app.core.persistence.TrailMateSessionRepository
 import com.trailmate.app.core.persistence.TrailMateSnapshot
 import com.trailmate.app.feature.gear.MyGearScreen
 import com.trailmate.app.feature.home.HomeScreen
@@ -42,7 +42,7 @@ class TrailMateAppSmokeTest {
     fun showsTrailMateOnboarding() {
         compose.setContent {
             TrailMateTheme {
-                TrailMateApp(sessionStore = FakeTrailMateSessionStore())
+                TrailMateApp(sessionRepository = FakeTrailMateSessionRepository())
             }
         }
 
@@ -54,7 +54,7 @@ class TrailMateAppSmokeTest {
     fun onboardingCollectsBaselineProfileBeforeHome() {
         compose.setContent {
             TrailMateTheme {
-                TrailMateApp(sessionStore = FakeTrailMateSessionStore())
+                TrailMateApp(sessionRepository = FakeTrailMateSessionRepository())
             }
         }
 
@@ -74,7 +74,7 @@ class TrailMateAppSmokeTest {
         compose.setContent {
             TrailMateTheme {
                 TrailMateApp(
-                    sessionStore = FakeTrailMateSessionStore(
+                    sessionRepository = FakeTrailMateSessionRepository(
                         TrailMateSnapshot(
                             profile = savedProfile(),
                             historicalActivities = TrailMateSampleData.historicalActivities
@@ -93,11 +93,11 @@ class TrailMateAppSmokeTest {
 
     @Test
     fun onboardingSavePersistsProfile() {
-        val store = FakeTrailMateSessionStore()
+        val store = FakeTrailMateSessionRepository()
 
         compose.setContent {
             TrailMateTheme {
-                TrailMateApp(sessionStore = store)
+                TrailMateApp(sessionRepository = store)
             }
         }
 
@@ -116,7 +116,7 @@ class TrailMateAppSmokeTest {
     fun onboardingSkipDoesNotFabricateBodyMetrics() {
         compose.setContent {
             TrailMateTheme {
-                TrailMateApp(sessionStore = FakeTrailMateSessionStore())
+                TrailMateApp(sessionRepository = FakeTrailMateSessionRepository())
             }
         }
 
@@ -347,7 +347,7 @@ class TrailMateAppSmokeTest {
 
     @Test
     fun dataTabShowsExportPreviewAndClearsLocalData() {
-        val store = FakeTrailMateSessionStore(
+        val store = FakeTrailMateSessionRepository(
             TrailMateSnapshot(
                 profile = savedProfile(),
                 inventory = GearInventory(TrailMateSampleData.gearItems),
@@ -357,7 +357,7 @@ class TrailMateAppSmokeTest {
 
         compose.setContent {
             TrailMateTheme {
-                TrailMateApp(sessionStore = store)
+                TrailMateApp(sessionRepository = store)
             }
         }
 
@@ -482,13 +482,13 @@ class TrailMateAppSmokeTest {
             commonPackWeightKg = 7
         )
 
-    private class FakeTrailMateSessionStore(
+    private class FakeTrailMateSessionRepository(
         initialSnapshot: TrailMateSnapshot = TrailMateSnapshot()
-    ) : TrailMateSessionStore {
+    ) : TrailMateSessionRepository {
         var snapshot: TrailMateSnapshot = initialSnapshot
             private set
 
-        override fun load(): TrailMateSnapshot = snapshot
+        override fun loadSnapshot(): TrailMateSnapshot = snapshot
 
         override fun saveProfile(profile: BaselineProfile) {
             snapshot = snapshot.copy(profile = profile)
@@ -506,7 +506,7 @@ class TrailMateAppSmokeTest {
             snapshot = snapshot.copy(historicalActivities = historicalActivities)
         }
 
-        override fun clear() {
+        override fun clearLocalData() {
             snapshot = TrailMateSnapshot.empty()
         }
     }

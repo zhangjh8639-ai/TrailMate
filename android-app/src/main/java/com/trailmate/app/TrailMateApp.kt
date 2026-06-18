@@ -18,8 +18,9 @@ import com.trailmate.app.core.model.ExerciseFrequency
 import com.trailmate.app.core.model.ExperienceLevel
 import com.trailmate.app.core.model.TrailMateSampleData
 import com.trailmate.app.core.model.TypicalDuration
+import com.trailmate.app.core.persistence.LocalTrailMateSessionRepository
 import com.trailmate.app.core.persistence.SharedPreferencesTrailMateSessionStore
-import com.trailmate.app.core.persistence.TrailMateSessionStore
+import com.trailmate.app.core.persistence.TrailMateSessionRepository
 import com.trailmate.app.feature.home.HomeScreen
 import com.trailmate.app.feature.onboarding.OnboardingScreen
 
@@ -29,11 +30,11 @@ enum class TrailMateScreen {
 }
 
 @Composable
-fun TrailMateApp(sessionStore: TrailMateSessionStore? = null) {
-    val defaultSessionStore = rememberTrailMateSessionStore()
-    val activeSessionStore = sessionStore ?: defaultSessionStore
-    val initialSnapshot = remember(activeSessionStore) { activeSessionStore.load() }
-    var appSession by remember(activeSessionStore) {
+fun TrailMateApp(sessionRepository: TrailMateSessionRepository? = null) {
+    val defaultSessionRepository = rememberTrailMateSessionRepository()
+    val activeSessionRepository = sessionRepository ?: defaultSessionRepository
+    val initialSnapshot = remember(activeSessionRepository) { activeSessionRepository.loadSnapshot() }
+    var appSession by remember(activeSessionRepository) {
         mutableStateOf(TrailMateAppSession(initialSnapshot))
     }
     var screen by rememberSaveable {
@@ -58,7 +59,7 @@ fun TrailMateApp(sessionStore: TrailMateSessionStore? = null) {
                 onComplete = { profile ->
                     appSession = appSession.withProfile(profile)
                     baselineProfile = profile
-                    activeSessionStore.saveProfile(profile)
+                    activeSessionRepository.saveProfile(profile)
                     screen = TrailMateScreen.HOME
                 }
             )
@@ -69,18 +70,18 @@ fun TrailMateApp(sessionStore: TrailMateSessionStore? = null) {
                 initialHistoricalActivities = appSession.snapshot.historicalActivities,
                 onInventoryChanged = { inventory ->
                     appSession = appSession.withInventory(inventory)
-                    activeSessionStore.saveInventory(inventory)
+                    activeSessionRepository.saveInventory(inventory)
                 },
                 onRouteImported = { route ->
                     appSession = appSession.withImportedRoute(route)
-                    activeSessionStore.saveImportedRoute(route)
+                    activeSessionRepository.saveImportedRoute(route)
                 },
                 onHistoricalActivitiesChanged = { historicalActivities ->
                     appSession = appSession.withHistoricalActivities(historicalActivities)
-                    activeSessionStore.saveHistoricalActivities(historicalActivities)
+                    activeSessionRepository.saveHistoricalActivities(historicalActivities)
                 },
                 onClearLocalData = {
-                    activeSessionStore.clear()
+                    activeSessionRepository.clearLocalData()
                     appSession = appSession.clear()
                     baselineProfile = TrailMateSampleData.baselineProfile
                     screen = TrailMateScreen.ONBOARDING
@@ -91,11 +92,11 @@ fun TrailMateApp(sessionStore: TrailMateSessionStore? = null) {
 }
 
 @Composable
-private fun rememberTrailMateSessionStore(): TrailMateSessionStore {
+private fun rememberTrailMateSessionRepository(): TrailMateSessionRepository {
     val context = LocalContext.current
 
     return remember(context) {
-        SharedPreferencesTrailMateSessionStore(context)
+        LocalTrailMateSessionRepository(SharedPreferencesTrailMateSessionStore(context))
     }
 }
 

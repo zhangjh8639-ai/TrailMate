@@ -1129,6 +1129,7 @@ Type consistency:
 - Added an AI gear advisor request/response contract with assessment fingerprint validation and a Gear-tab fallback-active status, while keeping real backend service integration pending.
 - Added `GearInventory` rules so available owned gear can satisfy matching route recommendations without changing deterministic route assessment values.
 - Added a prototype `SharedPreferences` snapshot store with a tested codec so baseline profile, personal gear, and the last imported target route can be restored after app restart.
+- Added a local session repository boundary so Compose app state depends on a repository interface while `SharedPreferences` remains a local adapter ahead of Room and cloud sync.
 - Added a Home `Data` tab with local export preview, explicit empty-snapshot encoding, and a clear-local-data flow that returns users to onboarding without resurrecting old route or gear state after re-onboarding.
 - Added a Home-level `Route` / `My Gear` switch, a saveable in-memory My Gear add form, availability switches, delete actions, and route Gear-tab actions that send missing categories into the inventory form.
 - Added a My Gear `Inventory` / `Details` split plus per-item route readiness summaries so owned brand gear can show why it does or does not satisfy the current route checklist.
