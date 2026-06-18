@@ -428,6 +428,12 @@ class TrailMateAppSmokeTest {
         compose.onNodeWithText("3/3 GPX").assertExists()
         compose.onNodeWithText("Longest 18.6 km / +980 m").assertExists()
         compose.onNodeWithText("Average 13.7 km / +720 m", substring = true).assertExists()
+
+        compose.onNodeWithText("Use sample GPX").performClick()
+
+        compose.onNodeWithText("Recommended").assertExists()
+        compose.onNodeWithText("RECOMMENDED").assertExists()
+        compose.onNodeWithText("Historical GPX evidence", substring = true).assertExists()
         assertEquals(TrailMateSampleData.historicalActivities, savedHistory)
     }
 

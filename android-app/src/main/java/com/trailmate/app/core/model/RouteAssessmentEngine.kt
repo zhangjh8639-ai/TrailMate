@@ -1,13 +1,21 @@
 package com.trailmate.app.core.model
 
+import java.util.Locale
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 object RouteAssessmentEngine {
-    fun assess(profile: BaselineProfile, route: ImportedRoute): RouteAssessmentSummary {
+    private const val MIN_HISTORICAL_DISTANCE_KM = 1.0
+    private const val MIN_HISTORICAL_ASCENT_METERS = 100.0
+
+    fun assess(
+        profile: BaselineProfile,
+        route: ImportedRoute,
+        historicalActivities: List<HistoricalActivity> = emptyList()
+    ): RouteAssessmentSummary {
         require(route.readyForAssessment()) { "Route must be parsed before assessment." }
 
-        val capacity = AssessmentCapacity.from(profile)
+        val capacity = AssessmentCapacity.from(profile = profile, historicalActivities = historicalActivities)
         val distanceRatio = route.distanceKm / capacity.stableDistanceKm
         val ascentRatio = route.ascentMeters.toDouble() / capacity.stableAscentMeters
         val distanceRisk = riskForRatio(distanceRatio)
@@ -36,8 +44,8 @@ object RouteAssessmentEngine {
             distanceKm = route.distanceKm,
             ascentMeters = route.ascentMeters,
             matchLevel = matchLevel,
-            confidenceLevel = profile.initialConfidence(),
-            estimatedDurationRange = durationRange(durationHours, profile.initialConfidence()),
+            confidenceLevel = capacity.confidenceLevel,
+            estimatedDurationRange = durationRange(durationHours, capacity.confidenceLevel),
             risks = risks
         )
     }
@@ -96,15 +104,15 @@ object RouteAssessmentEngine {
     ): List<String> {
         val risks = mutableListOf<String>()
         if (distanceRatio > 1.05) {
-            risks += "Distance exceeds questionnaire stable range (${capacity.stableDistanceKm.roundToInt()} km)."
+            risks += "Distance exceeds ${capacity.sourceLabel} stable range (${capacity.stableDistanceKm.roundToInt()} km)."
         }
         if (ascentRatio > 1.05) {
-            risks += "Route ascent exceeds questionnaire ascent range (+${capacity.stableAscentMeters.roundToInt()} m)."
+            risks += "Route ascent exceeds ${capacity.sourceLabel} ascent range (+${capacity.stableAscentMeters.roundToInt()} m)."
         }
         if (route.pointCount < 10) {
             risks += "Route has sparse GPX points; import a detailed track before relying on segment timing."
         }
-        risks += "Confidence stays LOW until at least 3 historical GPX activities are imported."
+        risks += capacity.evidenceLine
 
         return risks
     }
@@ -129,20 +137,48 @@ object RouteAssessmentEngine {
 
     private data class AssessmentCapacity(
         val stableDistanceKm: Double,
-        val stableAscentMeters: Double
+        val stableAscentMeters: Double,
+        val confidenceLevel: ConfidenceLevel,
+        val sourceLabel: String,
+        val evidenceLine: String
     ) {
         companion object {
-            fun from(profile: BaselineProfile): AssessmentCapacity =
-                AssessmentCapacity(
+            fun from(
+                profile: BaselineProfile,
+                historicalActivities: List<HistoricalActivity>
+            ): AssessmentCapacity {
+                if (historicalActivities.size >= 3) {
+                    val longestDistance = historicalActivities.maxOf { activity -> activity.distanceKm }
+                    val longestAscent = historicalActivities.maxOf { activity -> activity.ascentMeters }
+
+                    return AssessmentCapacity(
+                        stableDistanceKm = longestDistance.coerceAtLeast(MIN_HISTORICAL_DISTANCE_KM),
+                        stableAscentMeters = longestAscent.toDouble().coerceAtLeast(MIN_HISTORICAL_ASCENT_METERS),
+                        confidenceLevel = ConfidenceLevel.MEDIUM,
+                        sourceLabel = "historical GPX",
+                        evidenceLine = "Historical GPX evidence covers up to ${
+                            String.format(Locale.US, "%.1f", longestDistance)
+                        } km / +$longestAscent m."
+                    )
+                }
+
+                return AssessmentCapacity(
                     stableDistanceKm = profile.stableDistanceKm(),
-                    stableAscentMeters = when (profile.ascentExperience) {
-                        AscentExperience.UNDER_300 -> 300.0
-                        AscentExperience.M300_TO_800 -> 700.0
-                        AscentExperience.OVER_800 -> 1_100.0
-                    }
+                    stableAscentMeters = profile.questionnaireStableAscentMeters(),
+                    confidenceLevel = ConfidenceLevel.LOW,
+                    sourceLabel = "questionnaire",
+                    evidenceLine = "Confidence stays LOW until at least 3 historical GPX activities are imported."
                 )
+            }
         }
     }
+
+    private fun BaselineProfile.questionnaireStableAscentMeters(): Double =
+        when (ascentExperience) {
+            AscentExperience.UNDER_300 -> 300.0
+            AscentExperience.M300_TO_800 -> 700.0
+            AscentExperience.OVER_800 -> 1_100.0
+        }
 
     private fun BaselineProfile.stableDistanceKm(): Double {
         val durationBase = when (typicalDuration) {

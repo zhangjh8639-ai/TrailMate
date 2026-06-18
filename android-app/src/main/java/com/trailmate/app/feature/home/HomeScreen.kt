@@ -88,7 +88,11 @@ fun HomeScreen(
         historicalActivities = historicalActivities
     )
     val routeAssessment = importedRoute?.takeIf { it.readyForAssessment() }?.let { route ->
-        RouteAssessmentEngine.assess(profile = profile, route = route)
+        RouteAssessmentEngine.assess(
+            profile = profile,
+            route = route,
+            historicalActivities = historicalActivities
+        )
     }
     val routeGearRecommendations = if (importedRoute?.readyForAssessment() == true && routeAssessment != null) {
         inventory.applyTo(
@@ -213,6 +217,7 @@ fun HomeScreen(
                         route = importedRoute,
                         profile = profile,
                         inventory = inventory,
+                        routeAssessment = routeAssessment,
                         gearRecommendations = routeGearRecommendations,
                         onAddGearRequested = { category ->
                             requestedGearCategory = category

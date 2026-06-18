@@ -29,6 +29,7 @@ The baseline profile shall provide conservative defaults only when GPX-derived e
 - GIVEN a user has at least three usable historical GPX activities
 - WHEN capability profile recalculation runs
 - THEN GPX-derived stable distance, stable ascent, stable duration, grade speeds, and fatigue curve take precedence over questionnaire defaults
+- AND target route assessment uses GPX-derived stable distance and ascent evidence instead of questionnaire-only capacity
 
 ### Requirement: Body and pack fields shall be optional and non-medical
 

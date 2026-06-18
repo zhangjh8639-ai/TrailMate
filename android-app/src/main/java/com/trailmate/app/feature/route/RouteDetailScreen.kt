@@ -57,10 +57,11 @@ fun RouteDetailScreen(
     route: ImportedRoute = TrailMateSampleData.importedTargetRoute,
     profile: BaselineProfile = TrailMateSampleData.baselineProfile,
     inventory: GearInventory = GearInventory(TrailMateSampleData.gearItems),
+    routeAssessment: RouteAssessmentSummary? = null,
     gearRecommendations: List<GearRecommendation>? = null,
     onAddGearRequested: (String) -> Unit = {}
 ) {
-    val assessment = RouteAssessmentEngine.assess(profile = profile, route = route)
+    val assessment = routeAssessment ?: RouteAssessmentEngine.assess(profile = profile, route = route)
     val plan = HikePlanEngine.build(route = route, assessment = assessment)
     val resolvedGearRecommendations = gearRecommendations ?: inventory.applyTo(
         RouteGearAdvisorEngine.recommend(route = route, assessment = assessment)

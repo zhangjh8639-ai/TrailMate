@@ -1,6 +1,7 @@
 package com.trailmate.app.core.model
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GearAdvisorRulesTest {
@@ -68,6 +69,29 @@ class GearAdvisorRulesTest {
         assertEquals(MatchLevel.RECOMMENDED, assessment.matchLevel)
         assertEquals(GearStatus.CHECK, checklist.first { it.category == "Rain shell" }.status)
         assertEquals(GearStatus.OPTIONAL, checklist.first { it.category == "Trekking poles" }.status)
+        assertEquals(GearStatus.OPTIONAL, checklist.first { it.category == "Warm layer" }.status)
+    }
+
+    @Test
+    fun historicalEvidenceLineDoesNotCountAsConcreteGearRisk() {
+        val route = ImportedRoute(
+            routeName = "Neighborhood Loop",
+            fileName = "neighborhood-loop.gpx",
+            distanceKm = 3.2,
+            ascentMeters = 80,
+            status = RouteImportStatus.PARSED,
+            pointCount = 40
+        )
+        val assessment = RouteAssessmentEngine.assess(
+            profile = TrailMateSampleData.baselineProfile,
+            route = route,
+            historicalActivities = TrailMateSampleData.historicalActivities
+        )
+
+        val checklist = RouteGearAdvisorEngine.recommend(route = route, assessment = assessment)
+
+        assertEquals(ConfidenceLevel.MEDIUM, assessment.confidenceLevel)
+        assertTrue(assessment.risks.any { it.contains("Historical GPX evidence", ignoreCase = true) })
         assertEquals(GearStatus.OPTIONAL, checklist.first { it.category == "Warm layer" }.status)
     }
 }

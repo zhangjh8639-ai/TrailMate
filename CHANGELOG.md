@@ -13,6 +13,7 @@
 - Added deterministic hike plan checkpoints and wired the Route/Plan tabs to the imported GPX route assessment.
 - Added Active Hike prototype controls for starting, pausing, resuming, and advancing light-navigation checkpoints.
 - Added a prototype historical GPX capability profile summary with sample-history calibration from questionnaire fallback to GPX evidence.
+- Wired prototype historical GPX capability evidence into route assessment confidence, risk text, and match level.
 - Persisted prototype historical GPX activities in the local snapshot and Data export preview.
 - Added a deterministic route-aware gear advisor fallback for the Gear tab while keeping route risk scoring separate.
 - Added an AI gear advisor request/response contract with assessment fingerprint validation and a fallback-active Gear tab status.

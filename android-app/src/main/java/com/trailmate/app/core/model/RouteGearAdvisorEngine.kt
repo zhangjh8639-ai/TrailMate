@@ -10,9 +10,7 @@ object RouteGearAdvisorEngine {
         val longRoute = route.distanceKm >= 10.0
         val highAscent = route.ascentMeters >= 600
         val lateOrLong = upperDurationMinutes(assessment.estimatedDurationRange) >= 300
-        val hasConcreteRouteRisk = assessment.risks.any { risk ->
-            !risk.contains("confidence", ignoreCase = true)
-        }
+        val hasConcreteRouteRisk = assessment.risks.any { risk -> risk.isConcreteRouteRisk() }
 
         return listOf(
             GearRecommendation(
@@ -58,6 +56,11 @@ object RouteGearAdvisorEngine {
             )
         )
     }
+
+    private fun String.isConcreteRouteRisk(): Boolean =
+        startsWith("Distance exceeds", ignoreCase = true) ||
+            startsWith("Route ascent exceeds", ignoreCase = true) ||
+            startsWith("Route has sparse GPX points", ignoreCase = true)
 
     private fun upperDurationMinutes(estimatedDurationRange: String): Int {
         val upperText = estimatedDurationRange.substringAfter("-", estimatedDurationRange).trim()

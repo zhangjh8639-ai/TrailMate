@@ -32,6 +32,7 @@
 - [x] Add deterministic hike plan checkpoints for the Route and Plan tabs after target route import.
 - [x] Add Active Hike prototype controls for start, pause/resume, and checkpoint advancement.
 - [x] Add prototype historical GPX capability profile summary with sample-history calibration.
+- [x] Use prototype historical GPX capability evidence in route assessment confidence, risk text, and match level.
 - [x] Persist prototype historical GPX activities in the local snapshot and export preview.
 - [x] Add local snapshot persistence for baseline profile, imported route, and personal gear state.
 - [x] Add local Data tab with export preview and clear-local-data flow.
@@ -43,7 +44,7 @@
 - [x] Define baseline profile persistence and privacy rules for the prototype local snapshot.
 - [ ] Define real auth integration and post-login profile sync.
 - [ ] Define production GPX import queue, persistence, and retry state machine.
-- [ ] Replace questionnaire fallback capacity with historical GPX capability profile.
+- [ ] Replace questionnaire fallback capacity with production historical GPX capability profile.
 - [x] Define prototype gear inventory persistence in the local snapshot.
 - [x] Define prototype gear detail view and route readiness summary.
 - [x] Define prototype local delete/export controls for profile, route, and gear data.
