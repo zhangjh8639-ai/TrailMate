@@ -76,7 +76,7 @@ The Route tab shows:
 - next checkpoint summary
 - saved offline plan access
 
-Foreground current-location display can be added if permission is granted and the route screen is open. Background GPS, turn-by-turn navigation, and deviation alerts remain later-stage work.
+Foreground current-location display can be added if permission is granted and the route screen is open. Location-backed hike sessions may use accurate foreground fixes to advance checkpoints, ignore low-accuracy fixes, and prompt a route check when the fix is far from the planned line. This remains light route following: background GPS, turn-by-turn navigation, guaranteed deviation detection, voice guidance, and rescue workflows remain later-stage work.
 
 ## GPX Import Queue
 

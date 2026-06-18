@@ -14,6 +14,7 @@
 - Added a deterministic questionnaire-based route assessment engine and wired route detail to dynamic assessment results.
 - Added deterministic hike plan checkpoints and wired the Route/Plan tabs to the imported GPX route assessment.
 - Added Active Hike prototype controls for starting, pausing, resuming, and advancing light-navigation checkpoints.
+- Added a location-backed hike session engine for foreground GPS-assisted checkpoint progress, low-accuracy guards, and route-check prompts while keeping manual progress available.
 - Added a prototype historical GPX capability profile summary with sample-history calibration from questionnaire fallback to GPX evidence.
 - Added an Android system file-picker historical GPX import path with partial failure reporting.
 - Added a local historical activity list with duplicate suppression and remove controls.

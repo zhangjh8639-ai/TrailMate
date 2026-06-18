@@ -55,7 +55,7 @@
 - [x] Define prototype local delete/export controls for profile, route, and gear data.
 - [ ] Define production cloud delete/export rules for profile and gear data.
 - [x] Define prototype route experience navigation tabs and Active Hike controls in Android.
-- [ ] Define production GPS/location-backed navigation session.
+- [x] Define location-backed hike session core.
 - [x] Define AI gear advisor backend contract shape and Android validation.
 - [ ] Connect production AI gear advisor backend service.
 - [x] Define deterministic fallback gear checklist.

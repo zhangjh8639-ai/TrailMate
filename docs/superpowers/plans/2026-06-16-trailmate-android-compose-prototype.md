@@ -1120,6 +1120,7 @@ Type consistency:
 - Added a deterministic route assessment engine that uses the temporary questionnaire profile plus parsed route distance/ascent to produce match level, confidence, duration range, and risk text.
 - Added a deterministic hike plan engine that converts the imported route assessment into start, energy, rest, risk, and finish checkpoints, and wired Route/Plan tabs to those checkpoints.
 - Added an Active Hike route-tab prototype so users can start, pause/resume, advance to the next deterministic checkpoint, and see progress without claiming GPS-grade navigation yet.
+- Added a location-backed hike session engine so accurate foreground GPS fixes can advance checkpoints, low-accuracy fixes are ignored, and route-check prompts stay inside light-navigation safety boundaries.
 - Added a prototype historical GPX capability profile summary so Home can move from questionnaire fallback to a sample-history evidence profile after three local activities.
 - Added Android `OpenMultipleDocuments` historical GPX import so real local GPX files can append capability evidence with partial failure reporting.
 - Added a local historical activity list so users can inspect imported GPX evidence, suppress duplicate route facts, and remove a mistaken activity.
@@ -1139,4 +1140,4 @@ Type consistency:
 - Added a Home-level `Route` / `My Gear` switch, a saveable in-memory My Gear add form, availability switches, delete actions, and route Gear-tab actions that send missing categories into the inventory form.
 - Added a My Gear `Inventory` / `Details` split plus per-item route readiness summaries so owned brand gear can show why it does or does not satisfy the current route checklist.
 - Added unit tests for gear inventory matching, detail summaries, unavailable/deleted gear, optional brand/model entry, invalid input rejection, and Compose smoke-test coverage for the My Gear screen, details tab, matched gear copy, and route-to-gear add flow.
-- Still pending for production: real auth, Room/cloud-backed GPX file storage, cloud-safe historical GPX de-duplication, GPS/location-backed navigation session, Room persistence, profile/gear sync, cloud delete/export behavior, and real AI gear advisor service integration.
+- Still pending for production: real auth, Room/cloud-backed GPX file storage, cloud-safe historical GPX de-duplication, Android foreground-location permission and provider wiring, Room persistence, profile/gear sync, cloud delete/export behavior, and real AI gear advisor service integration.
