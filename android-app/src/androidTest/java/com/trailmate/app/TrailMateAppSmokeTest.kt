@@ -7,6 +7,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
@@ -28,6 +29,7 @@ import com.trailmate.app.core.persistence.TrailMateSnapshot
 import com.trailmate.app.feature.gear.MyGearScreen
 import com.trailmate.app.feature.home.HomeScreen
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -438,6 +440,35 @@ class TrailMateAppSmokeTest {
         compose.onNodeWithText("RECOMMENDED").assertExists()
         compose.onNodeWithText("Historical GPX evidence", substring = true).assertExists()
         assertEquals(TrailMateSampleData.historicalActivities, savedHistory)
+    }
+
+    @Test
+    fun homeShowsHistoricalActivitiesAndCanRemoveOne() {
+        var savedHistory = emptyList<HistoricalActivity>()
+
+        compose.setContent {
+            TrailMateTheme {
+                HomeScreen(
+                    onHistoricalActivitiesChanged = { activities ->
+                        savedHistory = activities
+                    }
+                )
+            }
+        }
+
+        compose.onNodeWithText("Use sample history").performClick()
+
+        compose.onNodeWithText("History activities").assertExists()
+        compose.onNodeWithText("Morning Ridge Loop").assertExists()
+        compose.onNodeWithText("9.8 km / +420 m / 2:45").assertExists()
+        compose.onAllNodesWithText("Remove history").assertCountEquals(3)
+
+        compose.onAllNodesWithText("Remove history").onFirst().performClick()
+
+        compose.onAllNodesWithText("Morning Ridge Loop").assertCountEquals(0)
+        compose.onAllNodesWithText("Remove history").assertCountEquals(2)
+        assertEquals(2, savedHistory.size)
+        assertFalse(savedHistory.any { activity -> activity.routeName == "Morning Ridge Loop" })
     }
 
     private fun savedProfile(): BaselineProfile =

@@ -1,6 +1,7 @@
 package com.trailmate.app.core.gpx
 
 import com.trailmate.app.core.model.HistoricalActivity
+import com.trailmate.app.core.model.HistoricalActivityLog
 
 data class HistoricalActivityImportUiState(
     val isImporting: Boolean = false,
@@ -43,11 +44,21 @@ object HistoricalActivityImportUiReducer {
     fun applyBatch(
         currentActivities: List<HistoricalActivity>,
         batch: HistoricalActivityImportBatch
-    ): HistoricalActivityImportResult =
-        HistoricalActivityImportResult(
-            uiState = HistoricalActivityImportUiState().completed(batch),
-            activities = currentActivities + batch.activities
+    ): HistoricalActivityImportResult {
+        val updatedActivities = HistoricalActivityLog(currentActivities).addAll(batch.activities).activities
+        val addedCount = updatedActivities.size - currentActivities.size
+        val duplicateCount = batch.activities.size - addedCount
+        val uiState = summaryForBatch(
+            addedCount = addedCount,
+            duplicateCount = duplicateCount,
+            batch = batch
         )
+
+        return HistoricalActivityImportResult(
+            uiState = uiState,
+            activities = updatedActivities
+        )
+    }
 
     fun applyFailure(
         currentActivities: List<HistoricalActivity>,
@@ -57,4 +68,46 @@ object HistoricalActivityImportUiReducer {
             uiState = HistoricalActivityImportUiState().failed(message),
             activities = currentActivities
         )
+
+    private fun summaryForBatch(
+        addedCount: Int,
+        duplicateCount: Int,
+        batch: HistoricalActivityImportBatch
+    ): HistoricalActivityImportUiState {
+        if (addedCount == 0 && duplicateCount > 0 && batch.failures.isEmpty()) {
+            return HistoricalActivityImportUiState(
+                isImporting = false,
+                value = "No new GPX",
+                caption = "All selected GPX activities were already imported."
+            )
+        }
+
+        val totalSelected = batch.activities.size + batch.failures.size
+        val value = when {
+            addedCount == 0 && duplicateCount > 0 -> "No new GPX"
+            addedCount > 0 && (duplicateCount > 0 || batch.failures.isNotEmpty()) -> "Imported $addedCount / $totalSelected"
+            else -> batch.summaryValue()
+        }
+        val caption = when {
+            addedCount > 0 && (duplicateCount > 0 || batch.failures.isNotEmpty()) -> buildString {
+                append("Added $addedCount ${if (addedCount == 1) "activity" else "activities"}")
+                if (duplicateCount > 0) {
+                    append("; $duplicateCount duplicate ${if (duplicateCount == 1) "skipped" else "skipped"}")
+                }
+                if (batch.failures.isNotEmpty()) {
+                    append("; ${batch.failures.size} failed: ${batch.failures.first().fileName}")
+                }
+                append(".")
+            }
+            addedCount == 0 && duplicateCount > 0 && batch.failures.isNotEmpty() ->
+                "No new activities; $duplicateCount duplicate ${if (duplicateCount == 1) "skipped" else "skipped"}; ${batch.failures.size} failed: ${batch.failures.first().fileName}."
+            else -> batch.summaryCaption()
+        }
+
+        return HistoricalActivityImportUiState(
+            isImporting = false,
+            value = value,
+            caption = caption
+        )
+    }
 }

@@ -53,11 +53,14 @@ import com.trailmate.app.core.model.ExperienceLevel
 import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.GearItem
 import com.trailmate.app.core.model.HistoricalActivity
+import com.trailmate.app.core.model.HistoricalActivityLog
 import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.RouteImportStatus
 import com.trailmate.app.core.model.RouteAssessmentEngine
 import com.trailmate.app.core.model.RouteGearAdvisorEngine
 import com.trailmate.app.core.model.TrailMateSampleData
+import com.trailmate.app.core.model.key
+import com.trailmate.app.core.model.summaryLabel
 import com.trailmate.app.feature.gear.MyGearScreen
 import com.trailmate.app.feature.route.RouteDetailScreen
 import kotlinx.coroutines.CancellationException
@@ -149,7 +152,7 @@ fun HomeScreen(
                         currentActivities = historicalActivities,
                         batch = batch
                     )
-                    if (batch.activities.isNotEmpty()) {
+                    if (result.activities != historicalActivities) {
                         historicalActivities = result.activities
                         onHistoricalActivitiesChanged(result.activities)
                     }
@@ -205,15 +208,29 @@ fun HomeScreen(
         }
         OutlinedButton(
             onClick = {
-                val sampleHistory = TrailMateSampleData.historicalActivities
-                historicalActivities = sampleHistory
-                onHistoricalActivitiesChanged(sampleHistory)
+                val updatedHistory = HistoricalActivityLog(historicalActivities)
+                    .addAll(TrailMateSampleData.historicalActivities)
+                    .activities
+                historicalActivities = updatedHistory
+                onHistoricalActivitiesChanged(updatedHistory)
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = historicalActivities.size < TrailMateSampleData.historicalActivities.size
+            enabled = TrailMateSampleData.historicalActivities.any { sampleActivity ->
+                historicalActivities.none { activity -> activity.key() == sampleActivity.key() }
+            }
         ) {
             Text("Use sample history")
         }
+        HistoricalActivitiesPanel(
+            activities = historicalActivities,
+            onRemoveActivity = { activity ->
+                val updatedHistory = HistoricalActivityLog(historicalActivities)
+                    .remove(activity.key())
+                    .activities
+                historicalActivities = updatedHistory
+                onHistoricalActivitiesChanged(updatedHistory)
+            }
+        )
         TrailMateMetricRow(
             items = listOf(
                 "Exercise" to profile.exerciseFrequency.homeLabel(),
@@ -320,6 +337,35 @@ private enum class HomeSection(val label: String) {
     Route("Route"),
     MyGear("My Gear"),
     Data("Data")
+}
+
+@Composable
+private fun HistoricalActivitiesPanel(
+    activities: List<HistoricalActivity>,
+    onRemoveActivity: (HistoricalActivity) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        TrailMatePanel(
+            title = "History activities",
+            value = if (activities.isEmpty()) "No history yet" else "${activities.size} imported",
+            caption = "Imported GPX activities calibrate route fit and confidence.",
+            tone = TrailMatePanelTone.Neutral
+        )
+        activities.forEach { activity ->
+            TrailMatePanel(
+                title = activity.routeName,
+                value = activity.summaryLabel(),
+                caption = "Used as local capability evidence.",
+                tone = TrailMatePanelTone.Neutral
+            )
+            OutlinedButton(
+                onClick = { onRemoveActivity(activity) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Remove history")
+            }
+        }
+    }
 }
 
 @Composable

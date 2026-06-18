@@ -14,6 +14,7 @@
 - Added Active Hike prototype controls for starting, pausing, resuming, and advancing light-navigation checkpoints.
 - Added a prototype historical GPX capability profile summary with sample-history calibration from questionnaire fallback to GPX evidence.
 - Added an Android system file-picker historical GPX import path with partial failure reporting.
+- Added a local historical activity list with duplicate suppression and remove controls.
 - Wired prototype historical GPX capability evidence into route assessment confidence, risk text, and match level.
 - Persisted prototype historical GPX activities in the local snapshot and Data export preview.
 - Added a deterministic route-aware gear advisor fallback for the Gear tab while keeping route risk scoring separate.
