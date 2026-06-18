@@ -25,6 +25,7 @@ In scope:
 - short skippable baseline profile after registration/login
 - production auth boundary for account-bound profile sync
 - low-confidence temporary profile for users without enough GPX history
+- persistent GPX import queue with retry state for target-route and historical imports
 - personal gear inventory with optional brand/model fields
 - assessment screen with Assessment, Route, Plan, and Gear tabs
 - AI-generated equipment checklist after route assessment
@@ -55,6 +56,7 @@ Affected data areas:
 
 - user baseline profile
 - profile sync state and server revision metadata
+- GPX import jobs and retry metadata
 - user gear items
 - route gear checklist outputs
 
@@ -68,6 +70,7 @@ The change is accepted when:
 - returning-user login restores account-bound profile data without leaking another account's local data
 - profile sync preserves local and remote versions when both changed
 - account-bound profile, route, history, gear, checklist, export, and delete records are scoped to authenticated user id
+- GPX import jobs persist queued/running/retry/succeeded/failed state and do not remove previous valid route or history data after failure
 - users can record owned branded gear
 - route assessment exposes a Gear tab after target route import
 - gear recommendations cite route facts and saved gear

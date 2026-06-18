@@ -1,5 +1,9 @@
 package com.trailmate.app.core.persistence
 
+import com.trailmate.app.core.gpx.GpxImportJob
+import com.trailmate.app.core.gpx.GpxImportJobKind
+import com.trailmate.app.core.gpx.GpxImportJobStatus
+import com.trailmate.app.core.gpx.GpxImportQueue
 import com.trailmate.app.core.model.AscentExperience
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.ExerciseFrequency
@@ -61,6 +65,22 @@ object TrailMateSnapshotCodec {
             properties["$prefix.durationMinutes"] = activity.durationMinutes.toString()
         }
 
+        properties["gpxQueue.count"] = snapshot.gpxImportQueue.jobs.size.toString()
+        snapshot.gpxImportQueue.jobs.forEachIndexed { index, job ->
+            val prefix = "gpxQueue.$index"
+            properties["$prefix.id"] = job.id
+            properties["$prefix.kind"] = job.kind.name
+            properties["$prefix.sourceUri"] = job.sourceUri
+            properties["$prefix.fileName"] = job.fileName
+            properties["$prefix.status"] = job.status.name
+            properties["$prefix.attemptCount"] = job.attemptCount.toString()
+            properties["$prefix.maxAttempts"] = job.maxAttempts.toString()
+            properties["$prefix.nextAttemptAtEpochMillis"] = job.nextAttemptAtEpochMillis?.toString().orEmpty()
+            properties["$prefix.lastError"] = job.lastError.orEmpty()
+            properties["$prefix.createdAtEpochMillis"] = job.createdAtEpochMillis.toString()
+            properties["$prefix.updatedAtEpochMillis"] = job.updatedAtEpochMillis.toString()
+        }
+
         return StringWriter().use { writer ->
             properties.store(writer, "TrailMate local snapshot")
             writer.toString()
@@ -81,7 +101,8 @@ object TrailMateSnapshotCodec {
                 profile = properties.decodeProfile(),
                 inventory = properties.decodeInventory(),
                 importedRoute = properties.decodeImportedRoute(),
-                historicalActivities = properties.decodeHistoricalActivities()
+                historicalActivities = properties.decodeHistoricalActivities(),
+                gpxImportQueue = properties.decodeGpxImportQueue()
             )
         }.getOrDefault(TrailMateSnapshot())
     }
@@ -171,6 +192,84 @@ object TrailMateSnapshotCodec {
         }
     }
 
+    private fun Properties.decodeGpxImportQueue(): GpxImportQueue {
+        val count = getProperty("gpxQueue.count")?.toIntOrNull() ?: return GpxImportQueue()
+        val jobs = (0 until count).mapNotNull { index ->
+            val prefix = "gpxQueue.$index"
+            val id = getProperty("$prefix.id")?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            val kind = enumValue<GpxImportJobKind>("$prefix.kind") ?: return@mapNotNull null
+            val sourceUri = getProperty("$prefix.sourceUri")?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            val fileName = getProperty("$prefix.fileName")?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            val status = enumValue<GpxImportJobStatus>("$prefix.status") ?: return@mapNotNull null
+            val attemptCount = getProperty("$prefix.attemptCount")?.toIntOrNull() ?: return@mapNotNull null
+            val maxAttempts = getProperty("$prefix.maxAttempts")?.toIntOrNull() ?: return@mapNotNull null
+            val createdAt = getProperty("$prefix.createdAtEpochMillis")?.toLongOrNull() ?: return@mapNotNull null
+            val updatedAt = getProperty("$prefix.updatedAtEpochMillis")?.toLongOrNull() ?: return@mapNotNull null
+
+            GpxImportJob(
+                id = id,
+                kind = kind,
+                sourceUri = sourceUri,
+                fileName = fileName,
+                status = status,
+                attemptCount = attemptCount,
+                maxAttempts = maxAttempts,
+                nextAttemptAtEpochMillis = nullableLong("$prefix.nextAttemptAtEpochMillis"),
+                lastError = getProperty("$prefix.lastError").orEmpty().ifBlank { null },
+                createdAtEpochMillis = createdAt,
+                updatedAtEpochMillis = updatedAt
+            )
+        }
+
+        return GpxImportQueue(jobs = jobs.filter(::isValidGpxImportJob).sanitizeGpxImportJobs())
+    }
+
+    private fun List<GpxImportJob>.sanitizeGpxImportJobs(): List<GpxImportJob> {
+        val seenIds = mutableSetOf<String>()
+        var hasRunningJob = false
+        return filter { job ->
+            if (!seenIds.add(job.id)) {
+                return@filter false
+            }
+            if (job.status == GpxImportJobStatus.RUNNING) {
+                if (hasRunningJob) {
+                    return@filter false
+                }
+                hasRunningJob = true
+            }
+            true
+        }
+    }
+
+    private fun isValidGpxImportJob(job: GpxImportJob): Boolean {
+        val baseValid = job.id.isNotBlank() &&
+            job.sourceUri.isNotBlank() &&
+            job.fileName.isNotBlank() &&
+            job.attemptCount >= 0 &&
+            job.maxAttempts > 0
+        if (!baseValid) {
+            return false
+        }
+
+        return when (job.status) {
+            GpxImportJobStatus.QUEUED ->
+                job.attemptCount < job.maxAttempts &&
+                    job.nextAttemptAtEpochMillis == null
+            GpxImportJobStatus.RUNNING ->
+                job.attemptCount in 1..job.maxAttempts &&
+                    job.nextAttemptAtEpochMillis == null
+            GpxImportJobStatus.WAITING_RETRY ->
+                job.attemptCount in 1 until job.maxAttempts &&
+                    job.nextAttemptAtEpochMillis != null
+            GpxImportJobStatus.SUCCEEDED ->
+                job.attemptCount in 1..job.maxAttempts &&
+                    job.nextAttemptAtEpochMillis == null
+            GpxImportJobStatus.FAILED ->
+                job.attemptCount >= job.maxAttempts &&
+                    job.nextAttemptAtEpochMillis == null
+        }
+    }
+
     private inline fun <reified T : Enum<T>> Properties.enumValue(key: String): T? =
         getProperty(key)?.let { value ->
             runCatching { enumValueOf<T>(value) }.getOrNull()
@@ -178,4 +277,7 @@ object TrailMateSnapshotCodec {
 
     private fun Properties.nullableInt(key: String): Int? =
         getProperty(key).orEmpty().takeIf { it.isNotBlank() }?.toIntOrNull()
+
+    private fun Properties.nullableLong(key: String): Long? =
+        getProperty(key).orEmpty().takeIf { it.isNotBlank() }?.toLongOrNull()
 }

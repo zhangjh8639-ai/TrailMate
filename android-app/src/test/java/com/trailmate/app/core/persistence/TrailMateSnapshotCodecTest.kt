@@ -1,5 +1,9 @@
 package com.trailmate.app.core.persistence
 
+import com.trailmate.app.core.gpx.GpxImportJob
+import com.trailmate.app.core.gpx.GpxImportJobKind
+import com.trailmate.app.core.gpx.GpxImportJobStatus
+import com.trailmate.app.core.gpx.GpxImportQueue
 import com.trailmate.app.core.model.AscentExperience
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.ExerciseFrequency
@@ -118,5 +122,116 @@ class TrailMateSnapshotCodecTest {
         assertEquals(0, decoded.inventory.items.size)
         assertNull(decoded.importedRoute)
         assertEquals(0, decoded.historicalActivities.size)
+    }
+
+    @Test
+    fun snapshotRoundTripPreservesGpxImportQueue() {
+        val queue = GpxImportQueue(
+            jobs = listOf(
+                GpxImportJob(
+                    id = "job-1",
+                    kind = GpxImportJobKind.TARGET_ROUTE,
+                    sourceUri = "content://trailmate/routes/ridge",
+                    fileName = "ridge.gpx",
+                    status = GpxImportJobStatus.WAITING_RETRY,
+                    attemptCount = 1,
+                    maxAttempts = 3,
+                    nextAttemptAtEpochMillis = 61_200L,
+                    lastError = "Parser unavailable.",
+                    createdAtEpochMillis = 1_000L,
+                    updatedAtEpochMillis = 1_200L
+                )
+            )
+        )
+        val snapshot = TrailMateSnapshot(gpxImportQueue = queue)
+
+        val decoded = TrailMateSnapshotCodec.decode(TrailMateSnapshotCodec.encode(snapshot))
+
+        assertEquals(queue, decoded.gpxImportQueue)
+    }
+
+    @Test
+    fun snapshotDecodeDropsInvalidGpxImportJobs() {
+        val raw = """
+            version=1
+            inventory.count=0
+            history.count=0
+            gpxQueue.count=2
+            gpxQueue.0.id=invalid-waiting
+            gpxQueue.0.kind=TARGET_ROUTE
+            gpxQueue.0.sourceUri=content://trailmate/routes/ridge
+            gpxQueue.0.fileName=ridge.gpx
+            gpxQueue.0.status=WAITING_RETRY
+            gpxQueue.0.attemptCount=1
+            gpxQueue.0.maxAttempts=3
+            gpxQueue.0.createdAtEpochMillis=1000
+            gpxQueue.0.updatedAtEpochMillis=1200
+            gpxQueue.1.id=valid-queued
+            gpxQueue.1.kind=HISTORICAL_ACTIVITY
+            gpxQueue.1.sourceUri=content://trailmate/history/old-ridge
+            gpxQueue.1.fileName=old-ridge.gpx
+            gpxQueue.1.status=QUEUED
+            gpxQueue.1.attemptCount=0
+            gpxQueue.1.maxAttempts=3
+            gpxQueue.1.createdAtEpochMillis=1000
+            gpxQueue.1.updatedAtEpochMillis=1000
+        """.trimIndent()
+
+        val decoded = TrailMateSnapshotCodec.decode(raw)
+
+        assertEquals("valid-queued", decoded.gpxImportQueue.jobs.single().id)
+    }
+
+    @Test
+    fun snapshotDecodeEnforcesGlobalGpxImportQueueInvariants() {
+        val raw = """
+            version=1
+            inventory.count=0
+            history.count=0
+            gpxQueue.count=4
+            gpxQueue.0.id=duplicate
+            gpxQueue.0.kind=TARGET_ROUTE
+            gpxQueue.0.sourceUri=content://trailmate/routes/ridge
+            gpxQueue.0.fileName=ridge.gpx
+            gpxQueue.0.status=QUEUED
+            gpxQueue.0.attemptCount=0
+            gpxQueue.0.maxAttempts=3
+            gpxQueue.0.createdAtEpochMillis=1000
+            gpxQueue.0.updatedAtEpochMillis=1000
+            gpxQueue.1.id=duplicate
+            gpxQueue.1.kind=HISTORICAL_ACTIVITY
+            gpxQueue.1.sourceUri=content://trailmate/history/old-ridge
+            gpxQueue.1.fileName=old-ridge.gpx
+            gpxQueue.1.status=QUEUED
+            gpxQueue.1.attemptCount=0
+            gpxQueue.1.maxAttempts=3
+            gpxQueue.1.createdAtEpochMillis=1000
+            gpxQueue.1.updatedAtEpochMillis=1000
+            gpxQueue.2.id=running-1
+            gpxQueue.2.kind=TARGET_ROUTE
+            gpxQueue.2.sourceUri=content://trailmate/routes/running-1
+            gpxQueue.2.fileName=running-1.gpx
+            gpxQueue.2.status=RUNNING
+            gpxQueue.2.attemptCount=1
+            gpxQueue.2.maxAttempts=3
+            gpxQueue.2.createdAtEpochMillis=1000
+            gpxQueue.2.updatedAtEpochMillis=1000
+            gpxQueue.3.id=running-2
+            gpxQueue.3.kind=TARGET_ROUTE
+            gpxQueue.3.sourceUri=content://trailmate/routes/running-2
+            gpxQueue.3.fileName=running-2.gpx
+            gpxQueue.3.status=RUNNING
+            gpxQueue.3.attemptCount=1
+            gpxQueue.3.maxAttempts=3
+            gpxQueue.3.createdAtEpochMillis=1000
+            gpxQueue.3.updatedAtEpochMillis=1000
+        """.trimIndent()
+
+        val decoded = TrailMateSnapshotCodec.decode(raw)
+
+        assertEquals(
+            listOf("duplicate", "running-1"),
+            decoded.gpxImportQueue.jobs.map { job -> job.id }
+        )
     }
 }

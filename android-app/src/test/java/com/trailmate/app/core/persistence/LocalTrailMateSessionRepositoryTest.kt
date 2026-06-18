@@ -1,5 +1,7 @@
 package com.trailmate.app.core.persistence
 
+import com.trailmate.app.core.gpx.GpxImportQueue
+import com.trailmate.app.core.gpx.GpxImportJobKind
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.HistoricalActivity
@@ -30,11 +32,20 @@ class LocalTrailMateSessionRepositoryTest {
         repository.saveInventory(inventory)
         repository.saveImportedRoute(TrailMateSampleData.importedTargetRoute)
         repository.saveHistoricalActivities(TrailMateSampleData.historicalActivities)
+        val queue = GpxImportQueue().enqueue(
+            id = "job-1",
+            kind = GpxImportJobKind.TARGET_ROUTE,
+            sourceUri = "content://trailmate/routes/ridge",
+            fileName = "ridge.gpx",
+            nowEpochMillis = 1_000L
+        )
+        repository.saveGpxImportQueue(queue)
 
         assertEquals(TrailMateSampleData.baselineProfile, store.snapshot.profile)
         assertEquals(inventory, store.snapshot.inventory)
         assertEquals(TrailMateSampleData.importedTargetRoute, store.snapshot.importedRoute)
         assertEquals(TrailMateSampleData.historicalActivities, store.snapshot.historicalActivities)
+        assertEquals(queue, store.snapshot.gpxImportQueue)
     }
 
     @Test
@@ -77,6 +88,10 @@ private class FakeTrailMateSessionStore(
 
     override fun saveHistoricalActivities(historicalActivities: List<HistoricalActivity>) {
         snapshot = snapshot.copy(historicalActivities = historicalActivities)
+    }
+
+    override fun saveGpxImportQueue(queue: GpxImportQueue) {
+        snapshot = snapshot.copy(gpxImportQueue = queue)
     }
 
     override fun clear() {

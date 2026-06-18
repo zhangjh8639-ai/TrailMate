@@ -1,5 +1,6 @@
 package com.trailmate.app.core.persistence
 
+import com.trailmate.app.core.gpx.GpxImportQueue
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.HistoricalActivity
@@ -15,6 +16,8 @@ interface TrailMateSessionRepository {
     fun saveImportedRoute(route: ImportedRoute)
 
     fun saveHistoricalActivities(historicalActivities: List<HistoricalActivity>)
+
+    fun saveGpxImportQueue(queue: GpxImportQueue)
 
     fun clearLocalData()
 }
@@ -39,6 +42,10 @@ class LocalTrailMateSessionRepository(
 
     override fun saveHistoricalActivities(historicalActivities: List<HistoricalActivity>) {
         store.saveHistoricalActivities(historicalActivities)
+    }
+
+    override fun saveGpxImportQueue(queue: GpxImportQueue) {
+        store.saveGpxImportQueue(queue)
     }
 
     override fun clearLocalData() {

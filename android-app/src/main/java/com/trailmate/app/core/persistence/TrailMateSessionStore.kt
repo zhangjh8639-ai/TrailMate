@@ -1,5 +1,6 @@
 package com.trailmate.app.core.persistence
 
+import com.trailmate.app.core.gpx.GpxImportQueue
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.HistoricalActivity
@@ -15,6 +16,8 @@ interface TrailMateSessionStore {
     fun saveImportedRoute(route: ImportedRoute)
 
     fun saveHistoricalActivities(historicalActivities: List<HistoricalActivity>)
+
+    fun saveGpxImportQueue(queue: GpxImportQueue)
 
     fun clear()
 }

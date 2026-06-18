@@ -48,7 +48,7 @@
 
 - [x] Define baseline profile persistence and privacy rules for the prototype local snapshot.
 - [x] Define real auth integration and post-login profile sync.
-- [ ] Define production GPX import queue, persistence, and retry state machine.
+- [x] Define production GPX import queue, persistence, and retry state machine.
 - [ ] Replace questionnaire fallback capacity with production historical GPX capability profile.
 - [x] Define prototype gear inventory persistence in the local snapshot.
 - [x] Define prototype gear detail view and route readiness summary.

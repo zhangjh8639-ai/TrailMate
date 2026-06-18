@@ -1,6 +1,7 @@
 package com.trailmate.app.core.persistence
 
 import android.content.Context
+import com.trailmate.app.core.gpx.GpxImportQueue
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.HistoricalActivity
@@ -31,6 +32,10 @@ class SharedPreferencesTrailMateSessionStore(context: Context) : TrailMateSessio
 
     override fun saveHistoricalActivities(historicalActivities: List<HistoricalActivity>) {
         update { snapshot -> snapshot.copy(historicalActivities = historicalActivities) }
+    }
+
+    override fun saveGpxImportQueue(queue: GpxImportQueue) {
+        update { snapshot -> snapshot.copy(gpxImportQueue = queue) }
     }
 
     override fun clear() {

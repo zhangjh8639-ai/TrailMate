@@ -61,6 +61,24 @@ The Route tab shows:
 
 Foreground current-location display can be added if permission is granted and the route screen is open. Background GPS, turn-by-turn navigation, and deviation alerts remain later-stage work.
 
+## GPX Import Queue
+
+Production GPX imports use a persisted job queue shared by target-route import and historical-activity import.
+
+Each import job stores:
+
+- id
+- kind: target route or historical activity
+- source URI
+- file name
+- status: queued, running, waiting retry, succeeded, or failed
+- attempt count and retry budget
+- next retry time
+- last error
+- created and updated timestamps
+
+The import worker is serial: it only marks one queued job, or waiting-retry job whose next retry time has arrived, as running when no other job is running. Parsing is bound to the exact job that was marked running, so a queued user selection cannot accidentally complete a different older retry job. If the app restores a queue that still contains an old running job after process death, startup recovery converts that job back to waiting retry when budget remains, or failed when the budget is exhausted, so later imports cannot be blocked forever. Failed imports must not discard the last valid route or historical capability evidence. Successful imports save parsed route or activity records through their own data boundary and clear retry metadata.
+
 ## Gear Inventory
 
 Personal gear inventory is a private user profile feature.

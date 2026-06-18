@@ -18,6 +18,7 @@ import com.trailmate.app.core.model.ExerciseFrequency
 import com.trailmate.app.core.model.ExperienceLevel
 import com.trailmate.app.core.model.TrailMateSampleData
 import com.trailmate.app.core.model.TypicalDuration
+import com.trailmate.app.core.gpx.GpxImportQueuePolicy
 import com.trailmate.app.core.persistence.LocalTrailMateSessionRepository
 import com.trailmate.app.core.persistence.SharedPreferencesTrailMateSessionStore
 import com.trailmate.app.core.persistence.TrailMateSessionRepository
@@ -33,9 +34,17 @@ enum class TrailMateScreen {
 fun TrailMateApp(sessionRepository: TrailMateSessionRepository? = null) {
     val defaultSessionRepository = rememberTrailMateSessionRepository()
     val activeSessionRepository = sessionRepository ?: defaultSessionRepository
-    val initialSnapshot = remember(activeSessionRepository) { activeSessionRepository.loadSnapshot() }
     var appSession by remember(activeSessionRepository) {
-        mutableStateOf(TrailMateAppSession(initialSnapshot))
+        val loadedSession = TrailMateAppSession(activeSessionRepository.loadSnapshot())
+        val recoveredSession = loadedSession.recoverInterruptedGpxImports(
+            nowEpochMillis = System.currentTimeMillis(),
+            runningTimeoutMillis = GpxImportQueuePolicy.STARTUP_RUNNING_TIMEOUT_MILLIS,
+            retryDelayMillis = GpxImportQueuePolicy.RETRY_DELAY_MILLIS
+        )
+        if (recoveredSession.snapshot.gpxImportQueue != loadedSession.snapshot.gpxImportQueue) {
+            activeSessionRepository.saveGpxImportQueue(recoveredSession.snapshot.gpxImportQueue)
+        }
+        mutableStateOf(recoveredSession)
     }
     var screen by rememberSaveable {
         mutableStateOf(
@@ -68,6 +77,7 @@ fun TrailMateApp(sessionRepository: TrailMateSessionRepository? = null) {
                 initialInventory = appSession.snapshot.inventory,
                 initialImportedRoute = appSession.snapshot.importedRoute,
                 initialHistoricalActivities = appSession.snapshot.historicalActivities,
+                initialGpxImportQueue = appSession.snapshot.gpxImportQueue,
                 onInventoryChanged = { inventory ->
                     appSession = appSession.withInventory(inventory)
                     activeSessionRepository.saveInventory(inventory)
@@ -79,6 +89,10 @@ fun TrailMateApp(sessionRepository: TrailMateSessionRepository? = null) {
                 onHistoricalActivitiesChanged = { historicalActivities ->
                     appSession = appSession.withHistoricalActivities(historicalActivities)
                     activeSessionRepository.saveHistoricalActivities(historicalActivities)
+                },
+                onGpxImportQueueChanged = { queue ->
+                    appSession = appSession.withGpxImportQueue(queue)
+                    activeSessionRepository.saveGpxImportQueue(queue)
                 },
                 onClearLocalData = {
                     activeSessionRepository.clearLocalData()

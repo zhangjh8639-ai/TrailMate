@@ -14,6 +14,9 @@ import androidx.compose.ui.test.performTextInput
 import com.trailmate.app.core.design.TrailMateTheme
 import com.trailmate.app.core.model.AiGearAdvisorResponse
 import com.trailmate.app.core.model.BaselineProfile
+import com.trailmate.app.core.gpx.GpxImportJobKind
+import com.trailmate.app.core.gpx.GpxImportJobStatus
+import com.trailmate.app.core.gpx.GpxImportQueue
 import com.trailmate.app.core.model.ExerciseFrequency
 import com.trailmate.app.core.model.ExperienceLevel
 import com.trailmate.app.core.model.GearInventory
@@ -349,13 +352,15 @@ class TrailMateAppSmokeTest {
     fun homeNotifiesPersistenceWhenRouteAndGearChange() {
         var savedRoute: ImportedRoute? = null
         var savedInventory: GearInventory? = null
+        val savedQueues = mutableListOf<GpxImportQueue>()
 
         compose.setContent {
             TrailMateTheme {
                 HomeScreen(
                     profile = TrailMateSampleData.baselineProfile,
                     onRouteImported = { route -> savedRoute = route },
-                    onInventoryChanged = { inventory -> savedInventory = inventory }
+                    onInventoryChanged = { inventory -> savedInventory = inventory },
+                    onGpxImportQueueChanged = { queue -> savedQueues += queue }
                 )
             }
         }
@@ -370,6 +375,20 @@ class TrailMateAppSmokeTest {
         assertEquals("Longjing Ridge", savedRoute?.routeName)
         assertTrue(savedInventory?.items.orEmpty().any { item ->
             item.category == "Trekking poles" && item.brand == "Leki"
+        })
+        assertTrue(savedQueues.any { queue ->
+            queue.jobs.any { job ->
+                job.kind == GpxImportJobKind.TARGET_ROUTE &&
+                    job.fileName == "longjing-ridge-target.gpx" &&
+                    job.status == GpxImportJobStatus.RUNNING
+            }
+        })
+        assertTrue(savedQueues.any { queue ->
+            queue.jobs.any { job ->
+                job.kind == GpxImportJobKind.TARGET_ROUTE &&
+                    job.fileName == "longjing-ridge-target.gpx" &&
+                    job.status == GpxImportJobStatus.SUCCEEDED
+            }
         })
     }
 
@@ -548,6 +567,10 @@ class TrailMateAppSmokeTest {
 
         override fun saveHistoricalActivities(historicalActivities: List<HistoricalActivity>) {
             snapshot = snapshot.copy(historicalActivities = historicalActivities)
+        }
+
+        override fun saveGpxImportQueue(queue: GpxImportQueue) {
+            snapshot = snapshot.copy(gpxImportQueue = queue)
         }
 
         override fun clearLocalData() {

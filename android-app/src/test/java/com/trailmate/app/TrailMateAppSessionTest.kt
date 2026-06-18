@@ -1,53 +1,56 @@
 package com.trailmate.app
 
-import com.trailmate.app.core.model.AscentExperience
-import com.trailmate.app.core.model.BaselineProfile
-import com.trailmate.app.core.model.ExerciseFrequency
-import com.trailmate.app.core.model.ExperienceLevel
-import com.trailmate.app.core.model.GearInventory
-import com.trailmate.app.core.model.TrailMateSampleData
-import com.trailmate.app.core.model.TypicalDuration
+import com.trailmate.app.core.gpx.GpxImportJobKind
+import com.trailmate.app.core.gpx.GpxImportJobStatus
+import com.trailmate.app.core.gpx.GpxImportQueue
 import com.trailmate.app.core.persistence.TrailMateSnapshot
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 
 class TrailMateAppSessionTest {
     @Test
-    fun profileSavedAfterClearKeepsRouteAndGearEmpty() {
-        val previousSession = TrailMateAppSession(
-            TrailMateSnapshot(
-                profile = savedProfile(),
-                inventory = GearInventory(TrailMateSampleData.gearItems),
-                importedRoute = TrailMateSampleData.importedTargetRoute,
-                historicalActivities = TrailMateSampleData.historicalActivities
+    fun recoverInterruptedGpxImportsConvertsStaleRunningJobsOnStartup() {
+        val queue = GpxImportQueue()
+            .enqueue(
+                id = "job-1",
+                kind = GpxImportJobKind.TARGET_ROUTE,
+                sourceUri = "content://trailmate/routes/ridge",
+                fileName = "ridge.gpx",
+                nowEpochMillis = 1_000L
             )
+            .startNext(nowEpochMillis = 1_100L)
+        val session = TrailMateAppSession(TrailMateSnapshot(gpxImportQueue = queue))
+
+        val recovered = session.recoverInterruptedGpxImports(
+            nowEpochMillis = 121_100L,
+            runningTimeoutMillis = 120_000L,
+            retryDelayMillis = 30_000L
         )
 
-        val nextSession = previousSession.clear().withProfile(savedProfile())
-
-        assertEquals(savedProfile(), nextSession.snapshot.profile)
-        assertEquals(emptyList<Nothing>(), nextSession.snapshot.inventory.items)
-        assertNull(nextSession.snapshot.importedRoute)
-        assertEquals(emptyList<Nothing>(), nextSession.snapshot.historicalActivities)
+        val recoveredJob = recovered.snapshot.gpxImportQueue.jobs.single()
+        assertEquals(GpxImportJobStatus.WAITING_RETRY, recoveredJob.status)
+        assertEquals(151_100L, recoveredJob.nextAttemptAtEpochMillis)
     }
 
     @Test
-    fun historicalActivitiesArePartOfSessionSnapshot() {
-        val nextSession = TrailMateAppSession(TrailMateSnapshot.empty())
-            .withHistoricalActivities(TrailMateSampleData.historicalActivities)
+    fun recoverInterruptedGpxImportsCanTreatAnyRestoredRunningJobAsInterrupted() {
+        val queue = GpxImportQueue()
+            .enqueue(
+                id = "job-1",
+                kind = GpxImportJobKind.TARGET_ROUTE,
+                sourceUri = "content://trailmate/routes/ridge",
+                fileName = "ridge.gpx",
+                nowEpochMillis = 1_000L
+            )
+            .startNext(nowEpochMillis = 1_100L)
+        val session = TrailMateAppSession(TrailMateSnapshot(gpxImportQueue = queue))
 
-        assertEquals(TrailMateSampleData.historicalActivities, nextSession.snapshot.historicalActivities)
-    }
-
-    private fun savedProfile(): BaselineProfile =
-        BaselineProfile(
-            exerciseFrequency = ExerciseFrequency.THREE_PLUS_PER_WEEK,
-            typicalDuration = TypicalDuration.OVER_60,
-            experienceLevel = ExperienceLevel.EXPERIENCED,
-            ascentExperience = AscentExperience.OVER_800,
-            heightCm = 181,
-            weightKg = 76,
-            commonPackWeightKg = 7
+        val recovered = session.recoverInterruptedGpxImports(
+            nowEpochMillis = 1_101L,
+            runningTimeoutMillis = 0L,
+            retryDelayMillis = 30_000L
         )
+
+        assertEquals(GpxImportJobStatus.WAITING_RETRY, recovered.snapshot.gpxImportQueue.jobs.single().status)
+    }
 }

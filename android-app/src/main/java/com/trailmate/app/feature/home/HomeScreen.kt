@@ -1,6 +1,7 @@
 package com.trailmate.app.feature.home
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -34,10 +35,15 @@ import com.trailmate.app.core.design.TrailMatePanelTone
 import com.trailmate.app.core.design.TrailMateSegmentedControl
 import com.trailmate.app.core.gpx.HistoricalActivityImportBatch
 import com.trailmate.app.core.gpx.HistoricalActivityImportFailure
-import com.trailmate.app.core.gpx.HistoricalActivityImportFile
 import com.trailmate.app.core.gpx.HistoricalActivityImportUiReducer
 import com.trailmate.app.core.gpx.HistoricalActivityImportUiState
 import com.trailmate.app.core.gpx.HistoricalActivityImporter
+import com.trailmate.app.core.gpx.HistoricalActivityImportState
+import com.trailmate.app.core.gpx.GpxImportJobKind
+import com.trailmate.app.core.gpx.GpxImportJobIds
+import com.trailmate.app.core.gpx.GpxImportJobStatus
+import com.trailmate.app.core.gpx.GpxImportQueue
+import com.trailmate.app.core.gpx.GpxImportQueuePolicy
 import com.trailmate.app.core.gpx.TargetRouteImportState
 import com.trailmate.app.core.gpx.TargetRouteImportQueueState
 import com.trailmate.app.core.gpx.TargetRouteImportQueueSummary
@@ -74,9 +80,11 @@ fun HomeScreen(
     initialInventory: GearInventory = GearInventory(TrailMateSampleData.gearItems),
     initialImportedRoute: ImportedRoute? = null,
     initialHistoricalActivities: List<HistoricalActivity> = emptyList(),
+    initialGpxImportQueue: GpxImportQueue = GpxImportQueue(),
     onInventoryChanged: (GearInventory) -> Unit = {},
     onRouteImported: (ImportedRoute) -> Unit = {},
     onHistoricalActivitiesChanged: (List<HistoricalActivity>) -> Unit = {},
+    onGpxImportQueueChanged: (GpxImportQueue) -> Unit = {},
     onClearLocalData: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -84,6 +92,7 @@ fun HomeScreen(
     var selectedSection by rememberSaveable { mutableStateOf(HomeSection.Route) }
     var requestedGearCategory by rememberSaveable { mutableStateOf("Trekking poles") }
     var historyImportUiState by remember { mutableStateOf(HistoricalActivityImportUiState()) }
+    var gpxImportQueue by remember { mutableStateOf(initialGpxImportQueue) }
     var routeImportQueue by rememberSaveable(stateSaver = TargetRouteImportQueueStateSaver) {
         mutableStateOf(TargetRouteImportQueueState.fromRoute(initialImportedRoute))
     }
@@ -129,32 +138,169 @@ fun HomeScreen(
             onRouteImported(state.route)
         }
     }
+    val publishGpxImportQueue: (GpxImportQueue) -> Unit = { queue ->
+        gpxImportQueue = queue
+        onGpxImportQueueChanged(queue)
+    }
+    val enqueueGpxImportJob: (String, GpxImportJobKind, String, String) -> GpxImportQueue = { id, kind, sourceUri, fileName ->
+        val now = System.currentTimeMillis()
+        val queuedQueue = gpxImportQueue
+            .enqueue(
+                id = id,
+                kind = kind,
+                sourceUri = sourceUri,
+                fileName = fileName,
+                nowEpochMillis = now
+            )
+        publishGpxImportQueue(queuedQueue)
+        queuedQueue
+    }
+    val startQueuedGpxImportJob: (GpxImportQueue, String) -> GpxImportQueue = { queue, id ->
+        val runningQueue = queue.startJob(
+            id = id,
+            nowEpochMillis = System.currentTimeMillis()
+        )
+        publishGpxImportQueue(runningQueue)
+        runningQueue
+    }
+    val finishTargetRouteImportJob: (String, TargetRouteImportState) -> Unit = { jobId, state ->
+        val now = System.currentTimeMillis()
+        val completedQueue = when (state) {
+            TargetRouteImportState.Empty -> gpxImportQueue
+            is TargetRouteImportState.Imported -> gpxImportQueue.markSucceeded(id = jobId, nowEpochMillis = now)
+            is TargetRouteImportState.Failed -> gpxImportQueue.markFailed(
+                id = jobId,
+                message = state.message,
+                nowEpochMillis = now,
+                retryDelayMillis = GpxImportQueuePolicy.RETRY_DELAY_MILLIS
+            )
+        }
+        publishGpxImportQueue(completedQueue)
+    }
     val routePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
-            routeImportQueue = routeImportQueue.start("selected-route.gpx")
-            importScope.launch {
-                val state = withContext(Dispatchers.IO) {
-                    context.importRouteFromUri(uri)
+            val fileName = context.displayNameForOrDefault(uri = uri, defaultName = "selected-route.gpx")
+            if (gpxImportQueue.hasRunningJob()) {
+                routeImportQueue = routeImportQueue.complete(
+                    TargetRouteImportState.Failed(
+                        fileName = fileName,
+                        message = GPX_IMPORT_BUSY_MESSAGE
+                    )
+                )
+            } else {
+                context.takePersistableReadPermission(uri)
+                val jobId = GpxImportJobIds.create(kind = GpxImportJobKind.TARGET_ROUTE, nonce = System.nanoTime())
+                val queuedQueue = enqueueGpxImportJob(jobId, GpxImportJobKind.TARGET_ROUTE, uri.toString(), fileName)
+                val runningQueue = startQueuedGpxImportJob(queuedQueue, jobId)
+                if (runningQueue.isRunningJob(jobId)) {
+                    routeImportQueue = routeImportQueue.start(fileName)
+                    importScope.launch {
+                        val state = withContext(Dispatchers.IO) {
+                            context.importRouteFromUri(uri = uri, fileName = fileName)
+                        }
+                        applyImportState(state)
+                        finishTargetRouteImportJob(jobId, state)
+                    }
                 }
-                applyImportState(state)
             }
         }
     }
     val historyPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isNotEmpty()) {
+            if (gpxImportQueue.hasRunningJob()) {
+                historyImportUiState = HistoricalActivityImportUiState().failed(GPX_IMPORT_BUSY_MESSAGE)
+                return@rememberLauncherForActivityResult
+            }
+            uris.forEach { uri -> context.takePersistableReadPermission(uri) }
+            val historyImportNonce = System.nanoTime()
+            val jobs = uris.mapIndexed { index, uri ->
+                PendingGpxImportJob(
+                    id = GpxImportJobIds.create(
+                        kind = GpxImportJobKind.HISTORICAL_ACTIVITY,
+                        nonce = historyImportNonce + index
+                    ),
+                    sourceUri = uri.toString(),
+                    fileName = context.displayNameForOrDefault(uri = uri, defaultName = "history.gpx"),
+                    uri = uri
+                )
+            }
+            var queuedJobs = gpxImportQueue
+            jobs.forEach { job ->
+                queuedJobs = queuedJobs
+                    .enqueue(
+                        id = job.id,
+                        kind = GpxImportJobKind.HISTORICAL_ACTIVITY,
+                        sourceUri = job.sourceUri,
+                        fileName = job.fileName,
+                        nowEpochMillis = System.currentTimeMillis()
+                    )
+            }
+            publishGpxImportQueue(queuedJobs)
             historyImportUiState = historyImportUiState.importing(uris.size)
             importScope.launch {
                 try {
-                    val batch = withContext(Dispatchers.IO) {
-                        context.importHistoricalActivitiesFromUris(uris)
+                    val startingActivities = historicalActivities
+                    var workingActivities = startingActivities
+                    var workingQueue = queuedJobs
+                    val importedActivities = mutableListOf<HistoricalActivity>()
+                    val failures = mutableListOf<HistoricalActivityImportFailure>()
+                    jobs.forEach { job ->
+                        workingQueue = workingQueue.startJob(
+                            id = job.id,
+                            nowEpochMillis = System.currentTimeMillis()
+                        )
+                        publishGpxImportQueue(workingQueue)
+                        if (!workingQueue.isRunningJob(job.id)) {
+                            return@forEach
+                        }
+                        when (val state = withContext(Dispatchers.IO) {
+                            context.importHistoricalActivityFromUri(uri = job.uri, fileName = job.fileName)
+                        }) {
+                            is HistoricalActivityImportState.Imported -> {
+                                importedActivities += state.activity
+                                val singleResult = HistoricalActivityImportUiReducer.applyBatch(
+                                    currentActivities = workingActivities,
+                                    batch = HistoricalActivityImportBatch(
+                                        activities = listOf(state.activity),
+                                        failures = emptyList()
+                                    )
+                                )
+                                if (singleResult.activities != workingActivities) {
+                                    workingActivities = singleResult.activities
+                                    historicalActivities = workingActivities
+                                    onHistoricalActivitiesChanged(workingActivities)
+                                }
+                                workingQueue = workingQueue.markSucceeded(
+                                    id = job.id,
+                                    nowEpochMillis = System.currentTimeMillis()
+                                )
+                                publishGpxImportQueue(workingQueue)
+                            }
+                            is HistoricalActivityImportState.Failed -> {
+                                failures += HistoricalActivityImportFailure(
+                                    fileName = state.fileName,
+                                    message = state.message
+                                )
+                                workingQueue = workingQueue.markFailed(
+                                    id = job.id,
+                                    message = state.message,
+                                    nowEpochMillis = System.currentTimeMillis(),
+                                    retryDelayMillis = GpxImportQueuePolicy.RETRY_DELAY_MILLIS
+                                )
+                                publishGpxImportQueue(workingQueue)
+                            }
+                        }
                     }
+                    val batch = HistoricalActivityImportBatch(
+                        activities = importedActivities,
+                        failures = failures
+                    )
                     val result = HistoricalActivityImportUiReducer.applyBatch(
-                        currentActivities = historicalActivities,
+                        currentActivities = startingActivities,
                         batch = batch
                     )
                     if (result.activities != historicalActivities) {
                         historicalActivities = result.activities
-                        onHistoricalActivitiesChanged(result.activities)
                     }
                     historyImportUiState = result.uiState
                 } catch (error: CancellationException) {
@@ -277,11 +423,36 @@ fun HomeScreen(
                         routePicker.launch(GPX_MIME_TYPES)
                     },
                     onImportSampleRoute = {
-                        routeImportQueue = routeImportQueue.start("longjing-ridge-target.gpx")
-                        applyImportState(TargetRouteImporter.importText(
-                            fileName = "longjing-ridge-target.gpx",
-                            content = TrailMateSampleData.sampleTargetGpx
-                        ))
+                        val fileName = "longjing-ridge-target.gpx"
+                        if (gpxImportQueue.hasRunningJob()) {
+                            routeImportQueue = routeImportQueue.complete(
+                                TargetRouteImportState.Failed(
+                                    fileName = fileName,
+                                    message = GPX_IMPORT_BUSY_MESSAGE
+                                )
+                            )
+                        } else {
+                            val jobId = GpxImportJobIds.create(
+                                kind = GpxImportJobKind.TARGET_ROUTE,
+                                nonce = System.nanoTime()
+                            )
+                            val queuedQueue = enqueueGpxImportJob(
+                                jobId,
+                                GpxImportJobKind.TARGET_ROUTE,
+                                "sample://$fileName",
+                                fileName
+                            )
+                            val runningQueue = startQueuedGpxImportJob(queuedQueue, jobId)
+                            if (runningQueue.isRunningJob(jobId)) {
+                                routeImportQueue = routeImportQueue.start(fileName)
+                                val state = TargetRouteImporter.importText(
+                                    fileName = "longjing-ridge-target.gpx",
+                                    content = TrailMateSampleData.sampleTargetGpx
+                                )
+                                applyImportState(state)
+                                finishTargetRouteImportJob(jobId, state)
+                            }
+                        }
                     }
                 )
                 if (importedRoute?.readyForAssessment() == true && routeAssessment != null) {
@@ -639,8 +810,17 @@ private val HistoricalActivitiesStateSaver = mapSaver(
     }
 )
 
-private fun Context.importRouteFromUri(uri: Uri): TargetRouteImportState {
-    val fileName = runCatching { displayNameFor(uri) }.getOrDefault("selected-route.gpx")
+private data class PendingGpxImportJob(
+    val id: String,
+    val sourceUri: String,
+    val fileName: String,
+    val uri: Uri
+)
+
+private fun GpxImportQueue.isRunningJob(id: String): Boolean =
+    jobs.any { job -> job.id == id && job.status == GpxImportJobStatus.RUNNING }
+
+private fun Context.importRouteFromUri(uri: Uri, fileName: String): TargetRouteImportState {
     val content = runCatching {
         contentResolver.openInputStream(uri)
             ?.bufferedReader()
@@ -658,39 +838,31 @@ private fun Context.importRouteFromUri(uri: Uri): TargetRouteImportState {
     return TargetRouteImporter.importText(fileName = fileName, content = content)
 }
 
-private fun Context.importHistoricalActivitiesFromUris(uris: List<Uri>): HistoricalActivityImportBatch {
-    val files = mutableListOf<HistoricalActivityImportFile>()
-    val failures = mutableListOf<HistoricalActivityImportFailure>()
-
-    uris.forEach { uri ->
-        val fileName = runCatching { displayNameFor(uri) }.getOrDefault("history.gpx")
-        val content = runCatching {
-            contentResolver.openInputStream(uri)
-                ?.bufferedReader()
-                ?.use { it.readText() }
-        }.getOrElse { error ->
-            failures += HistoricalActivityImportFailure(
-                fileName = fileName,
-                message = error.message ?: "Unable to open selected GPX file."
-            )
-            return@forEach
-        }
-
-        if (content == null) {
-            failures += HistoricalActivityImportFailure(
-                fileName = fileName,
-                message = "Unable to open selected GPX file."
-            )
-        } else {
-            files += HistoricalActivityImportFile(fileName = fileName, content = content)
-        }
-    }
-
-    val imported = HistoricalActivityImporter.importFiles(files)
-    return HistoricalActivityImportBatch(
-        activities = imported.activities,
-        failures = failures + imported.failures
+private fun Context.importHistoricalActivityFromUri(uri: Uri, fileName: String): HistoricalActivityImportState {
+    val content = runCatching {
+        contentResolver.openInputStream(uri)
+            ?.bufferedReader()
+            ?.use { it.readText() }
+    }.getOrElse { error ->
+        return HistoricalActivityImportState.Failed(
+            fileName = fileName,
+            message = error.message ?: "Unable to open selected GPX file."
+        )
+    } ?: return HistoricalActivityImportState.Failed(
+        fileName = fileName,
+        message = "Unable to open selected GPX file."
     )
+
+    return HistoricalActivityImporter.importText(fileName = fileName, content = content)
+}
+
+private fun Context.displayNameForOrDefault(uri: Uri, defaultName: String): String =
+    runCatching { displayNameFor(uri) }.getOrDefault(defaultName)
+
+private fun Context.takePersistableReadPermission(uri: Uri) {
+    runCatching {
+        contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
 }
 
 private fun Context.displayNameFor(uri: Uri): String {
@@ -712,3 +884,5 @@ private val GPX_MIME_TYPES = arrayOf(
     "text/xml",
     "*/*"
 )
+
+private const val GPX_IMPORT_BUSY_MESSAGE = "Another GPX import is already running."

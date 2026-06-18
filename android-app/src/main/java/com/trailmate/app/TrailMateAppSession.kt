@@ -1,5 +1,6 @@
 package com.trailmate.app
 
+import com.trailmate.app.core.gpx.GpxImportQueue
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.HistoricalActivity
@@ -27,6 +28,22 @@ data class TrailMateAppSession(
 
     fun withHistoricalActivities(historicalActivities: List<HistoricalActivity>): TrailMateAppSession =
         copy(snapshot = snapshot.copy(historicalActivities = historicalActivities))
+
+    fun withGpxImportQueue(queue: GpxImportQueue): TrailMateAppSession =
+        copy(snapshot = snapshot.copy(gpxImportQueue = queue))
+
+    fun recoverInterruptedGpxImports(
+        nowEpochMillis: Long,
+        runningTimeoutMillis: Long,
+        retryDelayMillis: Long
+    ): TrailMateAppSession =
+        withGpxImportQueue(
+            snapshot.gpxImportQueue.recoverInterruptedRunningJobs(
+                nowEpochMillis = nowEpochMillis,
+                runningTimeoutMillis = runningTimeoutMillis,
+                retryDelayMillis = retryDelayMillis
+            )
+        )
 
     fun clear(): TrailMateAppSession =
         TrailMateAppSession(TrailMateSnapshot.empty())
