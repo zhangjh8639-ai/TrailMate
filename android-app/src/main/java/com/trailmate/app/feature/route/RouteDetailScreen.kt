@@ -32,7 +32,8 @@ import com.trailmate.app.core.design.TrailMatePanel
 import com.trailmate.app.core.design.TrailMatePanelTone
 import com.trailmate.app.core.design.TrailMateSegmentedControl
 import com.trailmate.app.core.model.AiGearAdvisorContract
-import com.trailmate.app.core.model.AiGearAdvisorRequest
+import com.trailmate.app.core.model.AiGearAdvisorPresentation
+import com.trailmate.app.core.model.AiGearAdvisorResponse
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.GearItem
@@ -59,11 +60,12 @@ fun RouteDetailScreen(
     inventory: GearInventory = GearInventory(TrailMateSampleData.gearItems),
     routeAssessment: RouteAssessmentSummary? = null,
     gearRecommendations: List<GearRecommendation>? = null,
+    aiGearAdvisorResponse: AiGearAdvisorResponse? = null,
     onAddGearRequested: (String) -> Unit = {}
 ) {
     val assessment = routeAssessment ?: RouteAssessmentEngine.assess(profile = profile, route = route)
     val plan = HikePlanEngine.build(route = route, assessment = assessment)
-    val resolvedGearRecommendations = gearRecommendations ?: inventory.applyTo(
+    val fallbackGearRecommendations = gearRecommendations ?: inventory.applyTo(
         RouteGearAdvisorEngine.recommend(route = route, assessment = assessment)
     )
     val aiGearAdvisorRequest = AiGearAdvisorContract.buildRequest(
@@ -71,7 +73,11 @@ fun RouteDetailScreen(
         profile = profile,
         assessment = assessment,
         inventory = inventory,
-        fallbackRecommendations = resolvedGearRecommendations
+        fallbackRecommendations = fallbackGearRecommendations
+    )
+    val aiGearAdvisorPresentation = AiGearAdvisorContract.resolvePresentation(
+        request = aiGearAdvisorRequest,
+        response = aiGearAdvisorResponse
     )
     val routeSessionKey = route.sessionKey()
     var selected by rememberSaveable { mutableStateOf(RouteDetailTab.Assessment) }
@@ -109,9 +115,9 @@ fun RouteDetailScreen(
             )
             RouteDetailTab.Plan -> PlanTab(plan = plan)
             RouteDetailTab.Gear -> GearTab(
-                recommendations = resolvedGearRecommendations,
+                recommendations = aiGearAdvisorPresentation.recommendations,
                 inventory = inventory,
-                aiGearAdvisorRequest = aiGearAdvisorRequest,
+                aiGearAdvisorPresentation = aiGearAdvisorPresentation,
                 onAddGearRequested = onAddGearRequested
             )
         }
@@ -269,19 +275,19 @@ private fun PlanTab(plan: HikePlanSummary) {
 private fun GearTab(
     recommendations: List<GearRecommendation>,
     inventory: GearInventory,
-    aiGearAdvisorRequest: AiGearAdvisorRequest,
+    aiGearAdvisorPresentation: AiGearAdvisorPresentation,
     onAddGearRequested: (String) -> Unit
 ) {
-    val aiAdvisorCaption =
-        "${aiGearAdvisorRequest.fallbackRecommendations.size} checks prepared; " +
-            "route assessment locked to ${aiGearAdvisorRequest.assessment.matchLevel.name}."
-
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         TrailMatePanel(
             title = "AI advisor",
-            value = "Fallback active",
-            caption = aiAdvisorCaption,
-            tone = TrailMatePanelTone.Neutral
+            value = aiGearAdvisorPresentation.statusLabel,
+            caption = aiGearAdvisorPresentation.caption,
+            tone = when {
+                aiGearAdvisorPresentation.isStaleResponse -> TrailMatePanelTone.Secondary
+                aiGearAdvisorPresentation.isFallbackActive -> TrailMatePanelTone.Neutral
+                else -> TrailMatePanelTone.Primary
+            }
         )
         recommendations.forEach { item ->
             val matchedItem = item.matchedGearItemId?.let { matchedId ->

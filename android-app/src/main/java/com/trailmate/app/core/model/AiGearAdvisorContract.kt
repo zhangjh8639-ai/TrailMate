@@ -15,6 +15,14 @@ data class AiGearAdvisorResponse(
     val recommendations: List<GearRecommendation>
 )
 
+data class AiGearAdvisorPresentation(
+    val statusLabel: String,
+    val caption: String,
+    val recommendations: List<GearRecommendation>,
+    val isFallbackActive: Boolean,
+    val isStaleResponse: Boolean
+)
+
 object AiGearAdvisorContract {
     fun buildRequest(
         route: ImportedRoute,
@@ -58,6 +66,52 @@ object AiGearAdvisorContract {
         return response.recommendations
     }
 
+    fun resolvePresentation(
+        request: AiGearAdvisorRequest,
+        response: AiGearAdvisorResponse?
+    ): AiGearAdvisorPresentation {
+        if (response == null) {
+            return fallbackPresentation(
+                request = request,
+                statusLabel = "Fallback active",
+                caption = fallbackCaption(request),
+                isStaleResponse = false
+            )
+        }
+
+        if (response.assessmentFingerprint != request.assessmentFingerprint) {
+            return fallbackPresentation(
+                request = request,
+                statusLabel = "Stale response",
+                caption = "Showing local fallback because the AI checklist belongs to a different route. " +
+                    "Route assessment remains locked to ${request.assessment.matchLevel.name}.",
+                isStaleResponse = true
+            )
+        }
+
+        return try {
+            val recommendations = GearInventory(request.ownedGear).applyTo(
+                validateResponse(request = request, response = response)
+            )
+            AiGearAdvisorPresentation(
+                statusLabel = "AI ready",
+                caption = "${recommendations.size} AI checks validated against " +
+                    "${request.assessment.matchLevel.name} assessment.",
+                recommendations = recommendations,
+                isFallbackActive = false,
+                isStaleResponse = false
+            )
+        } catch (_: IllegalArgumentException) {
+            fallbackPresentation(
+                request = request,
+                statusLabel = "Fallback active",
+                caption = "Showing local fallback because the AI checklist was incomplete. " +
+                    fallbackCaption(request),
+                isStaleResponse = false
+            )
+        }
+    }
+
     private fun RouteAssessmentSummary.fingerprint(): String =
         listOf(
             routeName,
@@ -68,4 +122,22 @@ object AiGearAdvisorContract {
             estimatedDurationRange,
             risks.joinToString("|")
         ).joinToString("#")
+
+    private fun fallbackPresentation(
+        request: AiGearAdvisorRequest,
+        statusLabel: String,
+        caption: String,
+        isStaleResponse: Boolean
+    ): AiGearAdvisorPresentation =
+        AiGearAdvisorPresentation(
+            statusLabel = statusLabel,
+            caption = caption,
+            recommendations = request.fallbackRecommendations,
+            isFallbackActive = true,
+            isStaleResponse = isStaleResponse
+        )
+
+    private fun fallbackCaption(request: AiGearAdvisorRequest): String =
+        "${request.fallbackRecommendations.size} checks prepared; " +
+            "route assessment locked to ${request.assessment.matchLevel.name}."
 }

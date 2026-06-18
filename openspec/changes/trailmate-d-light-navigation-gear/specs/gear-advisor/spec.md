@@ -31,6 +31,7 @@ After a target route assessment exists, the Gear tab shall provide an equipment 
 - THEN the app can request an AI-generated gear checklist using only structured route, plan, risk, and gear data
 - AND the checklist labels items as covered, check, missing, or optional
 - AND each item includes a route-based rationale
+- AND current gear inventory availability is applied before the checklist is displayed
 
 ### Requirement: AI gear advisor shall not affect deterministic route assessment
 
@@ -54,6 +55,14 @@ If AI generation fails, the app shall keep assessment and plan workflows usable.
 - THEN the app displays a deterministic essentials checklist
 - AND the app offers retry
 - AND the app does not block viewing assessment, route, or plan tabs
+
+#### Scenario: AI response belongs to a stale route assessment
+
+- GIVEN a user has opened the Gear tab for the current assessed route
+- WHEN an AI checklist response references a different route assessment fingerprint
+- THEN the app labels the AI advisor state as stale
+- AND the app displays the deterministic essentials checklist for the current route
+- AND stale AI checklist categories are not displayed as current recommendations
 
 ### Requirement: Gear advice shall avoid medical and shopping claims
 

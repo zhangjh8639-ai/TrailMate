@@ -21,6 +21,8 @@
 - Persisted prototype historical GPX activities in the local snapshot and Data export preview.
 - Added a deterministic route-aware gear advisor fallback for the Gear tab while keeping route risk scoring separate.
 - Added an AI gear advisor request/response contract with assessment fingerprint validation and a fallback-active Gear tab status.
+- Added stale AI gear response handling so the Gear tab labels old-route checklist responses and keeps showing the current route fallback checklist.
+- Refreshed validated AI gear recommendations against the current personal gear inventory before displaying covered or missing states.
 - Added a saveable in-memory My Gear prototype with branded gear add, availability, delete, and route gear recommendation matching.
 - Added a My Gear details tab with per-item route readiness and recommendation rationale.
 - Added a local SharedPreferences snapshot store for baseline profile, imported target route, and personal gear state.

@@ -1127,6 +1127,8 @@ Type consistency:
 - Persisted prototype historical GPX activities in the local snapshot and included the history count in the Data tab export preview.
 - Added a deterministic route-aware gear advisor fallback so route distance, ascent, ETA, and concrete route risks generate the Gear tab checklist while leaving route assessment unchanged.
 - Added an AI gear advisor request/response contract with assessment fingerprint validation and a Gear-tab fallback-active status, while keeping real backend service integration pending.
+- Added stale AI gear response handling so old assessment fingerprints are labeled in the Gear tab and the current route keeps using deterministic fallback recommendations.
+- Refreshed validated AI gear recommendations against current personal gear inventory before displaying covered or missing states.
 - Added `GearInventory` rules so available owned gear can satisfy matching route recommendations without changing deterministic route assessment values.
 - Added a prototype `SharedPreferences` snapshot store with a tested codec so baseline profile, personal gear, and the last imported target route can be restored after app restart.
 - Added a local session repository boundary so Compose app state depends on a repository interface while `SharedPreferences` remains a local adapter ahead of Room and cloud sync.

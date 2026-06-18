@@ -12,6 +12,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import com.trailmate.app.core.design.TrailMateTheme
+import com.trailmate.app.core.model.AiGearAdvisorResponse
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.ExerciseFrequency
 import com.trailmate.app.core.model.ExperienceLevel
@@ -228,6 +229,33 @@ class TrailMateAppSmokeTest {
         compose.onNodeWithText("Matched with Patagonia Torrentshell.", substring = true).assertExists()
         compose.onNodeWithText("Extra water").assertExists()
         compose.onNodeWithText("Add Trekking poles to My Gear").assertExists()
+    }
+
+    @Test
+    fun routeGearTabMarksStaleAiResponseAndKeepsFallbackChecklist() {
+        compose.setContent {
+            TrailMateTheme {
+                com.trailmate.app.feature.route.RouteDetailScreen(
+                    aiGearAdvisorResponse = AiGearAdvisorResponse(
+                        assessmentFingerprint = "old-route",
+                        recommendations = listOf(
+                            GearRecommendation(
+                                category = "Avalanche beacon",
+                                status = GearStatus.MISSING,
+                                rationale = "Old winter route response."
+                            )
+                        )
+                    )
+                )
+            }
+        }
+
+        compose.onNodeWithText("Gear").performClick()
+
+        compose.onNodeWithText("Stale response").assertExists()
+        compose.onNodeWithText("different route", substring = true).assertExists()
+        compose.onNodeWithText("Rain shell").assertExists()
+        compose.onAllNodesWithText("Avalanche beacon").assertCountEquals(0)
     }
 
     @Test

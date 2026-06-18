@@ -61,4 +61,4 @@
 - [x] Define deterministic fallback gear checklist.
 - [x] Define tests for AI boundary: route score cannot be changed by gear advisor.
 - [x] Define tests for prototype delete/export of profile, route, and gear data.
-- [ ] Define UI tests for questionnaire skip, save, and stale gear checklist states.
+- [x] Define UI tests for questionnaire skip, save, and stale gear checklist states.
