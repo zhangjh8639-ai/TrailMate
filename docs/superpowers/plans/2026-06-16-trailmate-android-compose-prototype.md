@@ -1109,6 +1109,7 @@ Type consistency:
 ## Progress Update: 2026-06-17
 
 - Added a sign-in/register prototype step before questionnaire intake.
+- Defined the production auth/profile-sync boundary for account-bound profile drafts, returning-user restore, account switching, and conflict handling.
 - Replaced the static baseline profile panel with a real saveable questionnaire for exercise rhythm, session duration, outdoor experience, ascent history, height, weight, and pack weight.
 - Fed the completed questionnaire into the Home profile summary while preserving LOW confidence until GPX evidence exists; skipping leaves body and pack fields unset instead of applying sample values.
 - Added a target-route import gate so route assessment, light navigation, plan, and gear tabs appear after a GPX import action rather than as the default Home state.

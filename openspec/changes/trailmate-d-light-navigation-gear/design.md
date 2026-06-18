@@ -28,6 +28,25 @@ Fields:
 
 The baseline profile creates conservative defaults for missing denominators in profile and assessment logic. It does not replace GPX evidence.
 
+## Auth And Profile Sync
+
+Production auth is a boundary around account identity, not a source of route scoring.
+
+After real authentication succeeds, account-bound data includes:
+
+- baseline profile
+- historical GPX capability evidence
+- personal gear inventory
+- imported target routes
+- gear checklist artifacts
+- data export and delete state
+
+Local profile intake may create a draft before server sync. The app can use that draft for prototype flow, but production sync must associate it with the authenticated user id and track pending, synced, or failed state before treating it as account data.
+
+When a returning user signs in, the local session should restore the server profile and capability summary unless the device has newer unsynced edits. If both local and remote profile revisions changed, the app preserves both versions and asks the user to resolve the conflict.
+
+When a different user signs in on the same device, account-bound local data from the previous user must not be displayed. The new session starts from the new user's synced data or a fresh profile intake state.
+
 ## Light Navigation
 
 Light navigation means route-following context, not full navigation.

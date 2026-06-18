@@ -5,6 +5,7 @@
 - Added an Android Compose prototype scaffold for TrailMate direction D.
 - Added first client iteration for onboarding baseline profile, light route navigation, and AI gear checklist UI backed by sample gear data.
 - Added a sign-in/register prototype step plus a real baseline profile questionnaire feeding Home profile summaries.
+- Defined the production auth/profile-sync boundary for account-bound profile drafts, returning-user restore, account switching, and conflict handling.
 - Added a target-route sample GPX import gate before showing route assessment, light navigation, plan, and gear tabs.
 - Added a tested target-route GPX parser for track/route points, route name, distance, ascent, and point count.
 - Added an Android system file-picker route import path with recoverable GPX parse errors.

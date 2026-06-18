@@ -23,6 +23,7 @@ This change keeps the MVP focused by separating deterministic route assessment f
 In scope:
 
 - short skippable baseline profile after registration/login
+- production auth boundary for account-bound profile sync
 - low-confidence temporary profile for users without enough GPX history
 - personal gear inventory with optional brand/model fields
 - assessment screen with Assessment, Route, Plan, and Gear tabs
@@ -53,6 +54,7 @@ Affected product areas:
 Affected data areas:
 
 - user baseline profile
+- profile sync state and server revision metadata
 - user gear items
 - route gear checklist outputs
 
@@ -62,6 +64,10 @@ The change is accepted when:
 
 - users can complete or skip baseline profile intake
 - profile defaults are marked low confidence until GPX evidence exists
+- post-login profile sync distinguishes completed drafts from skipped intake
+- returning-user login restores account-bound profile data without leaking another account's local data
+- profile sync preserves local and remote versions when both changed
+- account-bound profile, route, history, gear, checklist, export, and delete records are scoped to authenticated user id
 - users can record owned branded gear
 - route assessment exposes a Gear tab after target route import
 - gear recommendations cite route facts and saved gear
