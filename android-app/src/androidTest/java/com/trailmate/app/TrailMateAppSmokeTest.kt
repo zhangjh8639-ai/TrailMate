@@ -367,6 +367,10 @@ class TrailMateAppSmokeTest {
         compose.onNodeWithText("Longjing Ridge / 15.2 km / +860 m").assertExists()
         compose.onNodeWithText("3 items / 3 ready").assertExists()
         compose.onNodeWithText("Export preview").assertExists()
+        compose.onNodeWithText("Profile: saved", substring = true).assertExists()
+        compose.onNodeWithText("Route: Longjing Ridge, 15.2 km, +860 m", substring = true).assertExists()
+        compose.onNodeWithText("History: 0 GPX activities", substring = true).assertExists()
+        compose.onNodeWithText("Gear: 3 items, 3 ready", substring = true).assertExists()
 
         compose.onNodeWithText("Clear local data").performClick()
 

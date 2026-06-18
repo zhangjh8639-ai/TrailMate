@@ -17,15 +17,41 @@ object TrailMateDataControlEngine {
         } ?: "No route imported"
         val inventoryCount = snapshot.inventory.items.size
         val readyCount = snapshot.inventory.items.count { item -> item.available }
-        val profileToken = snapshot.profile?.initialConfidence()?.name ?: "none"
-        val routeToken = snapshot.importedRoute?.routeName ?: "none"
         val historyCount = snapshot.historicalActivities.size
 
         return TrailMateDataControlSummary(
             profileLine = profileLine,
             routeLine = routeLine,
             inventoryLine = "$inventoryCount items / $readyCount ready",
-            exportPreview = "profile=$profileToken; route=$routeToken; gear=$inventoryCount; history=$historyCount"
+            exportPreview = buildExportPreview(
+                snapshot = snapshot,
+                inventoryCount = inventoryCount,
+                readyCount = readyCount,
+                historyCount = historyCount
+            )
         )
+    }
+
+    private fun buildExportPreview(
+        snapshot: TrailMateSnapshot,
+        inventoryCount: Int,
+        readyCount: Int,
+        historyCount: Int
+    ): String {
+        val profilePreview = if (snapshot.profile != null) {
+            "Profile: saved"
+        } else {
+            "Profile: not saved"
+        }
+        val routePreview = snapshot.importedRoute?.let { route ->
+            "Route: ${route.routeName}, ${String.format(Locale.US, "%.1f km", route.distanceKm)}, +${route.ascentMeters} m"
+        } ?: "Route: none"
+
+        return listOf(
+            profilePreview,
+            routePreview,
+            "History: $historyCount GPX activities",
+            "Gear: $inventoryCount items, $readyCount ready"
+        ).joinToString("; ")
     }
 }
