@@ -63,8 +63,10 @@ fun HomeScreen(
     profile: BaselineProfile = TrailMateSampleData.baselineProfile,
     initialInventory: GearInventory = GearInventory(TrailMateSampleData.gearItems),
     initialImportedRoute: ImportedRoute? = null,
+    initialHistoricalActivities: List<HistoricalActivity> = emptyList(),
     onInventoryChanged: (GearInventory) -> Unit = {},
     onRouteImported: (ImportedRoute) -> Unit = {},
+    onHistoricalActivitiesChanged: (List<HistoricalActivity>) -> Unit = {},
     onClearLocalData: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -75,7 +77,7 @@ fun HomeScreen(
         mutableStateOf(TargetRouteImportQueueState.fromRoute(initialImportedRoute))
     }
     var historicalActivities by rememberSaveable(stateSaver = HistoricalActivitiesStateSaver) {
-        mutableStateOf(emptyList<HistoricalActivity>())
+        mutableStateOf(initialHistoricalActivities)
     }
     var inventory by rememberSaveable(stateSaver = GearInventoryStateSaver) {
         mutableStateOf(initialInventory)
@@ -102,7 +104,8 @@ fun HomeScreen(
         TrailMateSnapshot(
             profile = profile,
             inventory = inventory,
-            importedRoute = importedRoute
+            importedRoute = importedRoute,
+            historicalActivities = historicalActivities
         )
     )
     val applyImportState: (TargetRouteImportState) -> Unit = { state ->
@@ -143,7 +146,9 @@ fun HomeScreen(
         )
         OutlinedButton(
             onClick = {
-                historicalActivities = TrailMateSampleData.historicalActivities
+                val sampleHistory = TrailMateSampleData.historicalActivities
+                historicalActivities = sampleHistory
+                onHistoricalActivitiesChanged(sampleHistory)
             },
             modifier = Modifier.fillMaxWidth(),
             enabled = historicalActivities.size < TrailMateSampleData.historicalActivities.size

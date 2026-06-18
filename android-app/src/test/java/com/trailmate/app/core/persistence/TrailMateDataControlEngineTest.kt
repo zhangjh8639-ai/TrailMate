@@ -12,7 +12,8 @@ class TrailMateDataControlEngineTest {
         val snapshot = TrailMateSnapshot(
             profile = TrailMateSampleData.baselineProfile,
             inventory = GearInventory(TrailMateSampleData.gearItems),
-            importedRoute = TrailMateSampleData.importedTargetRoute
+            importedRoute = TrailMateSampleData.importedTargetRoute,
+            historicalActivities = TrailMateSampleData.historicalActivities
         )
 
         val summary = TrailMateDataControlEngine.summarize(snapshot)
@@ -23,6 +24,7 @@ class TrailMateDataControlEngineTest {
         assertTrue(summary.exportPreview.contains("profile=LOW"))
         assertTrue(summary.exportPreview.contains("route=Longjing Ridge"))
         assertTrue(summary.exportPreview.contains("gear=3"))
+        assertTrue(summary.exportPreview.contains("history=3"))
     }
 
     @Test
@@ -35,5 +37,6 @@ class TrailMateDataControlEngineTest {
         assertTrue(summary.exportPreview.contains("profile=none"))
         assertTrue(summary.exportPreview.contains("route=none"))
         assertTrue(summary.exportPreview.contains("gear=0"))
+        assertTrue(summary.exportPreview.contains("history=0"))
     }
 }

@@ -2,6 +2,7 @@ package com.trailmate.app
 
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.GearInventory
+import com.trailmate.app.core.model.HistoricalActivity
 import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.TrailMateSampleData
 import com.trailmate.app.core.persistence.TrailMateSnapshot
@@ -23,6 +24,9 @@ data class TrailMateAppSession(
 
     fun withImportedRoute(route: ImportedRoute): TrailMateAppSession =
         copy(snapshot = snapshot.copy(importedRoute = route))
+
+    fun withHistoricalActivities(historicalActivities: List<HistoricalActivity>): TrailMateAppSession =
+        copy(snapshot = snapshot.copy(historicalActivities = historicalActivities))
 
     fun clear(): TrailMateAppSession =
         TrailMateAppSession(TrailMateSnapshot.empty())

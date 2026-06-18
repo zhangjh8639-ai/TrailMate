@@ -18,6 +18,7 @@ import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.GearItem
 import com.trailmate.app.core.model.GearRecommendation
 import com.trailmate.app.core.model.GearStatus
+import com.trailmate.app.core.model.HistoricalActivity
 import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.AscentExperience
 import com.trailmate.app.core.model.TrailMateSampleData
@@ -72,7 +73,10 @@ class TrailMateAppSmokeTest {
             TrailMateTheme {
                 TrailMateApp(
                     sessionStore = FakeTrailMateSessionStore(
-                        TrailMateSnapshot(profile = savedProfile())
+                        TrailMateSnapshot(
+                            profile = savedProfile(),
+                            historicalActivities = TrailMateSampleData.historicalActivities
+                        )
                     )
                 )
             }
@@ -80,6 +84,8 @@ class TrailMateAppSmokeTest {
 
         compose.onNodeWithText("Trail coach").assertExists()
         compose.onNodeWithText("181cm / 76kg").assertExists()
+        compose.onNodeWithText("3/3 GPX").assertExists()
+        compose.onNodeWithText("Historical profile").assertExists()
         compose.onAllNodesWithText("Start baseline profile").assertCountEquals(0)
     }
 
@@ -402,9 +408,15 @@ class TrailMateAppSmokeTest {
 
     @Test
     fun homeCanApplySampleHistoricalGpxEvidence() {
+        var savedHistory = emptyList<HistoricalActivity>()
+
         compose.setContent {
             TrailMateTheme {
-                HomeScreen()
+                HomeScreen(
+                    onHistoricalActivitiesChanged = { activities ->
+                        savedHistory = activities
+                    }
+                )
             }
         }
 
@@ -416,6 +428,7 @@ class TrailMateAppSmokeTest {
         compose.onNodeWithText("3/3 GPX").assertExists()
         compose.onNodeWithText("Longest 18.6 km / +980 m").assertExists()
         compose.onNodeWithText("Average 13.7 km / +720 m", substring = true).assertExists()
+        assertEquals(TrailMateSampleData.historicalActivities, savedHistory)
     }
 
     private fun savedProfile(): BaselineProfile =
@@ -447,6 +460,10 @@ class TrailMateAppSmokeTest {
 
         override fun saveImportedRoute(route: ImportedRoute) {
             snapshot = snapshot.copy(importedRoute = route)
+        }
+
+        override fun saveHistoricalActivities(historicalActivities: List<HistoricalActivity>) {
+            snapshot = snapshot.copy(historicalActivities = historicalActivities)
         }
 
         override fun clear() {

@@ -6,6 +6,7 @@ import com.trailmate.app.core.model.ExerciseFrequency
 import com.trailmate.app.core.model.ExperienceLevel
 import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.GearItem
+import com.trailmate.app.core.model.HistoricalActivity
 import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.RouteImportStatus
 import com.trailmate.app.core.model.TypicalDuration
@@ -45,6 +46,14 @@ class TrailMateSnapshotCodecTest {
                 ascentMeters = 540,
                 status = RouteImportStatus.PARSED,
                 pointCount = 64
+            ),
+            historicalActivities = listOf(
+                HistoricalActivity(
+                    routeName = "Old Ridge",
+                    distanceKm = 11.2,
+                    ascentMeters = 620,
+                    durationMinutes = 240
+                )
             )
         )
 
@@ -107,5 +116,6 @@ class TrailMateSnapshotCodecTest {
         assertNull(decoded.profile)
         assertEquals(0, decoded.inventory.items.size)
         assertNull(decoded.importedRoute)
+        assertEquals(0, decoded.historicalActivities.size)
     }
 }

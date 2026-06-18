@@ -19,12 +19,13 @@ object TrailMateDataControlEngine {
         val readyCount = snapshot.inventory.items.count { item -> item.available }
         val profileToken = snapshot.profile?.initialConfidence()?.name ?: "none"
         val routeToken = snapshot.importedRoute?.routeName ?: "none"
+        val historyCount = snapshot.historicalActivities.size
 
         return TrailMateDataControlSummary(
             profileLine = profileLine,
             routeLine = routeLine,
             inventoryLine = "$inventoryCount items / $readyCount ready",
-            exportPreview = "profile=$profileToken; route=$routeToken; gear=$inventoryCount"
+            exportPreview = "profile=$profileToken; route=$routeToken; gear=$inventoryCount; history=$historyCount"
         )
     }
 }

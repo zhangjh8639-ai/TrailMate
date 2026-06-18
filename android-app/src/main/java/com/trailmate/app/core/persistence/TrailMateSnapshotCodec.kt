@@ -6,6 +6,7 @@ import com.trailmate.app.core.model.ExerciseFrequency
 import com.trailmate.app.core.model.ExperienceLevel
 import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.GearItem
+import com.trailmate.app.core.model.HistoricalActivity
 import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.RouteImportStatus
 import com.trailmate.app.core.model.TypicalDuration
@@ -50,6 +51,15 @@ object TrailMateSnapshotCodec {
             properties["route.pointCount"] = route.pointCount.toString()
         }
 
+        properties["history.count"] = snapshot.historicalActivities.size.toString()
+        snapshot.historicalActivities.forEachIndexed { index, activity ->
+            val prefix = "history.$index"
+            properties["$prefix.routeName"] = activity.routeName
+            properties["$prefix.distanceKm"] = activity.distanceKm.toString()
+            properties["$prefix.ascentMeters"] = activity.ascentMeters.toString()
+            properties["$prefix.durationMinutes"] = activity.durationMinutes.toString()
+        }
+
         return StringWriter().use { writer ->
             properties.store(writer, "TrailMate local snapshot")
             writer.toString()
@@ -69,7 +79,8 @@ object TrailMateSnapshotCodec {
             TrailMateSnapshot(
                 profile = properties.decodeProfile(),
                 inventory = properties.decodeInventory(),
-                importedRoute = properties.decodeImportedRoute()
+                importedRoute = properties.decodeImportedRoute(),
+                historicalActivities = properties.decodeHistoricalActivities()
             )
         }.getOrDefault(TrailMateSnapshot())
     }
@@ -136,6 +147,25 @@ object TrailMateSnapshotCodec {
             status = status,
             pointCount = pointCount
         )
+    }
+
+    private fun Properties.decodeHistoricalActivities(): List<HistoricalActivity> {
+        val count = getProperty("history.count")?.toIntOrNull() ?: return emptyList()
+
+        return (0 until count).mapNotNull { index ->
+            val prefix = "history.$index"
+            val routeName = getProperty("$prefix.routeName")?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            val distanceKm = getProperty("$prefix.distanceKm")?.toDoubleOrNull() ?: return@mapNotNull null
+            val ascentMeters = getProperty("$prefix.ascentMeters")?.toIntOrNull() ?: return@mapNotNull null
+            val durationMinutes = getProperty("$prefix.durationMinutes")?.toIntOrNull() ?: return@mapNotNull null
+
+            HistoricalActivity(
+                routeName = routeName,
+                distanceKm = distanceKm,
+                ascentMeters = ascentMeters,
+                durationMinutes = durationMinutes
+            )
+        }
     }
 
     private inline fun <reified T : Enum<T>> Properties.enumValue(key: String): T? =

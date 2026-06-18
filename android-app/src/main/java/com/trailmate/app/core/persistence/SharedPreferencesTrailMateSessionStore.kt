@@ -3,6 +3,7 @@ package com.trailmate.app.core.persistence
 import android.content.Context
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.GearInventory
+import com.trailmate.app.core.model.HistoricalActivity
 import com.trailmate.app.core.model.ImportedRoute
 
 class SharedPreferencesTrailMateSessionStore(context: Context) : TrailMateSessionStore {
@@ -26,6 +27,10 @@ class SharedPreferencesTrailMateSessionStore(context: Context) : TrailMateSessio
 
     override fun saveImportedRoute(route: ImportedRoute) {
         update { snapshot -> snapshot.copy(importedRoute = route) }
+    }
+
+    override fun saveHistoricalActivities(historicalActivities: List<HistoricalActivity>) {
+        update { snapshot -> snapshot.copy(historicalActivities = historicalActivities) }
     }
 
     override fun clear() {

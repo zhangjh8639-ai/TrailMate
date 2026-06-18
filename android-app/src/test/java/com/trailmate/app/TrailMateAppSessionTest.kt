@@ -19,7 +19,8 @@ class TrailMateAppSessionTest {
             TrailMateSnapshot(
                 profile = savedProfile(),
                 inventory = GearInventory(TrailMateSampleData.gearItems),
-                importedRoute = TrailMateSampleData.importedTargetRoute
+                importedRoute = TrailMateSampleData.importedTargetRoute,
+                historicalActivities = TrailMateSampleData.historicalActivities
             )
         )
 
@@ -28,6 +29,15 @@ class TrailMateAppSessionTest {
         assertEquals(savedProfile(), nextSession.snapshot.profile)
         assertEquals(emptyList<Nothing>(), nextSession.snapshot.inventory.items)
         assertNull(nextSession.snapshot.importedRoute)
+        assertEquals(emptyList<Nothing>(), nextSession.snapshot.historicalActivities)
+    }
+
+    @Test
+    fun historicalActivitiesArePartOfSessionSnapshot() {
+        val nextSession = TrailMateAppSession(TrailMateSnapshot.empty())
+            .withHistoricalActivities(TrailMateSampleData.historicalActivities)
+
+        assertEquals(TrailMateSampleData.historicalActivities, nextSession.snapshot.historicalActivities)
     }
 
     private fun savedProfile(): BaselineProfile =

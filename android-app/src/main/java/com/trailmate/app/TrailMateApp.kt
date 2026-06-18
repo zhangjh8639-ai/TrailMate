@@ -66,6 +66,7 @@ fun TrailMateApp(sessionStore: TrailMateSessionStore? = null) {
                 profile = baselineProfile,
                 initialInventory = appSession.snapshot.inventory,
                 initialImportedRoute = appSession.snapshot.importedRoute,
+                initialHistoricalActivities = appSession.snapshot.historicalActivities,
                 onInventoryChanged = { inventory ->
                     appSession = appSession.withInventory(inventory)
                     activeSessionStore.saveInventory(inventory)
@@ -73,6 +74,10 @@ fun TrailMateApp(sessionStore: TrailMateSessionStore? = null) {
                 onRouteImported = { route ->
                     appSession = appSession.withImportedRoute(route)
                     activeSessionStore.saveImportedRoute(route)
+                },
+                onHistoricalActivitiesChanged = { historicalActivities ->
+                    appSession = appSession.withHistoricalActivities(historicalActivities)
+                    activeSessionStore.saveHistoricalActivities(historicalActivities)
                 },
                 onClearLocalData = {
                     activeSessionStore.clear()
