@@ -45,7 +45,8 @@ class TrailMateSnapshotCodecTest {
                 distanceKm = 8.4,
                 ascentMeters = 540,
                 status = RouteImportStatus.PARSED,
-                pointCount = 64
+                pointCount = 64,
+                durationMinutes = 128
             ),
             historicalActivities = listOf(
                 HistoricalActivity(

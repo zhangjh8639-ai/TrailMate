@@ -4,6 +4,8 @@ import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.RouteImportStatus
 import java.io.ByteArrayInputStream
 import java.nio.charset.StandardCharsets
+import java.time.Duration
+import java.time.Instant
 import javax.xml.XMLConstants
 import javax.xml.parsers.DocumentBuilderFactory
 import kotlin.math.atan2
@@ -41,7 +43,8 @@ object TargetRouteGpxParser {
             distanceKm = (distanceMeters / 100.0).roundToInt() / 10.0,
             ascentMeters = ascentMeters,
             status = RouteImportStatus.PARSED,
-            pointCount = points.size
+            pointCount = points.size,
+            durationMinutes = durationMinutes(points)
         )
     }
 
@@ -100,10 +103,23 @@ object TargetRouteGpxParser {
             GpxPoint(
                 latitude = latitude,
                 longitude = longitude,
-                elevationMeters = childText(element, "ele")?.toDoubleOrNull()
+                elevationMeters = childText(element, "ele")?.toDoubleOrNull(),
+                time = childText(element, "time")?.let(::parseInstantOrNull)
             )
         }
     }
+
+    private fun durationMinutes(points: List<GpxPoint>): Int? {
+        val times = points.mapNotNull { it.time }
+        val start = times.firstOrNull() ?: return null
+        val end = times.lastOrNull() ?: return null
+        val minutes = Duration.between(start, end).toMinutes()
+
+        return minutes.takeIf { it > 0 }?.coerceAtMost(Int.MAX_VALUE.toLong())?.toInt()
+    }
+
+    private fun parseInstantOrNull(value: String): Instant? =
+        runCatching { Instant.parse(value) }.getOrNull()
 
     private fun elementsByLocalName(document: Document, localName: String): List<Element> {
         val namespaced = document.getElementsByTagNameNS("*", localName).asElements()
@@ -160,7 +176,8 @@ object TargetRouteGpxParser {
     private data class GpxPoint(
         val latitude: Double,
         val longitude: Double,
-        val elevationMeters: Double?
+        val elevationMeters: Double?,
+        val time: Instant?
     )
 
     private data class RouteSource(

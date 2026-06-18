@@ -154,7 +154,8 @@ data class ImportedRoute(
     val distanceKm: Double,
     val ascentMeters: Int,
     val status: RouteImportStatus,
-    val pointCount: Int = 0
+    val pointCount: Int = 0,
+    val durationMinutes: Int? = null
 ) {
     fun readyForAssessment(): Boolean = status == RouteImportStatus.PARSED
 

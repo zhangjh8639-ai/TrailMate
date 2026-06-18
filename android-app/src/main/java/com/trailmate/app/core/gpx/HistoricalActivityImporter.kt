@@ -90,7 +90,7 @@ object HistoricalActivityImporter {
             routeName = routeName,
             distanceKm = distanceKm,
             ascentMeters = ascentMeters,
-            durationMinutes = estimatedDurationMinutes()
+            durationMinutes = durationMinutes ?: estimatedDurationMinutes()
         )
 
     private fun ImportedRoute.estimatedDurationMinutes(): Int {

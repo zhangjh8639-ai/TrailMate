@@ -1121,6 +1121,7 @@ Type consistency:
 - Added a prototype historical GPX capability profile summary so Home can move from questionnaire fallback to a sample-history evidence profile after three local activities.
 - Added Android `OpenMultipleDocuments` historical GPX import so real local GPX files can append capability evidence with partial failure reporting.
 - Added a local historical activity list so users can inspect imported GPX evidence, suppress duplicate route facts, and remove a mistaken activity.
+- Parsed historical GPX point timestamps into activity duration when available, while keeping the distance/ascent estimate as a fallback for untimed or invalid GPX history and preserving parsed duration through local route state.
 - Wired the prototype historical GPX capability evidence into target-route assessment confidence, risk text, match level, and downstream route detail tabs.
 - Persisted prototype historical GPX activities in the local snapshot and included the history count in the Data tab export preview.
 - Added a deterministic route-aware gear advisor fallback so route distance, ascent, ETA, and concrete route risks generate the Gear tab checklist while leaving route assessment unchanged.
@@ -1131,4 +1132,4 @@ Type consistency:
 - Added a Home-level `Route` / `My Gear` switch, a saveable in-memory My Gear add form, availability switches, delete actions, and route Gear-tab actions that send missing categories into the inventory form.
 - Added a My Gear `Inventory` / `Details` split plus per-item route readiness summaries so owned brand gear can show why it does or does not satisfy the current route checklist.
 - Added unit tests for gear inventory matching, detail summaries, unavailable/deleted gear, optional brand/model entry, invalid input rejection, and Compose smoke-test coverage for the My Gear screen, details tab, matched gear copy, and route-to-gear add flow.
-- Still pending for production: real auth, production import queue/retry state machine, timestamp-aware historical GPX duration parsing, production historical GPX storage-backed capability profile with cloud-safe de-duplication, GPS/location-backed navigation session, Room persistence, profile/gear sync, cloud delete/export behavior, and real AI gear advisor service integration.
+- Still pending for production: real auth, production import queue/retry state machine, production historical GPX storage-backed capability profile with cloud-safe de-duplication, GPS/location-backed navigation session, Room persistence, profile/gear sync, cloud delete/export behavior, and real AI gear advisor service integration.

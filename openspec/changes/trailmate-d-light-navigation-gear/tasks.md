@@ -34,6 +34,7 @@
 - [x] Add prototype historical GPX capability profile summary with sample-history calibration.
 - [x] Add Android system file-picker historical GPX import path with partial failure reporting.
 - [x] Add local historical activity list with duplicate suppression and remove controls.
+- [x] Parse historical GPX point timestamps for activity duration with estimate fallback and local state preservation.
 - [x] Use prototype historical GPX capability evidence in route assessment confidence, risk text, and match level.
 - [x] Persist prototype historical GPX activities in the local snapshot and export preview.
 - [x] Add local snapshot persistence for baseline profile, imported route, and personal gear state.

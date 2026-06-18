@@ -544,7 +544,7 @@ private val GearInventoryStateSaver = mapSaver(
 )
 
 @Suppress("UNCHECKED_CAST")
-private val TargetRouteImportQueueStateSaver = mapSaver(
+internal val TargetRouteImportQueueStateSaver = mapSaver(
     save = { queue ->
         val route = queue.lastImportedRoute
         mapOf(
@@ -553,6 +553,7 @@ private val TargetRouteImportQueueStateSaver = mapSaver(
             "distanceKm" to (route?.distanceKm ?: -1.0),
             "ascentMeters" to (route?.ascentMeters ?: -1),
             "pointCount" to (route?.pointCount ?: -1),
+            "durationMinutes" to (route?.durationMinutes ?: -1),
             "failedFileName" to queue.failedFileName.orEmpty(),
             "failureMessage" to queue.failureMessage.orEmpty()
         )
@@ -568,7 +569,8 @@ private val TargetRouteImportQueueStateSaver = mapSaver(
                 distanceKm = saved["distanceKm"] as Double,
                 ascentMeters = saved["ascentMeters"] as Int,
                 status = RouteImportStatus.PARSED,
-                pointCount = saved["pointCount"] as Int
+                pointCount = saved["pointCount"] as Int,
+                durationMinutes = (saved["durationMinutes"] as? Int)?.takeIf { it >= 0 }
             )
         }
 

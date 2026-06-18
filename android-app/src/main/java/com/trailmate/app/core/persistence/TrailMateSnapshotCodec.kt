@@ -49,6 +49,7 @@ object TrailMateSnapshotCodec {
             properties["route.ascentMeters"] = route.ascentMeters.toString()
             properties["route.status"] = route.status.name
             properties["route.pointCount"] = route.pointCount.toString()
+            properties["route.durationMinutes"] = route.durationMinutes?.toString().orEmpty()
         }
 
         properties["history.count"] = snapshot.historicalActivities.size.toString()
@@ -138,6 +139,7 @@ object TrailMateSnapshotCodec {
         val ascentMeters = getProperty("route.ascentMeters")?.toIntOrNull() ?: return null
         val status = enumValue<RouteImportStatus>("route.status") ?: return null
         val pointCount = getProperty("route.pointCount")?.toIntOrNull() ?: 0
+        val durationMinutes = nullableInt("route.durationMinutes")
 
         return ImportedRoute(
             routeName = routeName,
@@ -145,7 +147,8 @@ object TrailMateSnapshotCodec {
             distanceKm = distanceKm,
             ascentMeters = ascentMeters,
             status = status,
-            pointCount = pointCount
+            pointCount = pointCount,
+            durationMinutes = durationMinutes
         )
     }
 
