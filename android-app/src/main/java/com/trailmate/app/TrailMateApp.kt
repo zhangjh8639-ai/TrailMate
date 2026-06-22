@@ -1,9 +1,15 @@
 package com.trailmate.app
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.Build
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -19,6 +25,7 @@ import com.trailmate.app.core.model.ExperienceLevel
 import com.trailmate.app.core.model.TrailMateSampleData
 import com.trailmate.app.core.model.TypicalDuration
 import com.trailmate.app.core.gpx.GpxImportQueuePolicy
+import com.trailmate.app.core.location.TrackRecordingForegroundService
 import com.trailmate.app.core.persistence.LocalTrailMateSessionRepository
 import com.trailmate.app.core.persistence.SharedPreferencesTrailMateSessionStore
 import com.trailmate.app.core.persistence.TrailMateSessionRepository
@@ -31,7 +38,11 @@ enum class TrailMateScreen {
 }
 
 @Composable
-fun TrailMateApp(sessionRepository: TrailMateSessionRepository? = null) {
+fun TrailMateApp(
+    sessionRepository: TrailMateSessionRepository? = null,
+    requestOnboardingLocationPermission: Boolean = false
+) {
+    val context = LocalContext.current
     val defaultSessionRepository = rememberTrailMateSessionRepository()
     val activeSessionRepository = sessionRepository ?: defaultSessionRepository
     var appSession by remember(activeSessionRepository) {
@@ -58,6 +69,25 @@ fun TrailMateApp(sessionRepository: TrailMateSessionRepository? = null) {
     var baselineProfile by rememberSaveable(stateSaver = BaselineProfileStateSaver) {
         mutableStateOf(appSession.baselineProfile)
     }
+    DisposableEffect(context, activeSessionRepository) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                TrackRecordingForegroundService.trackRecordingFrom(intent)?.let { trackRecording ->
+                    appSession = appSession.withTrackRecording(trackRecording)
+                    activeSessionRepository.saveTrackRecording(trackRecording)
+                }
+            }
+        }
+        val filter = IntentFilter(TrackRecordingForegroundService.ACTION_RECORDING_CHANGED)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            context.registerReceiver(receiver, filter)
+        }
+        onDispose {
+            context.unregisterReceiver(receiver)
+        }
+    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -65,10 +95,14 @@ fun TrailMateApp(sessionRepository: TrailMateSessionRepository? = null) {
     ) {
         when (screen) {
             TrailMateScreen.ONBOARDING -> OnboardingScreen(
-                onComplete = { profile ->
-                    appSession = appSession.withProfile(profile)
+                requestForegroundLocationPermissionOnComplete = requestOnboardingLocationPermission,
+                onComplete = { profile, amapPrivacyConsent ->
+                    appSession = appSession
+                        .withProfile(profile)
+                        .withAmapPrivacyConsent(amapPrivacyConsent)
                     baselineProfile = profile
                     activeSessionRepository.saveProfile(profile)
+                    activeSessionRepository.saveAmapPrivacyConsent(amapPrivacyConsent)
                     screen = TrailMateScreen.HOME
                 }
             )
@@ -78,6 +112,10 @@ fun TrailMateApp(sessionRepository: TrailMateSessionRepository? = null) {
                 initialImportedRoute = appSession.snapshot.importedRoute,
                 initialHistoricalActivities = appSession.snapshot.historicalActivities,
                 initialGpxImportQueue = appSession.snapshot.gpxImportQueue,
+                initialTrackRecording = appSession.snapshot.latestTrackRecording,
+                initialAmapPrivacyConsent = appSession.snapshot.amapPrivacyConsent,
+                initialOfflineRoutePackKeys = appSession.snapshot.savedOfflineRoutePackKeys,
+                initialOfflineBaseMapTileProofs = appSession.snapshot.offlineBaseMapTileProofs,
                 onInventoryChanged = { inventory ->
                     appSession = appSession.withInventory(inventory)
                     activeSessionRepository.saveInventory(inventory)
@@ -93,6 +131,18 @@ fun TrailMateApp(sessionRepository: TrailMateSessionRepository? = null) {
                 onGpxImportQueueChanged = { queue ->
                     appSession = appSession.withGpxImportQueue(queue)
                     activeSessionRepository.saveGpxImportQueue(queue)
+                },
+                onTrackRecordingChanged = { trackRecording ->
+                    appSession = appSession.withTrackRecording(trackRecording)
+                    activeSessionRepository.saveTrackRecording(trackRecording)
+                },
+                onOfflineRoutePackKeysChanged = { keys ->
+                    appSession = appSession.withOfflineRoutePackKeys(keys)
+                    activeSessionRepository.saveOfflineRoutePackKeys(keys)
+                },
+                onOfflineBaseMapTileProofsChanged = { proofs ->
+                    appSession = appSession.withOfflineBaseMapTileProofs(proofs)
+                    activeSessionRepository.saveOfflineBaseMapTileProofs(proofs)
                 },
                 onClearLocalData = {
                     activeSessionRepository.clearLocalData()

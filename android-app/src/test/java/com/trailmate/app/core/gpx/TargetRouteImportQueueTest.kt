@@ -24,9 +24,9 @@ class TargetRouteImportQueueTest {
 
         assertEquals(currentRoute, queue.lastImportedRoute)
         assertTrue(queue.canRetry)
-        assertEquals("Retry available", summary.value)
+        assertEquals("可重试", summary.value)
         assertTrue(summary.caption.contains("bad-route.gpx"))
-        assertTrue(summary.caption.contains("Keeping Longjing Ridge"))
+        assertTrue(summary.caption.contains("保留当前路线：龙井山脊"))
     }
 
     @Test
@@ -48,7 +48,7 @@ class TargetRouteImportQueueTest {
 
         assertEquals(replacedRoute, importedQueue.lastImportedRoute)
         assertFalse(importedQueue.canRetry)
-        assertEquals("Parsed", summary.value)
-        assertEquals("replacement-loop.gpx / 8.4 km / +420 m / 24 points", summary.caption)
+        assertEquals("解析完成", summary.value)
+        assertEquals("replacement-loop.gpx / 8.4 km / +420 m / 24 个点", summary.caption)
     }
 }

@@ -5,4 +5,5 @@
 .kotlin/
 .tooling-downloads/
 local.properties
+outputs/
 **/build/

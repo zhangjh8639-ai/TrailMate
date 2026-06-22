@@ -7,11 +7,19 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 
-val TrailMateMoss = Color(0xFF27694B)
-val TrailMateClay = Color(0xFFE77346)
-val TrailMateMist = Color(0xFFF5F5F2)
-val TrailMateInk = Color(0xFF18211C)
+val TrailMateMoss = Color(0xFF0C5D3F)
+val TrailMateMossLight = Color(0xFF1F7A54)
+val TrailMateClay = Color(0xFFE36F43)
+val TrailMateAmber = Color(0xFFD88A00)
+val TrailMateMist = Color(0xFFFBFAF6)
+val TrailMateField = Color(0xFFF3F6F1)
+val TrailMateLine = Color(0xFFD9DFDB)
+val TrailMateInk = Color(0xFF16211D)
+val TrailMateMuted = Color(0xFF66716B)
 
 private val LightColors = lightColorScheme(
     primary = TrailMateMoss,
@@ -21,9 +29,9 @@ private val LightColors = lightColorScheme(
     inversePrimary = Color(0xFF97D8AF),
     secondary = TrailMateClay,
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFFFD9C8),
-    onSecondaryContainer = Color(0xFF331104),
-    tertiary = Color(0xFF4E6392),
+    secondaryContainer = Color(0xFFFFE7B3),
+    onSecondaryContainer = Color(0xFF4E2C00),
+    tertiary = Color(0xFF2D75E8),
     onTertiary = Color.White,
     tertiaryContainer = Color(0xFFD8E2FF),
     onTertiaryContainer = Color(0xFF071A3A),
@@ -31,8 +39,8 @@ private val LightColors = lightColorScheme(
     onBackground = TrailMateInk,
     surface = Color.White,
     onSurface = TrailMateInk,
-    surfaceVariant = Color(0xFFE8EFE6),
-    onSurfaceVariant = Color(0xFF4B584F),
+    surfaceVariant = TrailMateField,
+    onSurfaceVariant = TrailMateMuted,
     surfaceTint = TrailMateMoss,
     inverseSurface = Color(0xFF2C342F),
     inverseOnSurface = Color(0xFFEFF5EF),
@@ -40,16 +48,16 @@ private val LightColors = lightColorScheme(
     onError = Color.White,
     errorContainer = Color(0xFFFFDAD6),
     onErrorContainer = Color(0xFF410002),
-    outline = Color(0xFF7B897F),
-    outlineVariant = Color(0xFFC9D5CC),
+    outline = Color(0xFF8EA096),
+    outlineVariant = TrailMateLine,
     scrim = Color.Black,
     surfaceBright = Color(0xFFFFFFFF),
     surfaceDim = Color(0xFFD8DED7),
     surfaceContainerLowest = Color(0xFFFFFFFF),
-    surfaceContainerLow = Color(0xFFF0F5EF),
-    surfaceContainer = Color(0xFFEAF0E9),
-    surfaceContainerHigh = Color(0xFFE4EAE3),
-    surfaceContainerHighest = Color(0xFFDEE4DD)
+    surfaceContainerLow = Color(0xFFF7F8F4),
+    surfaceContainer = Color(0xFFF0F4EE),
+    surfaceContainerHigh = Color(0xFFE9EFE8),
+    surfaceContainerHighest = Color(0xFFE2E9E2)
 )
 
 private val DarkColors = darkColorScheme(
@@ -98,7 +106,52 @@ fun TrailMateTheme(
 ) {
     MaterialTheme(
         colorScheme = if (darkTheme) DarkColors else LightColors,
-        typography = Typography(),
+        typography = TrailMateTypography,
         content = content
     )
 }
+
+private val TrailMateTypography = Typography(
+    headlineLarge = TextStyle(
+        fontSize = 34.sp,
+        lineHeight = 40.sp,
+        fontWeight = FontWeight.Bold
+    ),
+    headlineMedium = TextStyle(
+        fontSize = 28.sp,
+        lineHeight = 34.sp,
+        fontWeight = FontWeight.Bold
+    ),
+    titleLarge = TextStyle(
+        fontSize = 22.sp,
+        lineHeight = 28.sp,
+        fontWeight = FontWeight.Bold
+    ),
+    titleMedium = TextStyle(
+        fontSize = 18.sp,
+        lineHeight = 24.sp,
+        fontWeight = FontWeight.SemiBold
+    ),
+    bodyLarge = TextStyle(
+        fontSize = 16.sp,
+        lineHeight = 23.sp
+    ),
+    bodyMedium = TextStyle(
+        fontSize = 14.sp,
+        lineHeight = 20.sp
+    ),
+    bodySmall = TextStyle(
+        fontSize = 12.sp,
+        lineHeight = 17.sp
+    ),
+    labelMedium = TextStyle(
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
+        fontWeight = FontWeight.SemiBold
+    ),
+    labelSmall = TextStyle(
+        fontSize = 11.sp,
+        lineHeight = 14.sp,
+        fontWeight = FontWeight.SemiBold
+    )
+)

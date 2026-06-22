@@ -110,13 +110,13 @@ object RouteAssessmentEngine {
     ): List<String> {
         val risks = mutableListOf<String>()
         if (distanceRatio > 1.05) {
-            risks += "Distance exceeds ${capacity.sourceLabel} stable range (${capacity.stableDistanceKm.roundToInt()} km)."
+            risks += "距离超过${capacity.sourceLabel}稳定范围（${capacity.stableDistanceKm.roundToInt()} km）。"
         }
         if (ascentRatio > 1.05) {
-            risks += "Route ascent exceeds ${capacity.sourceLabel} ascent range (+${capacity.stableAscentMeters.roundToInt()} m)."
+            risks += "爬升超过${capacity.sourceLabel}稳定范围（+${capacity.stableAscentMeters.roundToInt()} m）。"
         }
         if (route.pointCount < 10) {
-            risks += "Route has sparse GPX points; import a detailed track before relying on segment timing."
+            risks += "GPX 点位偏少，建议导入更完整轨迹后再依赖分段时间。"
         }
         risks += capacity.evidenceLine
 
@@ -160,10 +160,10 @@ object RouteAssessmentEngine {
                         stableDistanceKm = historicalProfile.stableDistanceKm,
                         stableAscentMeters = historicalProfile.stableAscentMeters,
                         confidenceLevel = historicalProfile.confidenceLevel,
-                        sourceLabel = "historical GPX",
-                        evidenceLine = "Historical GPX evidence covers up to ${
+                        sourceLabel = "历史 GPX",
+                        evidenceLine = "历史活动覆盖到 ${
                             String.format(Locale.US, "%.1f", historicalProfile.stableDistanceKm)
-                        } km / +${historicalProfile.stableAscentMeters.toInt()} m.",
+                        } km / +${historicalProfile.stableAscentMeters.toInt()} m，本次建议按最近状态校准。",
                         historicalEffectiveSpeedKmh = historicalProfile.effectiveSpeedKmh
                     )
                 }
@@ -172,8 +172,8 @@ object RouteAssessmentEngine {
                     stableDistanceKm = profile.stableDistanceKm(),
                     stableAscentMeters = profile.questionnaireStableAscentMeters(),
                     confidenceLevel = ConfidenceLevel.LOW,
-                    sourceLabel = "questionnaire",
-                    evidenceLine = "Confidence stays LOW until at least 3 historical GPX activities are imported."
+                    sourceLabel = "问卷",
+                    evidenceLine = "历史活动较少，本次建议会采用更保守的节奏。"
                 )
             }
         }

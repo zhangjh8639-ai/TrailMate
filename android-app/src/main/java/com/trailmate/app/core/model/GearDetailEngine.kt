@@ -16,8 +16,8 @@ object GearDetailEngine {
         val title = listOfNotNull(item.brand, item.model)
             .joinToString(" ")
             .ifBlank { item.category }
-        val weight = item.weightGrams?.let { "${it}g" } ?: "weight TBD"
-        val availability = if (item.available) "ready" else "not packed"
+        val weight = item.weightGrams?.let { "${it}g" } ?: "重量待填"
+        val availability = if (item.available) "可用" else "未打包"
         val routeMatch = routeGearRecommendations.firstOrNull { recommendation ->
             recommendation.matchedGearItemId == item.id
         }
@@ -27,10 +27,10 @@ object GearDetailEngine {
             category = item.category,
             statusLine = "$weight / $availability",
             routeMatchLine = routeMatch?.let { recommendation ->
-                "Matches ${recommendation.category} recommendation."
-            } ?: "No current route match.",
+                "匹配${recommendation.category}建议。"
+            } ?: "当前路线暂无匹配。",
             routeRationale = routeMatch?.rationale
-                ?: "Add or import a route recommendation to see why this item matters."
+                ?: "导入路线并生成装备建议后，可查看这件装备为什么重要。"
         )
     }
 }

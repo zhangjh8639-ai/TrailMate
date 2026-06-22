@@ -12,6 +12,7 @@ enum class GearStatus { COVERED, CHECK, MISSING, OPTIONAL }
 enum class RouteImportStatus { EMPTY, PARSED }
 enum class HikePlanCheckpointType { START, ENERGY_CHECK, REST_CHECK, RISK_CHECK, FINISH }
 enum class HikeSessionStatus { READY, ACTIVE, PAUSED, COMPLETED }
+enum class TrackRecordingStatus { IDLE, RECORDING, PAUSED, FINISHED }
 
 data class BaselineProfile(
     val exerciseFrequency: ExerciseFrequency,
@@ -25,17 +26,17 @@ data class BaselineProfile(
     fun initialConfidence(): ConfidenceLevel = ConfidenceLevel.LOW
 
     fun explanation(): String =
-        "This temporary profile uses questionnaire defaults until enough GPX history is imported."
+        "在导入足够历史 GPX 之前，TrailMate 会先参考基础档案做保守估算。"
 
     fun bodyMetricsLabel(): String {
         val height = heightCm?.let { "${it}cm" }
         val weight = weightKg?.let { "${it}kg" }
 
-        return listOfNotNull(height, weight).joinToString(" / ").ifBlank { "Not set" }
+        return listOfNotNull(height, weight).joinToString(" / ").ifBlank { "未填写" }
     }
 
     fun packWeightLabel(): String =
-        commonPackWeightKg?.let { "$it kg pack" } ?: "Pack TBD"
+        commonPackWeightKg?.let { "背包 $it kg" } ?: "背包待填"
 }
 
 data class GearItem(
@@ -155,12 +156,23 @@ data class ImportedRoute(
     val ascentMeters: Int,
     val status: RouteImportStatus,
     val pointCount: Int = 0,
-    val durationMinutes: Int? = null
+    val durationMinutes: Int? = null,
+    val routePoints: List<RoutePoint> = emptyList()
 ) {
     fun readyForAssessment(): Boolean = status == RouteImportStatus.PARSED
 
     fun summaryLabel(): String = String.format(Locale.US, "%.1f km / +%d m", distanceKm, ascentMeters)
 }
+
+fun ImportedRoute.offlineRoutePackKey(): String =
+    "$fileName|$routeName|$distanceKm|$ascentMeters|$pointCount"
+
+data class RoutePoint(
+    val latitude: Double,
+    val longitude: Double,
+    val elevationMeters: Double?,
+    val distanceAlongRouteKm: Double
+)
 
 data class HistoricalActivity(
     val routeName: String,
@@ -208,3 +220,24 @@ data class HikeSessionState(
     val status: HikeSessionStatus,
     val reachedCheckpointIndex: Int
 )
+
+data class RecordedTrackPoint(
+    val latitude: Double,
+    val longitude: Double,
+    val elevationMeters: Double?,
+    val horizontalAccuracyMeters: Double,
+    val timestampEpochMillis: Long
+)
+
+data class TrackRecordingState(
+    val status: TrackRecordingStatus = TrackRecordingStatus.IDLE,
+    val routeName: String? = null,
+    val startedAtEpochMillis: Long? = null,
+    val pausedAtEpochMillis: Long? = null,
+    val recordingActiveSinceEpochMillis: Long? = null,
+    val finishedAtEpochMillis: Long? = null,
+    val points: List<RecordedTrackPoint> = emptyList(),
+    val totalDistanceKm: Double = 0.0
+) {
+    val pointCount: Int get() = points.size
+}

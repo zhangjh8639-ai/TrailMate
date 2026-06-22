@@ -15,8 +15,8 @@ class HikeSessionEngineTest {
         val session = HikeSessionEngine.ready(plan)
 
         assertEquals(HikeSessionStatus.READY, session.status)
-        assertEquals("Start", HikeSessionEngine.currentCheckpoint(plan, session)?.title)
-        assertEquals("Energy check", HikeSessionEngine.nextCheckpoint(plan, session)?.title)
+        assertEquals("起点", HikeSessionEngine.currentCheckpoint(plan, session)?.title)
+        assertEquals("补给检查", HikeSessionEngine.nextCheckpoint(plan, session)?.title)
         assertEquals(0.0, HikeSessionEngine.progressFraction(plan, session), 0.0)
     }
 
@@ -30,8 +30,8 @@ class HikeSessionEngineTest {
         assertEquals(HikeSessionStatus.ACTIVE, active.status)
         assertEquals(HikeSessionStatus.PAUSED, paused.status)
         assertEquals(HikeSessionStatus.ACTIVE, resumed.status)
-        assertEquals("Energy check", HikeSessionEngine.currentCheckpoint(plan, advanced)?.title)
-        assertEquals("Rest check", HikeSessionEngine.nextCheckpoint(plan, advanced)?.title)
+        assertEquals("补给检查", HikeSessionEngine.currentCheckpoint(plan, advanced)?.title)
+        assertEquals("休息判断", HikeSessionEngine.nextCheckpoint(plan, advanced)?.title)
     }
 
     @Test
@@ -55,7 +55,7 @@ class HikeSessionEngineTest {
         }
 
         assertEquals(HikeSessionStatus.COMPLETED, session.status)
-        assertEquals("Finish", HikeSessionEngine.currentCheckpoint(plan, session)?.title)
+        assertEquals("终点", HikeSessionEngine.currentCheckpoint(plan, session)?.title)
         assertNull(HikeSessionEngine.nextCheckpoint(plan, session))
         assertEquals(1.0, HikeSessionEngine.progressFraction(plan, session), 0.0)
     }

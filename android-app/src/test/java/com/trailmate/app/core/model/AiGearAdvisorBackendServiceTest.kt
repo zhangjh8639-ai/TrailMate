@@ -29,7 +29,7 @@ class AiGearAdvisorBackendServiceTest {
     @Test
     fun successfulBackendResponseReturnsValidatedInventoryRefreshedPresentation() {
         val inventoryWithPoles = inventory.addBrandGear(
-            category = "Trekking poles",
+            category = "登山杖",
             brand = "Leki",
             model = "Makalu Lite",
             weightGrams = 480
@@ -52,7 +52,7 @@ class AiGearAdvisorBackendServiceTest {
                     assessmentFingerprint = requestWithPoles.assessmentFingerprint,
                     recommendations = listOf(
                         GearRecommendation(
-                            category = "Trekking poles",
+                            category = "登山杖",
                             status = GearStatus.MISSING,
                             rationale = "AI route rationale before inventory refresh."
                         )
@@ -67,10 +67,10 @@ class AiGearAdvisorBackendServiceTest {
         val poles = result.presentation.recommendations.single()
         assertEquals(listOf(requestWithPoles), backendClient.requests)
         assertEquals(AiGearAdvisorBackendStatus.SUCCESS, result.backendStatus)
-        assertEquals("AI ready", result.presentation.statusLabel)
+        assertEquals("AI 清单就绪", result.presentation.statusLabel)
         assertFalse(result.presentation.isFallbackActive)
         assertEquals(GearStatus.COVERED, poles.status)
-        assertTrue(poles.matchedGearItemId.orEmpty().contains("trekking-poles-leki-makalu-lite"))
+        assertTrue(poles.matchedGearItemId.orEmpty().contains("leki-makalu-lite"))
     }
 
     @Test
@@ -83,7 +83,7 @@ class AiGearAdvisorBackendServiceTest {
 
         assertEquals(AiGearAdvisorBackendStatus.RETRY_AVAILABLE, result.backendStatus)
         assertEquals(AiGearAdvisorBackendFailureReason.TIMEOUT, result.backendReason)
-        assertEquals("Fallback active", result.presentation.statusLabel)
+        assertEquals("本地清单启用", result.presentation.statusLabel)
         assertTrue(result.presentation.isFallbackActive)
         assertFalse(result.presentation.isStaleResponse)
         assertEquals(fallback, result.presentation.recommendations)
@@ -195,7 +195,7 @@ class AiGearAdvisorBackendServiceTest {
         assertTrue(result.presentation.isFallbackActive)
         assertFalse(result.presentation.isStaleResponse)
         assertEquals(fallback, result.presentation.recommendations)
-        assertFalse(result.presentation.statusLabel.contains("AI ready"))
+        assertFalse(result.presentation.statusLabel.contains("AI 清单就绪"))
     }
 
     private class FakeBackendClient(

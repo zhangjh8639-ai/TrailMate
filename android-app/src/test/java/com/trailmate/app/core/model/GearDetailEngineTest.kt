@@ -8,7 +8,7 @@ class GearDetailEngineTest {
     fun summarizesBrandModelWeightAvailabilityAndRouteMatch() {
         val item = GearItem(
             id = "shell-1",
-            category = "Rain shell",
+            category = "雨衣",
             brand = "Patagonia",
             model = "Torrentshell",
             weightGrams = 400,
@@ -16,9 +16,9 @@ class GearDetailEngineTest {
         )
         val recommendations = listOf(
             GearRecommendation(
-                category = "Rain shell",
+                category = "雨衣",
                 status = GearStatus.COVERED,
-                rationale = "Existing shell covers wind and light rain.",
+                rationale = "现有雨衣可以覆盖山脊风和小雨。",
                 matchedGearItemId = "shell-1"
             )
         )
@@ -26,10 +26,10 @@ class GearDetailEngineTest {
         val summary = GearDetailEngine.summarize(item, recommendations)
 
         assertEquals("Patagonia Torrentshell", summary.title)
-        assertEquals("Rain shell", summary.category)
-        assertEquals("400g / ready", summary.statusLine)
-        assertEquals("Matches Rain shell recommendation.", summary.routeMatchLine)
-        assertEquals("Existing shell covers wind and light rain.", summary.routeRationale)
+        assertEquals("雨衣", summary.category)
+        assertEquals("400g / 可用", summary.statusLine)
+        assertEquals("匹配雨衣建议。", summary.routeMatchLine)
+        assertEquals("现有雨衣可以覆盖山脊风和小雨。", summary.routeRationale)
     }
 
     @Test
@@ -46,8 +46,8 @@ class GearDetailEngineTest {
         val summary = GearDetailEngine.summarize(item, emptyList())
 
         assertEquals("Camp cup", summary.title)
-        assertEquals("weight TBD / not packed", summary.statusLine)
-        assertEquals("No current route match.", summary.routeMatchLine)
-        assertEquals("Add or import a route recommendation to see why this item matters.", summary.routeRationale)
+        assertEquals("重量待填 / 未打包", summary.statusLine)
+        assertEquals("当前路线暂无匹配。", summary.routeMatchLine)
+        assertEquals("导入路线并生成装备建议后，可查看这件装备为什么重要。", summary.routeRationale)
     }
 }

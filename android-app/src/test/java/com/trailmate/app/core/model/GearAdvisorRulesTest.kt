@@ -19,7 +19,7 @@ class GearAdvisorRulesTest {
         assertEquals(MatchLevel.CAUTION, assessment.matchLevel)
         assertEquals(ConfidenceLevel.LOW, assessment.confidenceLevel)
         assertEquals(15.2, assessment.distanceKm, 0.0)
-        assertEquals(GearStatus.MISSING, checklist.first { it.category == "Trekking poles" }.status)
+        assertEquals(GearStatus.MISSING, checklist.first { it.category == "登山杖" }.status)
     }
 
     @Test
@@ -34,11 +34,11 @@ class GearAdvisorRulesTest {
             assessment = assessment
         )
 
-        assertEquals(GearStatus.CHECK, checklist.first { it.category == "Rain shell" }.status)
-        assertEquals(GearStatus.CHECK, checklist.first { it.category == "Headlamp" }.status)
-        assertEquals(GearStatus.MISSING, checklist.first { it.category == "Trekking poles" }.status)
-        assertEquals(GearStatus.MISSING, checklist.first { it.category == "Warm layer" }.status)
-        assertEquals(GearStatus.MISSING, checklist.first { it.category == "Extra water" }.status)
+        assertEquals(GearStatus.CHECK, checklist.first { it.category == "雨衣" }.status)
+        assertEquals(GearStatus.CHECK, checklist.first { it.category == "头灯" }.status)
+        assertEquals(GearStatus.MISSING, checklist.first { it.category == "登山杖" }.status)
+        assertEquals(GearStatus.MISSING, checklist.first { it.category == "保暖层" }.status)
+        assertEquals(GearStatus.MISSING, checklist.first { it.category == "备用水" }.status)
     }
 
     @Test
@@ -67,9 +67,9 @@ class GearAdvisorRulesTest {
         val checklist = RouteGearAdvisorEngine.recommend(route = route, assessment = assessment)
 
         assertEquals(MatchLevel.RECOMMENDED, assessment.matchLevel)
-        assertEquals(GearStatus.CHECK, checklist.first { it.category == "Rain shell" }.status)
-        assertEquals(GearStatus.OPTIONAL, checklist.first { it.category == "Trekking poles" }.status)
-        assertEquals(GearStatus.OPTIONAL, checklist.first { it.category == "Warm layer" }.status)
+        assertEquals(GearStatus.CHECK, checklist.first { it.category == "雨衣" }.status)
+        assertEquals(GearStatus.OPTIONAL, checklist.first { it.category == "登山杖" }.status)
+        assertEquals(GearStatus.OPTIONAL, checklist.first { it.category == "保暖层" }.status)
     }
 
     @Test
@@ -91,7 +91,7 @@ class GearAdvisorRulesTest {
         val checklist = RouteGearAdvisorEngine.recommend(route = route, assessment = assessment)
 
         assertEquals(ConfidenceLevel.MEDIUM, assessment.confidenceLevel)
-        assertTrue(assessment.risks.any { it.contains("Historical GPX evidence", ignoreCase = true) })
-        assertEquals(GearStatus.OPTIONAL, checklist.first { it.category == "Warm layer" }.status)
+        assertTrue(assessment.risks.any { it.contains("历史活动覆盖到") })
+        assertEquals(GearStatus.OPTIONAL, checklist.first { it.category == "保暖层" }.status)
     }
 }

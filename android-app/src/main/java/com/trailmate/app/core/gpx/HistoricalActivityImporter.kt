@@ -32,22 +32,22 @@ data class HistoricalActivityImportBatch(
 ) {
     fun summaryValue(): String =
         when {
-            activities.isNotEmpty() && failures.isEmpty() -> "Imported ${activities.size} GPX"
-            activities.isNotEmpty() -> "Imported ${activities.size} / ${activities.size + failures.size}"
-            failures.isNotEmpty() -> "Import failed"
-            else -> "No GPX selected"
+            activities.isNotEmpty() && failures.isEmpty() -> "已导入 ${activities.size} 条 GPX"
+            activities.isNotEmpty() -> "已导入 ${activities.size} / ${activities.size + failures.size}"
+            failures.isNotEmpty() -> "导入失败"
+            else -> "未选择 GPX"
         }
 
     fun summaryCaption(): String =
         when {
             activities.isNotEmpty() && failures.isEmpty() ->
-                "Added ${activities.size} historical activities to local capability evidence."
+                "已将 ${activities.size} 条历史活动保存到本地档案。"
             activities.isNotEmpty() ->
-                "Added ${activities.size} activities; ${failures.size} failed: ${failures.first().fileName}."
+                "新增 ${activities.size} 条活动；${failures.size} 条失败：${failures.first().fileName}。"
             failures.isNotEmpty() ->
                 "${failures.first().fileName}: ${failures.first().message}"
             else ->
-                "Choose historical GPX files to improve capability confidence."
+                "选择历史 GPX 文件，让后续路线建议更贴近你的体能。"
         }
 }
 
@@ -60,7 +60,7 @@ object HistoricalActivityImporter {
             onFailure = { error ->
                 HistoricalActivityImportState.Failed(
                     fileName = fileName,
-                    message = error.message ?: "Unable to parse this GPX activity."
+                    message = error.message ?: "无法解析这条 GPX 活动。"
                 )
             }
         )

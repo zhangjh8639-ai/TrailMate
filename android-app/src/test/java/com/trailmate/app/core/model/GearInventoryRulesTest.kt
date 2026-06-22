@@ -12,7 +12,7 @@ class GearInventoryRulesTest {
             items = listOf(
                 GearItem(
                     id = "poles-1",
-                    category = "Trekking poles",
+                    category = "登山杖",
                     brand = "Leki",
                     model = "Makalu Lite",
                     weightGrams = 510,
@@ -23,7 +23,7 @@ class GearInventoryRulesTest {
 
         val updated = inventory.applyTo(
             GearRecommendation(
-                category = "Trekking poles",
+                category = "登山杖",
                 status = GearStatus.MISSING,
                 rationale = "Long descent and late climb make poles useful."
             )
@@ -39,7 +39,7 @@ class GearInventoryRulesTest {
             items = listOf(
                 GearItem(
                     id = "warm-1",
-                    category = "Warm layer",
+                    category = "保暖层",
                     brand = "Arc'teryx",
                     model = "Atom Hoody",
                     weightGrams = 370,
@@ -50,7 +50,7 @@ class GearInventoryRulesTest {
 
         val updated = inventory.applyTo(
             GearRecommendation(
-                category = "Warm layer",
+                category = "保暖层",
                 status = GearStatus.MISSING,
                 rationale = "High point stops and late finish may feel cold."
             )
@@ -66,7 +66,7 @@ class GearInventoryRulesTest {
 
         val updated = inventory.applyTo(
             GearRecommendation(
-                category = "Rain shell",
+                category = "雨衣",
                 status = GearStatus.COVERED,
                 rationale = "Existing shell covers wind and light rain.",
                 matchedGearItemId = "shell-1"
@@ -81,14 +81,14 @@ class GearInventoryRulesTest {
     fun addingBrandGearKeepsInventoryAppendOnly() {
         val inventory = GearInventory(TrailMateSampleData.gearItems)
         val updated = inventory.addBrandGear(
-            category = "Warm layer",
+            category = "保暖层",
             brand = "Rab",
             model = "Xenair Alpine Light",
             weightGrams = 309
         )
 
         assertEquals(TrailMateSampleData.gearItems.size + 1, updated.items.size)
-        assertTrue(updated.items.any { it.brand == "Rab" && it.category == "Warm layer" })
+        assertTrue(updated.items.any { it.brand == "Rab" && it.category == "保暖层" })
     }
 
     @Test
@@ -96,13 +96,13 @@ class GearInventoryRulesTest {
         val inventory = GearInventory(emptyList())
 
         val updated = inventory.addBrandGear(
-            category = "Warm layer",
+            category = "保暖层",
             brand = "",
             model = "",
             weightGrams = null
         )
 
-        assertEquals("Warm layer", updated.items.single().category)
+        assertEquals("保暖层", updated.items.single().category)
         assertEquals(null, updated.items.single().brand)
         assertEquals(null, updated.items.single().model)
     }
@@ -111,7 +111,7 @@ class GearInventoryRulesTest {
     fun removingOwnedGearStopsRecommendationMatch() {
         val inventory = GearInventory(TrailMateSampleData.gearItems)
         val updated = inventory.remove("shell-1")
-            .applyTo(TrailMateSampleData.gearRecommendations.first { it.category == "Rain shell" })
+            .applyTo(TrailMateSampleData.gearRecommendations.first { it.category == "雨衣" })
 
         assertEquals(GearStatus.MISSING, updated.status)
         assertEquals(null, updated.matchedGearItemId)
@@ -121,7 +121,7 @@ class GearInventoryRulesTest {
     fun markingOwnedGearUnavailableStopsRecommendationMatch() {
         val inventory = GearInventory(TrailMateSampleData.gearItems)
         val updated = inventory.setAvailability("headlamp-1", available = false)
-            .applyTo(TrailMateSampleData.gearRecommendations.first { it.category == "Headlamp" })
+            .applyTo(TrailMateSampleData.gearRecommendations.first { it.category == "头灯" })
 
         assertEquals(GearStatus.MISSING, updated.status)
         assertEquals(null, updated.matchedGearItemId)
@@ -143,7 +143,7 @@ class GearInventoryRulesTest {
     fun addingGearRejectsNegativeWeight() {
         assertThrows(IllegalArgumentException::class.java) {
             GearInventory(emptyList()).addBrandGear(
-                category = "Warm layer",
+                category = "保暖层",
                 brand = "Rab",
                 model = "Xenair Alpine Light",
                 weightGrams = -1

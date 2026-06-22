@@ -1,14 +1,18 @@
 package com.trailmate.app.core.design
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -17,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -37,15 +42,16 @@ fun TrailMatePanel(
         TrailMatePanelTone.Neutral -> colorScheme.surfaceVariant.copy(alpha = 0.74f)
     }
 
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        color = panelColor,
-        tonalElevation = 0.dp,
-        shadowElevation = 0.dp
+    val shape = RoundedCornerShape(18.dp)
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(panelColor, shape)
+            .border(1.dp, colorScheme.outlineVariant.copy(alpha = 0.72f), shape)
+            .padding(16.dp)
     ) {
         Column(
-            modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Text(
@@ -56,7 +62,7 @@ fun TrailMatePanel(
             )
             Text(
                 text = value,
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.titleLarge,
                 color = colorScheme.onSurface,
                 fontWeight = FontWeight.Bold
             )
@@ -79,30 +85,31 @@ fun TrailMateSegmentedControl(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(999.dp))
-            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.09f))
+            .clip(RoundedCornerShape(14.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.8f), RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surface)
             .selectableGroup()
-            .padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         labels.forEach { label ->
             val active = label == selected
             Surface(
                 modifier = Modifier
                     .weight(1f)
-                    .heightIn(min = 48.dp)
-                    .clip(RoundedCornerShape(999.dp))
+                    .heightIn(min = 42.dp)
+                    .clip(RoundedCornerShape(12.dp))
                     .selectable(
                         selected = active,
                         onClick = { onSelected(label) },
                         role = Role.Tab
                     ),
                 color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface.copy(alpha = 0f),
-                shape = RoundedCornerShape(999.dp)
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
                     text = label,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 9.dp),
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp),
                     color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
                     fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center,
@@ -125,9 +132,10 @@ fun TrailMateMetricRow(
         items.forEach { (label, value) ->
             Surface(
                 modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(14.dp),
                 color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 0.dp
+                tonalElevation = 0.dp,
+                shadowElevation = 2.dp
             ) {
                 Column(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 14.dp),
@@ -146,6 +154,89 @@ fun TrailMateMetricRow(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun TrailMateSectionHeader(
+    title: String,
+    action: String? = null,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+        if (action != null) {
+            Text(
+                text = action,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+
+@Composable
+fun TrailMateStatusPill(
+    text: String,
+    modifier: Modifier = Modifier,
+    containerColor: Color = MaterialTheme.colorScheme.secondaryContainer,
+    contentColor: Color = MaterialTheme.colorScheme.onSecondaryContainer
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(999.dp),
+        color = containerColor
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.labelMedium,
+            color = contentColor,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+fun TrailMateIconBadge(
+    label: String = "",
+    modifier: Modifier = Modifier,
+    containerColor: Color = MaterialTheme.colorScheme.primary,
+    contentColor: Color = MaterialTheme.colorScheme.onPrimary,
+    glyph: TrailMateGlyph? = null
+) {
+    Box(
+        modifier = modifier
+            .size(46.dp)
+            .clip(CircleShape)
+            .background(containerColor),
+        contentAlignment = Alignment.Center
+    ) {
+        if (glyph != null) {
+            TrailMateLineIcon(
+                glyph = glyph,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = contentColor
+            )
+        } else {
+            Text(
+                text = label,
+                color = contentColor,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }

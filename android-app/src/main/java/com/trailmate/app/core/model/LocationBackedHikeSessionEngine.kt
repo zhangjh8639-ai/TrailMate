@@ -1,5 +1,6 @@
 package com.trailmate.app.core.model
 
+import com.trailmate.app.core.location.TrailMateLocationFixReliability
 import java.util.Locale
 
 enum class LocationBackedHikeStatus {
@@ -31,32 +32,49 @@ object LocationBackedHikeSessionEngine {
     fun applyLocationFix(
         plan: HikePlanSummary,
         session: HikeSessionState,
-        fix: HikeLocationFix
+        fix: HikeLocationFix,
+        nowEpochMillis: Long
     ): LocationBackedHikeUpdate {
         when (session.status) {
             HikeSessionStatus.READY -> return LocationBackedHikeUpdate(
                 session = session,
                 status = LocationBackedHikeStatus.WAITING,
-                caption = "Start the hike before location updates affect checkpoint progress."
+                caption = "先开始徒步，再用定位推进检查点。"
             )
             HikeSessionStatus.PAUSED -> return LocationBackedHikeUpdate(
                 session = session,
                 status = LocationBackedHikeStatus.WAITING,
-                caption = "Hike is paused; location updates keep manual checkpoint progress unchanged."
+                caption = "徒步已暂停，定位不会推进检查点。"
             )
             HikeSessionStatus.COMPLETED -> return LocationBackedHikeUpdate(
                 session = session,
                 status = LocationBackedHikeStatus.FINISHED,
-                caption = "Hike is already complete."
+                caption = "本次路线已完成。"
             )
             HikeSessionStatus.ACTIVE -> Unit
         }
 
-        if (!fix.isUsableDistance() || fix.horizontalAccuracyMeters > MAX_USABLE_ACCURACY_METERS) {
+        if (!fix.isUsableDistance()) {
             return LocationBackedHikeUpdate(
                 session = session,
                 status = LocationBackedHikeStatus.LOW_ACCURACY,
-                caption = "Location accuracy is ${fix.horizontalAccuracyMeters.formatMeters()}; keeping manual progress."
+                caption = "定位数据不可用，暂不推进检查点。"
+            )
+        }
+
+        if (fix.horizontalAccuracyMeters > MAX_USABLE_ACCURACY_METERS) {
+            return LocationBackedHikeUpdate(
+                session = session,
+                status = LocationBackedHikeStatus.LOW_ACCURACY,
+                caption = "定位精度约 ${fix.horizontalAccuracyMeters.formatMeters()}，暂不推进检查点。"
+            )
+        }
+
+        if (!fix.isFresh(nowEpochMillis)) {
+            return LocationBackedHikeUpdate(
+                session = session,
+                status = LocationBackedHikeStatus.LOW_ACCURACY,
+                caption = "定位已超过 60 秒未更新，暂不推进检查点。"
             )
         }
 
@@ -64,7 +82,7 @@ object LocationBackedHikeSessionEngine {
             return LocationBackedHikeUpdate(
                 session = session,
                 status = LocationBackedHikeStatus.CHECK_ROUTE,
-                caption = "GPS is ${fix.crossTrackErrorMeters.formatMeters()} from the planned route. Check the map and trail signs."
+                caption = "当前位置距计划路线约 ${fix.crossTrackErrorMeters.formatMeters()}，请核对地图、路标和现场路径。"
             )
         }
 
@@ -92,8 +110,8 @@ object LocationBackedHikeSessionEngine {
             LocationBackedHikeStatus.ON_ROUTE
         }
         val caption = current?.let { checkpoint ->
-            "Location aligned with ${checkpoint.title}; ${fix.distanceAlongRouteKm.formatKm()} along route."
-        } ?: "Location aligned with the route."
+            "已对齐「${checkpoint.title}」，路线进度 ${fix.distanceAlongRouteKm.formatKm()}。"
+        } ?: "定位已对齐路线。"
 
         return LocationBackedHikeUpdate(
             session = updatedSession,
@@ -128,6 +146,10 @@ object LocationBackedHikeSessionEngine {
             horizontalAccuracyMeters >= 0.0 &&
             crossTrackErrorMeters.isFinite() &&
             crossTrackErrorMeters >= 0.0
+
+    private fun HikeLocationFix.isFresh(nowEpochMillis: Long): Boolean =
+        (nowEpochMillis - timestampEpochMillis).coerceAtLeast(0L) <=
+            TrailMateLocationFixReliability.MAX_RELIABLE_FIX_AGE_MILLIS
 
     private fun Double.formatMeters(): String =
         "${this.toInt()} m"

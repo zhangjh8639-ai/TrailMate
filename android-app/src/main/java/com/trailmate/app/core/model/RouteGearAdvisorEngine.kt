@@ -14,53 +14,53 @@ object RouteGearAdvisorEngine {
 
         return listOf(
             GearRecommendation(
-                category = "Rain shell",
+                category = "雨衣",
                 status = GearStatus.CHECK,
-                rationale = "Check weather and pack a shell before committing to the route."
+                rationale = "出发前确认天气，并把防风防雨层放进包里。"
             ),
             GearRecommendation(
-                category = "Headlamp",
+                category = "头灯",
                 status = if (lateOrLong) GearStatus.CHECK else GearStatus.OPTIONAL,
                 rationale = if (lateOrLong) {
-                    "Estimated route time is long enough that light or battery margin should be checked."
+                    "预计用时较长，需要确认照明和电池余量。"
                 } else {
-                    "Optional for short daylight routes; add one if timing may slip."
+                    "短线白天可选；如果时间可能拖延，建议带上。"
                 }
             ),
             GearRecommendation(
-                category = "Trekking poles",
+                category = "登山杖",
                 status = if (highAscent || longRoute) GearStatus.MISSING else GearStatus.OPTIONAL,
                 rationale = if (highAscent || longRoute) {
-                    "Distance or ascent suggests poles may reduce strain on long climbs and descents."
+                    "距离或爬升偏高，登山杖能降低长上坡和下坡压力。"
                 } else {
-                    "Optional for this shorter, lower-ascent route."
+                    "这条路线较短、爬升较低，可按习惯选择。"
                 }
             ),
             GearRecommendation(
-                category = "Warm layer",
+                category = "保暖层",
                 status = if (highAscent || lateOrLong || hasConcreteRouteRisk) GearStatus.MISSING else GearStatus.OPTIONAL,
                 rationale = if (highAscent || lateOrLong || hasConcreteRouteRisk) {
-                    "Higher effort, elevation, or uncertainty can make stops feel cold."
+                    "高强度、海拔或路线不确定性会让休息时体感变冷。"
                 } else {
-                    "Optional for short routes when weather stays mild."
+                    "短线且天气温和时可选。"
                 }
             ),
             GearRecommendation(
-                category = "Extra water",
+                category = "备用水",
                 status = if (longRoute || lateOrLong) GearStatus.MISSING else GearStatus.CHECK,
                 rationale = if (longRoute || lateOrLong) {
-                    "Longer route timing calls for extra water beyond your usual carry."
+                    "路线用时偏长，建议在常规饮水量外增加余量。"
                 } else {
-                    "Check normal water capacity against current weather."
+                    "按当天温度确认常规饮水量是否足够。"
                 }
             )
         )
     }
 
     private fun String.isConcreteRouteRisk(): Boolean =
-        startsWith("Distance exceeds", ignoreCase = true) ||
-            startsWith("Route ascent exceeds", ignoreCase = true) ||
-            startsWith("Route has sparse GPX points", ignoreCase = true)
+        startsWith("距离超过") ||
+            startsWith("爬升超过") ||
+            startsWith("GPX 点位偏少")
 
     private fun upperDurationMinutes(estimatedDurationRange: String): Int {
         val upperText = estimatedDurationRange.substringAfter("-", estimatedDurationRange).trim()

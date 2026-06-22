@@ -10,32 +10,32 @@ object CapabilityProfileEngine {
         val historicalProfile = HistoricalCapabilityProfileEngine.build(historicalActivities)
         if (historicalProfile == null) {
             return CapabilityProfileSummary(
-                title = "Questionnaire fallback",
-                value = baselineProfile.initialConfidence().name,
-                caption = "Use sample history to preview how 3 GPX activities can calibrate distance and ascent capacity.",
+                title = "问卷估算",
+                value = baselineProfile.initialConfidence().displayLabel(),
+                caption = "导入 3 条历史 GPX 后，可用真实距离和爬升校准能力画像。",
                 confidenceLevel = ConfidenceLevel.LOW,
                 evidenceLabel = "${historicalActivities.size}/${HistoricalCapabilityProfileEngine.REQUIRED_HISTORY_COUNT} GPX"
             )
         }
 
         val paceCopy = historicalProfile.averagePaceMinutesPerKm?.let { pace ->
-            String.format(Locale.US, " Pace %.0f min/km.", pace)
+            String.format(Locale.US, " 配速约 %.0f 分/公里。", pace)
         }.orEmpty()
 
         return CapabilityProfileSummary(
-            title = "Historical profile",
+            title = "历史能力画像",
             value = String.format(
                 Locale.US,
-                "Longest %.1f km / +%d m",
+                "最长 %.1f km / +%d m",
                 historicalProfile.stableDistanceKm,
                 historicalProfile.stableAscentMeters.toInt()
             ),
             caption = String.format(
                 Locale.US,
-                "Average %.1f km / +%d m across %d GPX activities.%s",
+                "%d 条 GPX 平均 %.1f km / +%d m。%s",
+                historicalProfile.activityCount,
                 historicalProfile.averageDistanceKm,
                 historicalProfile.averageAscentMeters,
-                historicalProfile.activityCount,
                 paceCopy
             ),
             confidenceLevel = historicalProfile.confidenceLevel,
@@ -43,3 +43,10 @@ object CapabilityProfileEngine {
         )
     }
 }
+
+private fun ConfidenceLevel.displayLabel(): String =
+    when (this) {
+        ConfidenceLevel.LOW -> "低"
+        ConfidenceLevel.MEDIUM -> "中"
+        ConfidenceLevel.HIGH -> "高"
+    }

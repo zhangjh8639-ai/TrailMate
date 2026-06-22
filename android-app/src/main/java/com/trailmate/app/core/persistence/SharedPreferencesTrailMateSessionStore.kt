@@ -2,10 +2,13 @@ package com.trailmate.app.core.persistence
 
 import android.content.Context
 import com.trailmate.app.core.gpx.GpxImportQueue
+import com.trailmate.app.core.map.AmapOfflineBaseMapTileProof
+import com.trailmate.app.core.map.AmapPrivacyConsent
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.HistoricalActivity
 import com.trailmate.app.core.model.ImportedRoute
+import com.trailmate.app.core.model.TrackRecordingState
 
 class SharedPreferencesTrailMateSessionStore(context: Context) : TrailMateSessionStore {
     private val preferences = context.applicationContext.getSharedPreferences(
@@ -36,6 +39,22 @@ class SharedPreferencesTrailMateSessionStore(context: Context) : TrailMateSessio
 
     override fun saveGpxImportQueue(queue: GpxImportQueue) {
         update { snapshot -> snapshot.copy(gpxImportQueue = queue) }
+    }
+
+    override fun saveTrackRecording(trackRecording: TrackRecordingState) {
+        update { snapshot -> snapshot.copy(latestTrackRecording = trackRecording) }
+    }
+
+    override fun saveAmapPrivacyConsent(consent: AmapPrivacyConsent) {
+        update { snapshot -> snapshot.copy(amapPrivacyConsent = consent) }
+    }
+
+    override fun saveOfflineRoutePackKeys(keys: Set<String>) {
+        update { snapshot -> snapshot.copy(savedOfflineRoutePackKeys = keys) }
+    }
+
+    override fun saveOfflineBaseMapTileProofs(proofs: List<AmapOfflineBaseMapTileProof>) {
+        update { snapshot -> snapshot.copy(offlineBaseMapTileProofs = proofs) }
     }
 
     override fun clear() {

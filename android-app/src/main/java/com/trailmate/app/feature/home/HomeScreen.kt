@@ -6,18 +6,36 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,13 +44,28 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.mapSaver
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.trailmate.app.R
+import com.trailmate.app.core.design.TrailMateAmber
+import com.trailmate.app.core.design.TrailMateGlyph
+import com.trailmate.app.core.design.TrailMateIconBadge
+import com.trailmate.app.core.design.TrailMateLineIcon
 import com.trailmate.app.core.design.TrailMateMetricRow
-import com.trailmate.app.core.design.TrailMatePanel
-import com.trailmate.app.core.design.TrailMatePanelTone
+import com.trailmate.app.core.design.TrailMateSectionHeader
 import com.trailmate.app.core.design.TrailMateSegmentedControl
+import com.trailmate.app.core.design.TrailMateStatusPill
 import com.trailmate.app.core.gpx.HistoricalActivityImportBatch
 import com.trailmate.app.core.gpx.HistoricalActivityImportFailure
 import com.trailmate.app.core.gpx.HistoricalActivityImportUiReducer
@@ -46,29 +79,30 @@ import com.trailmate.app.core.gpx.GpxImportQueue
 import com.trailmate.app.core.gpx.GpxImportQueuePolicy
 import com.trailmate.app.core.gpx.TargetRouteImportState
 import com.trailmate.app.core.gpx.TargetRouteImportQueueState
-import com.trailmate.app.core.gpx.TargetRouteImportQueueSummary
 import com.trailmate.app.core.gpx.TargetRouteImporter
-import com.trailmate.app.core.persistence.TrailMateDataControlEngine
-import com.trailmate.app.core.persistence.TrailMateDataControlSummary
-import com.trailmate.app.core.persistence.TrailMateSnapshot
-import com.trailmate.app.core.model.AscentExperience
+import com.trailmate.app.core.map.AmapOfflineBaseMapTileProof
+import com.trailmate.app.core.map.AmapPrivacyConsent
 import com.trailmate.app.core.model.BaselineProfile
-import com.trailmate.app.core.model.CapabilityProfileEngine
-import com.trailmate.app.core.model.ExerciseFrequency
-import com.trailmate.app.core.model.ExperienceLevel
+import com.trailmate.app.core.model.CapabilityProfileSummary
 import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.GearItem
 import com.trailmate.app.core.model.HistoricalActivity
-import com.trailmate.app.core.model.HistoricalActivityLog
 import com.trailmate.app.core.model.ImportedRoute
+import com.trailmate.app.core.model.MatchLevel
 import com.trailmate.app.core.model.RouteImportStatus
 import com.trailmate.app.core.model.RouteAssessmentEngine
+import com.trailmate.app.core.model.RouteAssessmentSummary
 import com.trailmate.app.core.model.RouteGearAdvisorEngine
+import com.trailmate.app.core.model.RoutePoint
 import com.trailmate.app.core.model.TrailMateSampleData
-import com.trailmate.app.core.model.key
+import com.trailmate.app.core.model.TrackRecordingState
+import com.trailmate.app.core.model.offlineRoutePackKey
 import com.trailmate.app.core.model.summaryLabel
+import com.trailmate.app.feature.data.DataScreen
 import com.trailmate.app.feature.gear.MyGearScreen
+import com.trailmate.app.feature.profile.ProfileSettingsScreen
 import com.trailmate.app.feature.route.RouteDetailScreen
+import com.trailmate.app.feature.route.RouteWorkspaceScreen
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -81,16 +115,27 @@ fun HomeScreen(
     initialImportedRoute: ImportedRoute? = null,
     initialHistoricalActivities: List<HistoricalActivity> = emptyList(),
     initialGpxImportQueue: GpxImportQueue = GpxImportQueue(),
+    initialTrackRecording: TrackRecordingState = TrackRecordingState(),
+    initialAmapPrivacyConsent: AmapPrivacyConsent = AmapPrivacyConsent(),
+    initialOfflineRoutePackKeys: Set<String> = emptySet(),
+    initialOfflineBaseMapTileProofs: List<AmapOfflineBaseMapTileProof> = emptyList(),
+    showSampleRouteAction: Boolean = false,
     onInventoryChanged: (GearInventory) -> Unit = {},
     onRouteImported: (ImportedRoute) -> Unit = {},
     onHistoricalActivitiesChanged: (List<HistoricalActivity>) -> Unit = {},
     onGpxImportQueueChanged: (GpxImportQueue) -> Unit = {},
+    onTrackRecordingChanged: (TrackRecordingState) -> Unit = {},
+    onOfflineRoutePackKeysChanged: (Set<String>) -> Unit = {},
+    onOfflineBaseMapTileProofsChanged: (List<AmapOfflineBaseMapTileProof>) -> Unit = {},
     onClearLocalData: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val importScope = rememberCoroutineScope()
-    var selectedSection by rememberSaveable { mutableStateOf(HomeSection.Route) }
-    var requestedGearCategory by rememberSaveable { mutableStateOf("Trekking poles") }
+    var selectedTab by rememberSaveable { mutableStateOf(HomeTab.Home) }
+    var isRouteDetailOpen by rememberSaveable { mutableStateOf(false) }
+    var routeDetailStartsInCockpit by rememberSaveable { mutableStateOf(false) }
+    var routeNavigationFullscreen by rememberSaveable { mutableStateOf(false) }
+    var requestedGearCategory by rememberSaveable { mutableStateOf("") }
     var historyImportUiState by remember { mutableStateOf(HistoricalActivityImportUiState()) }
     var gpxImportQueue by remember { mutableStateOf(initialGpxImportQueue) }
     var routeImportQueue by rememberSaveable(stateSaver = TargetRouteImportQueueStateSaver) {
@@ -102,11 +147,25 @@ fun HomeScreen(
     var inventory by rememberSaveable(stateSaver = GearInventoryStateSaver) {
         mutableStateOf(initialInventory)
     }
+    var amapPrivacyConsent by rememberSaveable(stateSaver = AmapPrivacyConsentStateSaver) {
+        mutableStateOf(initialAmapPrivacyConsent)
+    }
+    var offlineRoutePackKeys by rememberSaveable {
+        mutableStateOf(initialOfflineRoutePackKeys.toList())
+    }
+    var offlineBaseMapTileProofs by remember {
+        mutableStateOf(initialOfflineBaseMapTileProofs)
+    }
+    val savedOfflineRoutePackKeys = offlineRoutePackKeys.toSet()
+    val updateOfflineRoutePackKeys: (Set<String>) -> Unit = { keys ->
+        offlineRoutePackKeys = keys.toList()
+        onOfflineRoutePackKeysChanged(keys)
+    }
+    val updateOfflineBaseMapTileProofs: (List<AmapOfflineBaseMapTileProof>) -> Unit = { proofs ->
+        offlineBaseMapTileProofs = proofs
+        onOfflineBaseMapTileProofsChanged(proofs)
+    }
     val importedRoute = routeImportQueue.lastImportedRoute
-    val capabilityProfile = CapabilityProfileEngine.build(
-        baselineProfile = profile,
-        historicalActivities = historicalActivities
-    )
     val routeAssessment = importedRoute?.takeIf { it.readyForAssessment() }?.let { route ->
         RouteAssessmentEngine.assess(
             profile = profile,
@@ -124,14 +183,13 @@ fun HomeScreen(
     } else {
         emptyList()
     }
-    val dataControlSummary = TrailMateDataControlEngine.summarize(
-        TrailMateSnapshot(
-            profile = profile,
-            inventory = inventory,
-            importedRoute = importedRoute,
-            historicalActivities = historicalActivities
-        )
-    )
+    val mainScrollState = rememberScrollState()
+    LaunchedEffect(selectedTab, isRouteDetailOpen) {
+        mainScrollState.scrollTo(0)
+        if (selectedTab != HomeTab.Route || !isRouteDetailOpen) {
+            routeNavigationFullscreen = false
+        }
+    }
     val applyImportState: (TargetRouteImportState) -> Unit = { state ->
         routeImportQueue = routeImportQueue.complete(state)
         if (state is TargetRouteImportState.Imported) {
@@ -179,7 +237,9 @@ fun HomeScreen(
     }
     val routePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
-            val fileName = context.displayNameForOrDefault(uri = uri, defaultName = "selected-route.gpx")
+                isRouteDetailOpen = false
+                routeDetailStartsInCockpit = false
+                val fileName = context.displayNameForOrDefault(uri = uri, defaultName = "selected-route.gpx")
             if (gpxImportQueue.hasRunningJob()) {
                 routeImportQueue = routeImportQueue.complete(
                     TargetRouteImportState.Failed(
@@ -308,7 +368,7 @@ fun HomeScreen(
                 } catch (error: Exception) {
                     historyImportUiState = HistoricalActivityImportUiReducer.applyFailure(
                         currentActivities = historicalActivities,
-                        message = error.message ?: "Unable to import selected GPX files."
+                        message = error.message ?: "无法导入所选 GPX 文件。"
                     ).uiState
                 } finally {
                     if (historyImportUiState.isImporting) {
@@ -319,395 +379,726 @@ fun HomeScreen(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
-    ) {
-        Text(
-            text = "Trail coach",
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold
-        )
-        TrailMatePanel(
-            title = capabilityProfile.title,
-            value = capabilityProfile.value,
-            caption = capabilityProfile.caption,
-            tone = TrailMatePanelTone.Secondary
-        )
-        TrailMatePanel(
-            title = "History import",
-            value = historyImportUiState.value,
-            caption = historyImportUiState.caption,
-            tone = TrailMatePanelTone.Neutral
-        )
-        Button(
-            onClick = {
-                historyPicker.launch(GPX_MIME_TYPES)
-            },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !historyImportUiState.isImporting
-        ) {
-            Text(if (historyImportUiState.isImporting) "Importing history GPX" else "Choose history GPX")
+    val importSampleRoute: () -> Unit = {
+        isRouteDetailOpen = false
+        routeDetailStartsInCockpit = false
+        val fileName = "longjing-ridge-target.gpx"
+        if (gpxImportQueue.hasRunningJob()) {
+            routeImportQueue = routeImportQueue.complete(
+                TargetRouteImportState.Failed(
+                    fileName = fileName,
+                    message = GPX_IMPORT_BUSY_MESSAGE
+                )
+            )
+        } else {
+            val jobId = GpxImportJobIds.create(
+                kind = GpxImportJobKind.TARGET_ROUTE,
+                nonce = System.nanoTime()
+            )
+            val queuedQueue = enqueueGpxImportJob(
+                jobId,
+                GpxImportJobKind.TARGET_ROUTE,
+                "sample://$fileName",
+                fileName
+            )
+            val runningQueue = startQueuedGpxImportJob(queuedQueue, jobId)
+            if (runningQueue.isRunningJob(jobId)) {
+                routeImportQueue = routeImportQueue.start(fileName)
+                val state = TargetRouteImporter.importText(
+                    fileName = fileName,
+                    content = TrailMateSampleData.sampleTargetGpx
+                )
+                applyImportState(state)
+                finishTargetRouteImportJob(jobId, state)
+            }
         }
-        OutlinedButton(
-            onClick = {
-                val updatedHistory = HistoricalActivityLog(historicalActivities)
-                    .addAll(TrailMateSampleData.historicalActivities)
-                    .activities
-                historicalActivities = updatedHistory
-                onHistoricalActivitiesChanged(updatedHistory)
-            },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = TrailMateSampleData.historicalActivities.any { sampleActivity ->
-                historicalActivities.none { activity -> activity.key() == sampleActivity.key() }
+    }
+    val pickRouteFile: () -> Unit = {
+        isRouteDetailOpen = false
+        routeDetailStartsInCockpit = false
+        routePicker.launch(GPX_MIME_TYPES)
+    }
+    val addBrandGear: (String, String?, String?, Int?) -> Unit = { category, brand, model, weightGrams ->
+        val updatedInventory = inventory.addBrandGear(
+            category = category,
+            brand = brand,
+            model = model,
+            weightGrams = weightGrams
+        )
+        inventory = updatedInventory
+        onInventoryChanged(updatedInventory)
+    }
+    val setGearAvailability: (String, Boolean) -> Unit = { itemId, available ->
+        val updatedInventory = inventory.setAvailability(itemId = itemId, available = available)
+        inventory = updatedInventory
+        onInventoryChanged(updatedInventory)
+    }
+    val deleteGear: (String) -> Unit = { itemId ->
+        val updatedInventory = inventory.remove(itemId)
+        inventory = updatedInventory
+        onInventoryChanged(updatedInventory)
+    }
+
+    Scaffold(
+        bottomBar = {
+            if (!routeNavigationFullscreen) {
+                TrailMateBottomNavigation(
+                    selectedTab = selectedTab,
+                    onSelected = { selectedTab = it }
+                )
+            }
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .clipToBounds()
+                .then(
+                    if (routeNavigationFullscreen) {
+                        Modifier
+                    } else {
+                        Modifier
+                            .verticalScroll(mainScrollState)
+                            .padding(horizontal = 20.dp, vertical = 18.dp)
+                    }
+                ),
+            verticalArrangement = if (routeNavigationFullscreen) {
+                Arrangement.Top
+            } else {
+                Arrangement.spacedBy(16.dp)
             }
         ) {
-            Text("Use sample history")
-        }
-        HistoricalActivitiesPanel(
-            activities = historicalActivities,
-            onRemoveActivity = { activity ->
-                val updatedHistory = HistoricalActivityLog(historicalActivities)
-                    .remove(activity.key())
-                    .activities
-                historicalActivities = updatedHistory
-                onHistoricalActivitiesChanged(updatedHistory)
-            }
-        )
-        TrailMateMetricRow(
-            items = listOf(
-                "Exercise" to profile.exerciseFrequency.homeLabel(),
-                "Outdoors" to profile.experienceLevel.homeLabel(),
-                "Body" to profile.bodyMetricsLabel()
-            )
-        )
-        TrailMateMetricRow(
-            items = listOf(
-                "Ascent" to profile.ascentExperience.homeLabel(),
-                "Pack" to profile.packWeightLabel(),
-                "Evidence" to capabilityProfile.evidenceLabel
-            )
-        )
-        TrailMateMetricRow(
-            items = listOf(
-                "Capability" to capabilityProfile.confidenceLevel.name,
-                "Source" to if (historicalActivities.size >= 3) "History" else "Survey",
-                "History" to "${historicalActivities.size} routes"
-            )
-        )
-        TrailMateMetricRow(
-            items = listOf(
-                "Distance" to (importedRoute?.let { String.format(java.util.Locale.US, "%.1f km", it.distanceKm) } ?: "--"),
-                "Ascent" to (importedRoute?.let { "+${it.ascentMeters} m" } ?: "--"),
-                "ETA" to (routeAssessment?.estimatedDurationRange?.substringBefore("-") ?: "--")
-            )
-        )
-        TrailMateSegmentedControl(
-            labels = HomeSection.entries.map { it.label },
-            selected = selectedSection.label,
-            onSelected = { label ->
-                selectedSection = HomeSection.entries.first { it.label == label }
-            }
-        )
-        when (selectedSection) {
-            HomeSection.Route -> {
-                RouteImportPanel(
+            when (selectedTab) {
+                HomeTab.Home -> HomeDashboardScreen(
                     importedRoute = importedRoute,
-                    importSummary = routeImportQueue.summary(),
-                    isImporting = routeImportQueue.isImporting,
-                    canRetry = routeImportQueue.canRetry,
-                    onPickRouteFile = {
-                        routePicker.launch(GPX_MIME_TYPES)
+                    routeAssessment = routeAssessment,
+                    onImportRoute = pickRouteFile,
+                    onOpenRouteAssessment = {
+                        routeDetailStartsInCockpit = false
+                        isRouteDetailOpen = importedRoute?.readyForAssessment() == true && routeAssessment != null
+                        selectedTab = HomeTab.Route
                     },
-                    onImportSampleRoute = {
-                        val fileName = "longjing-ridge-target.gpx"
-                        if (gpxImportQueue.hasRunningJob()) {
-                            routeImportQueue = routeImportQueue.complete(
-                                TargetRouteImportState.Failed(
-                                    fileName = fileName,
-                                    message = GPX_IMPORT_BUSY_MESSAGE
-                                )
-                            )
-                        } else {
-                            val jobId = GpxImportJobIds.create(
-                                kind = GpxImportJobKind.TARGET_ROUTE,
-                                nonce = System.nanoTime()
-                            )
-                            val queuedQueue = enqueueGpxImportJob(
-                                jobId,
-                                GpxImportJobKind.TARGET_ROUTE,
-                                "sample://$fileName",
-                                fileName
-                            )
-                            val runningQueue = startQueuedGpxImportJob(queuedQueue, jobId)
-                            if (runningQueue.isRunningJob(jobId)) {
-                                routeImportQueue = routeImportQueue.start(fileName)
-                                val state = TargetRouteImporter.importText(
-                                    fileName = "longjing-ridge-target.gpx",
-                                    content = TrailMateSampleData.sampleTargetGpx
-                                )
-                                applyImportState(state)
-                                finishTargetRouteImportJob(jobId, state)
+                    onStartLightNavigation = {
+                        routeDetailStartsInCockpit = true
+                        isRouteDetailOpen = importedRoute?.readyForAssessment() == true && routeAssessment != null
+                        selectedTab = HomeTab.Route
+                    },
+                    onOpenGearChecklist = { selectedTab = HomeTab.Gear }
+                )
+
+                HomeTab.Route -> {
+                    val route = importedRoute
+                    val assessment = routeAssessment
+                    if (isRouteDetailOpen && route?.readyForAssessment() == true && assessment != null) {
+                        val offlineRoutePackKey = route.offlineRoutePackKey()
+                        RouteDetailScreen(
+                            route = route,
+                            profile = profile,
+                            inventory = inventory,
+                            routeAssessment = assessment,
+                            gearRecommendations = routeGearRecommendations,
+                            initialTrackRecording = initialTrackRecording,
+                            initialOfflineRoutePackReady = offlineRoutePackKey in savedOfflineRoutePackKeys,
+                            initialOfflineBaseMapTileProofs = offlineBaseMapTileProofs,
+                            initiallyShowRouteCockpit = routeDetailStartsInCockpit,
+                            amapPrivacyConsent = amapPrivacyConsent,
+                            routeNavigationFullscreen = routeNavigationFullscreen,
+                            onTrackRecordingChanged = onTrackRecordingChanged,
+                            onOfflineRoutePackReadyChanged = { ready ->
+                                val updated = if (ready) {
+                                    savedOfflineRoutePackKeys + offlineRoutePackKey
+                                } else {
+                                    savedOfflineRoutePackKeys - offlineRoutePackKey
+                                }
+                                updateOfflineRoutePackKeys(updated)
+                            },
+                            onOfflineBaseMapTileProofsChanged = updateOfflineBaseMapTileProofs,
+                            onRouteNavigationFullscreenChanged = { fullscreen ->
+                                routeNavigationFullscreen = fullscreen
+                            },
+                            onOpenTrackDataRequested = { selectedTab = HomeTab.Data },
+                            onAddGearRequested = { category ->
+                                requestedGearCategory = category
+                                selectedTab = HomeTab.Gear
+                            },
+                            onBackToRouteWorkspace = {
+                                routeNavigationFullscreen = false
+                                isRouteDetailOpen = false
+                                routeDetailStartsInCockpit = false
                             }
+                        )
+                    } else {
+                        RouteWorkspaceScreen(
+                            importedRoute = importedRoute,
+                            importSummary = routeImportQueue.summary(),
+                            isImporting = routeImportQueue.isImporting,
+                            canRetry = routeImportQueue.canRetry,
+                            showSampleRouteAction = showSampleRouteAction,
+                            onPickRouteFile = pickRouteFile,
+                            onImportSampleRoute = importSampleRoute,
+                            onOpenRouteDetail = {
+                                routeDetailStartsInCockpit = false
+                                isRouteDetailOpen = true
+                            }
+                        )
+                    }
+                }
+
+                HomeTab.Gear -> MyGearScreen(
+                    inventory = inventory,
+                    routeGearRecommendations = routeGearRecommendations,
+                    requestedCategory = requestedGearCategory,
+                    onAddBrandGear = addBrandGear,
+                    onSetAvailability = setGearAvailability,
+                    onDeleteGear = deleteGear
+                )
+
+                HomeTab.Data -> DataScreen(
+                    latestTrackRecording = initialTrackRecording,
+                    historicalActivities = historicalActivities,
+                    historyImportUiState = historyImportUiState,
+                    onPickHistoryGpx = { historyPicker.launch(GPX_MIME_TYPES) },
+                    onOpenRouteTab = { selectedTab = HomeTab.Route }
+                )
+
+                HomeTab.Profile -> ProfileSettingsScreen(
+                    profile = profile,
+                    onClearLocalData = onClearLocalData
+                )
+            }
+        }
+    }
+}
+
+private enum class HomeTab(val label: String) {
+    Home("首页"),
+    Route("路线"),
+    Gear("装备"),
+    Data("数据"),
+    Profile("我的")
+}
+
+private fun HomeTab.glyph(): TrailMateGlyph =
+    when (this) {
+        HomeTab.Home -> TrailMateGlyph.Home
+        HomeTab.Route -> TrailMateGlyph.Map
+        HomeTab.Gear -> TrailMateGlyph.Gear
+        HomeTab.Data -> TrailMateGlyph.Chart
+        HomeTab.Profile -> TrailMateGlyph.Profile
+    }
+
+@Composable
+private fun TrailMateBottomNavigation(
+    selectedTab: HomeTab,
+    onSelected: (HomeTab) -> Unit
+) {
+    NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+        HomeTab.entries.forEach { tab ->
+            NavigationBarItem(
+                modifier = Modifier.testTag("home-tab-${tab.label}"),
+                selected = tab == selectedTab,
+                onClick = { onSelected(tab) },
+                icon = {
+                    TrailMateLineIcon(
+                        glyph = tab.glyph(),
+                        contentDescription = tab.label,
+                        modifier = Modifier.size(26.dp),
+                        tint = if (tab == selectedTab) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                },
+                label = { Text(tab.label, maxLines = 1) },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = MaterialTheme.colorScheme.primary,
+                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                    indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomeDashboard(
+    profile: BaselineProfile,
+    capabilityProfile: CapabilityProfileSummary,
+    importedRoute: ImportedRoute?,
+    routeAssessment: RouteAssessmentSummary?,
+    historicalActivities: List<HistoricalActivity>,
+    historyImportUiState: HistoricalActivityImportUiState,
+    onPickHistoryGpx: () -> Unit,
+    onUseSampleHistory: () -> Unit,
+    onOpenRoute: () -> Unit,
+    onOpenGear: () -> Unit,
+    canUseSampleHistory: Boolean
+) {
+    HomeTopBar()
+    HomeGreeting()
+    RouteImportRow(onClick = onOpenRoute)
+    TrailMateSectionHeader(
+        title = "当前路线评估",
+        action = "更新"
+    )
+    CurrentRouteAssessmentCard(
+        importedRoute = importedRoute,
+        routeAssessment = routeAssessment,
+        onOpenRoute = onOpenRoute
+    )
+    TrailMateSectionHeader(title = "快速开始")
+    QuickStartGrid(
+        onRoute = onOpenRoute,
+        onNavigation = onOpenRoute,
+        onGear = onOpenGear
+    )
+    TrailMateSectionHeader(
+        title = "今日概览",
+        action = "更多数据"
+    )
+    TodayOverviewCard()
+}
+
+@Composable
+private fun HomeTopBar() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+    ) {
+        Row(
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            MountainLogo(modifier = Modifier.size(34.dp))
+            Text(
+                text = "TrailMate",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        TrailMateLineIcon(
+            glyph = TrailMateGlyph.Bell,
+            contentDescription = "通知",
+            modifier = Modifier.size(28.dp),
+            tint = MaterialTheme.colorScheme.onBackground
+        )
+    }
+}
+
+@Composable
+private fun HomeGreeting() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+    ) {
+        Column {
+            Text(
+                text = "下午好，",
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "准备走哪条线？",
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            ) {
+                TrailMateLineIcon(
+                    glyph = TrailMateGlyph.Weather,
+                    contentDescription = null,
+                    modifier = Modifier.size(22.dp),
+                    tint = TrailMateAmber
+                )
+                Text(
+                    text = "26°C 多云",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            Text(
+                text = "杭州 · 西湖区",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+
+@Composable
+private fun RouteImportRow(onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+        shadowElevation = 1.dp,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outline
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 15.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            ) {
+                TrailMateLineIcon(
+                    glyph = TrailMateGlyph.Folder,
+                    contentDescription = null,
+                    modifier = Modifier.size(28.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "导入 GPX 文件",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            TrailMateLineIcon(
+                glyph = TrailMateGlyph.ChevronRight,
+                contentDescription = null,
+                modifier = Modifier.size(28.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
+
+@Composable
+private fun CurrentRouteAssessmentCard(
+    importedRoute: ImportedRoute?,
+    routeAssessment: RouteAssessmentSummary?,
+    onOpenRoute: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 6.dp,
+        tonalElevation = 0.dp
+    ) {
+        Column {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(170.dp)
+                    .clipToBounds()
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.trailmate_route_hero),
+                    contentDescription = null,
+                    modifier = Modifier.matchParentSize(),
+                    contentScale = ContentScale.Crop
+                )
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(
+                                    Color.Black.copy(alpha = 0.10f),
+                                    Color.Black.copy(alpha = 0.54f)
+                                )
+                            )
+                        )
+                )
+                TrailMateStatusPill(
+                    text = "推荐路线",
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.padding(18.dp)
+                )
+                Column(
+                    modifier = Modifier
+                        .align(androidx.compose.ui.Alignment.BottomStart)
+                        .padding(20.dp)
+                ) {
+                    Text(
+                        text = importedRoute?.routeName ?: "尚未导入路线",
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = importedRoute?.summaryLabel() ?: "先导入目标 GPX",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                if (routeAssessment != null) {
+                    Surface(
+                        modifier = Modifier
+                            .align(androidx.compose.ui.Alignment.BottomEnd)
+                            .padding(18.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "!",
+                                color = TrailMateAmber,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = routeAssessment.matchLevel.displayTitle(),
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "路线难度",
+                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.72f),
+                                style = MaterialTheme.typography.bodySmall
+                            )
                         }
                     }
+                }
+            }
+            TrailMateMetricRow(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                items = listOf(
+                    "预计用时" to (routeAssessment?.estimatedDurationRange ?: "--"),
+                    "最高海拔" to "968m",
+                    "累计爬升" to (importedRoute?.let { "+${it.ascentMeters}m" } ?: "--"),
+                    "体能消耗" to (routeAssessment?.matchLevel?.effortLabel() ?: "--")
                 )
-                if (importedRoute?.readyForAssessment() == true && routeAssessment != null) {
-                    RouteDetailScreen(
-                        route = importedRoute,
-                        profile = profile,
-                        inventory = inventory,
-                        routeAssessment = routeAssessment,
-                        gearRecommendations = routeGearRecommendations,
-                        onAddGearRequested = { category ->
-                            requestedGearCategory = category
-                            selectedSection = HomeSection.MyGear
-                        }
+            )
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .clickable(onClick = onOpenRoute),
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (importedRoute == null) {
+                            "下一步：导入 GPX 或选择历史路线"
+                        } else {
+                            "下一步：查看休息补给与装备"
+                        },
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    TrailMateLineIcon(
+                        glyph = TrailMateGlyph.ChevronRight,
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp),
+                        tint = MaterialTheme.colorScheme.primary
                     )
                 }
             }
-
-            HomeSection.MyGear -> MyGearScreen(
-                inventory = inventory,
-                routeGearRecommendations = routeGearRecommendations,
-                requestedCategory = requestedGearCategory,
-                onAddBrandGear = { category, brand, model, weightGrams ->
-                    val updatedInventory = inventory.addBrandGear(
-                        category = category,
-                        brand = brand,
-                        model = model,
-                        weightGrams = weightGrams
-                    )
-                    inventory = updatedInventory
-                    onInventoryChanged(updatedInventory)
-                },
-                onSetAvailability = { itemId, available ->
-                    val updatedInventory = inventory.setAvailability(itemId = itemId, available = available)
-                    inventory = updatedInventory
-                    onInventoryChanged(updatedInventory)
-                },
-                onDeleteGear = { itemId ->
-                    val updatedInventory = inventory.remove(itemId)
-                    inventory = updatedInventory
-                    onInventoryChanged(updatedInventory)
-                }
-            )
-
-            HomeSection.Data -> DataControlPanel(
-                summary = dataControlSummary,
-                onClearLocalData = onClearLocalData
-            )
-        }
-    }
-}
-
-private enum class HomeSection(val label: String) {
-    Route("Route"),
-    MyGear("My Gear"),
-    Data("Data")
-}
-
-@Composable
-private fun HistoricalActivitiesPanel(
-    activities: List<HistoricalActivity>,
-    onRemoveActivity: (HistoricalActivity) -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        TrailMatePanel(
-            title = "History activities",
-            value = if (activities.isEmpty()) "No history yet" else "${activities.size} imported",
-            caption = "Imported GPX activities calibrate route fit and confidence.",
-            tone = TrailMatePanelTone.Neutral
-        )
-        activities.forEach { activity ->
-            TrailMatePanel(
-                title = activity.routeName,
-                value = activity.summaryLabel(),
-                caption = "Used as local capability evidence.",
-                tone = TrailMatePanelTone.Neutral
-            )
-            OutlinedButton(
-                onClick = { onRemoveActivity(activity) },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Remove history")
-            }
         }
     }
 }
 
 @Composable
-private fun DataControlPanel(
-    summary: TrailMateDataControlSummary,
-    onClearLocalData: () -> Unit
+private fun QuickStartGrid(
+    onRoute: () -> Unit,
+    onNavigation: () -> Unit,
+    onGear: () -> Unit
 ) {
-    var isConfirmingClear by rememberSaveable { mutableStateOf(false) }
-    val clearUiState = DataControlClearUiState(isConfirmingClear = isConfirmingClear)
-
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        TrailMatePanel(
-            title = "Local data",
-            value = summary.profileLine,
-            caption = "Stored on this device for the prototype.",
-            tone = TrailMatePanelTone.Neutral
-        )
-        TrailMatePanel(
-            title = "Route data",
-            value = summary.routeLine,
-            caption = "Last imported target route.",
-            tone = TrailMatePanelTone.Neutral
-        )
-        TrailMatePanel(
-            title = "Gear data",
-            value = summary.inventoryLine,
-            caption = "Current personal gear inventory.",
-            tone = TrailMatePanelTone.Neutral
-        )
-        TrailMatePanel(
-            title = "Export preview",
-            value = "Ready",
-            caption = summary.exportPreview,
-            tone = TrailMatePanelTone.Primary
-        )
-        if (clearUiState.isConfirmingClear) {
-            TrailMatePanel(
-                title = "Clear local data?",
-                value = "Confirm",
-                caption = "This removes profile, route, history, and gear from this device.",
-                tone = TrailMatePanelTone.Secondary
-            )
-            Button(
-                onClick = {
-                    isConfirmingClear = clearUiState.confirmClear(onClearLocalData).isConfirmingClear
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Confirm clear data")
-            }
-            OutlinedButton(
-                onClick = {
-                    isConfirmingClear = clearUiState.cancelClear().isConfirmingClear
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Cancel")
-            }
-        } else {
-            OutlinedButton(
-                onClick = {
-                    isConfirmingClear = clearUiState.requestClear().isConfirmingClear
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Clear local data")
-            }
-        }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        QuickStartCard(TrailMateGlyph.Mountain, "路线评估", "评估风险与难度", onRoute, Modifier.weight(1f))
+        QuickStartCard(TrailMateGlyph.Compass, "轻导航", "指引你前进", onNavigation, Modifier.weight(1f))
+        QuickStartCard(TrailMateGlyph.Gear, "装备清单", "检查装备状态", onGear, Modifier.weight(1f))
     }
 }
 
 @Composable
-private fun RouteImportPanel(
-    importedRoute: ImportedRoute?,
-    importSummary: TargetRouteImportQueueSummary,
-    isImporting: Boolean,
-    canRetry: Boolean,
-    onPickRouteFile: () -> Unit,
-    onImportSampleRoute: () -> Unit
+private fun QuickStartCard(
+    glyph: TrailMateGlyph,
+    title: String,
+    caption: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    if (importedRoute == null) {
-        TrailMatePanel(
-            title = "Target route",
-            value = "Import GPX",
-            caption = "Pick a target route before viewing assessment, light navigation, plan, and gear checks.",
-            tone = TrailMatePanelTone.Primary
-        )
-        ImportQueuePanel(importSummary = importSummary, canRetry = canRetry)
-        Button(
-            onClick = onPickRouteFile,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !isImporting
+    Surface(
+        modifier = modifier
+            .height(118.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 3.dp,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(
+            modifier = Modifier.padding(10.dp),
+            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Text(if (isImporting) "Importing GPX" else "Choose GPX file")
-        }
-        OutlinedButton(
-            onClick = onImportSampleRoute,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !isImporting
-        ) {
-            Text("Use sample GPX")
-        }
-        if (canRetry) {
-            OutlinedButton(
-                onClick = onPickRouteFile,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !isImporting
-            ) {
-                Text("Retry GPX import")
-            }
-        }
-    } else {
-        TrailMatePanel(
-            title = "Imported GPX",
-            value = importedRoute.routeName,
-            caption = "${importedRoute.fileName} / ${importedRoute.summaryLabel()} / ${importedRoute.pointCount} points",
-            tone = TrailMatePanelTone.Primary
-        )
-        ImportQueuePanel(importSummary = importSummary, canRetry = canRetry)
-        Button(
-            onClick = onPickRouteFile,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !isImporting
-        ) {
-            Text(if (isImporting) "Importing GPX" else "Replace GPX file")
-        }
-        if (canRetry) {
-            OutlinedButton(
-                onClick = onPickRouteFile,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !isImporting
-            ) {
-                Text("Retry GPX import")
-            }
+            TrailMateIconBadge(glyph = glyph, modifier = Modifier.size(44.dp))
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = caption,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
 
 @Composable
-private fun ImportQueuePanel(
-    importSummary: TargetRouteImportQueueSummary,
-    canRetry: Boolean
-) {
-    TrailMatePanel(
-        title = "Import queue",
-        value = importSummary.value,
-        caption = importSummary.caption,
-        tone = if (canRetry) TrailMatePanelTone.Secondary else TrailMatePanelTone.Neutral
-    )
+private fun TodayOverviewCard() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 3.dp,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        TrailMateMetricRow(
+            modifier = Modifier.padding(6.dp),
+            items = listOf(
+                "今日步数" to "0",
+                "消耗热量" to "0 kcal",
+                "累计爬升" to "0 m",
+                "户外时长" to "0 h"
+            )
+        )
+    }
 }
 
-private fun ExerciseFrequency.homeLabel(): String =
+@Composable
+private fun MountainLogo(modifier: Modifier = Modifier) {
+    val logoColor = MaterialTheme.colorScheme.primary
+    Canvas(modifier = modifier) {
+        val path = Path().apply {
+            moveTo(0f, size.height)
+            lineTo(size.width * 0.28f, size.height * 0.22f)
+            lineTo(size.width * 0.44f, size.height * 0.67f)
+            lineTo(size.width * 0.62f, size.height * 0.04f)
+            lineTo(size.width, size.height)
+            close()
+        }
+        drawPath(path, color = logoColor)
+    }
+}
+
+@Composable
+private fun MountainHeroCanvas() {
+    val primary = MaterialTheme.colorScheme.primary
+    Canvas(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(170.dp)
+    ) {
+        drawRect(
+            brush = Brush.verticalGradient(
+                listOf(Color(0xFF81B7E2), Color(0xFF5E8D68), Color(0xFF28452F))
+            )
+        )
+        val far = Path().apply {
+            moveTo(0f, size.height * 0.7f)
+            lineTo(size.width * 0.18f, size.height * 0.5f)
+            lineTo(size.width * 0.34f, size.height * 0.64f)
+            lineTo(size.width * 0.52f, size.height * 0.42f)
+            lineTo(size.width * 0.72f, size.height * 0.62f)
+            lineTo(size.width, size.height * 0.38f)
+            lineTo(size.width, size.height)
+            lineTo(0f, size.height)
+            close()
+        }
+        drawPath(far, color = Color(0xFF1E5D3C).copy(alpha = 0.82f))
+        val ridge = Path().apply {
+            moveTo(size.width * 0.06f, size.height)
+            lineTo(size.width * 0.32f, size.height * 0.76f)
+            lineTo(size.width * 0.52f, size.height * 0.48f)
+            lineTo(size.width * 0.68f, size.height * 0.62f)
+            lineTo(size.width, size.height * 0.86f)
+        }
+        drawPath(
+            ridge,
+            color = Color(0xFFE9D29A),
+            style = Stroke(width = 5.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
+        )
+        drawRect(
+            brush = Brush.verticalGradient(
+                listOf(Color.Transparent, Color.Black.copy(alpha = 0.42f))
+            )
+        )
+        drawCircle(primary.copy(alpha = 0.14f), radius = size.width * 0.42f, center = Offset(size.width * 0.82f, size.height * 0.18f))
+    }
+}
+
+private fun com.trailmate.app.core.model.ConfidenceLevel.homeLabel(): String =
     when (this) {
-        ExerciseFrequency.RARELY -> "Rarely"
-        ExerciseFrequency.ONE_TO_TWO_PER_WEEK -> "1-2/wk"
-        ExerciseFrequency.THREE_PLUS_PER_WEEK -> "3+/wk"
+        com.trailmate.app.core.model.ConfidenceLevel.LOW -> "低"
+        com.trailmate.app.core.model.ConfidenceLevel.MEDIUM -> "中"
+        com.trailmate.app.core.model.ConfidenceLevel.HIGH -> "高"
     }
 
-private fun ExperienceLevel.homeLabel(): String =
+private fun MatchLevel.displayTitle(): String =
     when (this) {
-        ExperienceLevel.BEGINNER -> "Beginner"
-        ExperienceLevel.REGULAR -> "Regular"
-        ExperienceLevel.EXPERIENCED -> "Experienced"
+        MatchLevel.RECOMMENDED -> "推荐尝试"
+        MatchLevel.CAUTION -> "谨慎尝试"
+        MatchLevel.NOT_RECOMMENDED -> "不建议尝试"
     }
 
-private fun AscentExperience.homeLabel(): String =
+private fun MatchLevel.effortLabel(): String =
     when (this) {
-        AscentExperience.UNDER_300 -> "<300m"
-        AscentExperience.M300_TO_800 -> "300-800m"
-        AscentExperience.OVER_800 -> "800m+"
+        MatchLevel.RECOMMENDED -> "适中"
+        MatchLevel.CAUTION -> "较高"
+        MatchLevel.NOT_RECOMMENDED -> "很高"
     }
+
+@Suppress("UNCHECKED_CAST")
+private val AmapPrivacyConsentStateSaver = mapSaver(
+    save = { consent ->
+        mapOf(
+            "accepted" to consent.accepted,
+            "acceptedAtEpochMillis" to (consent.acceptedAtEpochMillis ?: -1L),
+            "policyVersion" to consent.policyVersion
+        )
+    },
+    restore = { saved ->
+        AmapPrivacyConsent(
+            accepted = saved["accepted"] as Boolean,
+            acceptedAtEpochMillis = (saved["acceptedAtEpochMillis"] as Long).takeIf { it >= 0L },
+            policyVersion = saved["policyVersion"] as String
+        )
+    }
+)
 
 @Suppress("UNCHECKED_CAST")
 private val GearInventoryStateSaver = mapSaver(
@@ -755,6 +1146,10 @@ internal val TargetRouteImportQueueStateSaver = mapSaver(
             "ascentMeters" to (route?.ascentMeters ?: -1),
             "pointCount" to (route?.pointCount ?: -1),
             "durationMinutes" to (route?.durationMinutes ?: -1),
+            "routePointLatitudes" to route.orEmptyRoutePoints().map { it.latitude },
+            "routePointLongitudes" to route.orEmptyRoutePoints().map { it.longitude },
+            "routePointElevations" to route.orEmptyRoutePoints().map { it.elevationMeters ?: Double.NaN },
+            "routePointDistances" to route.orEmptyRoutePoints().map { it.distanceAlongRouteKm },
             "failedFileName" to queue.failedFileName.orEmpty(),
             "failureMessage" to queue.failureMessage.orEmpty()
         )
@@ -764,6 +1159,10 @@ internal val TargetRouteImportQueueStateSaver = mapSaver(
         val route = if (routeName.isBlank()) {
             null
         } else {
+            val latitudes = saved["routePointLatitudes"] as? List<Double> ?: emptyList()
+            val longitudes = saved["routePointLongitudes"] as? List<Double> ?: emptyList()
+            val elevations = saved["routePointElevations"] as? List<Double> ?: emptyList()
+            val distances = saved["routePointDistances"] as? List<Double> ?: emptyList()
             ImportedRoute(
                 routeName = routeName,
                 fileName = saved["fileName"] as String,
@@ -771,7 +1170,17 @@ internal val TargetRouteImportQueueStateSaver = mapSaver(
                 ascentMeters = saved["ascentMeters"] as Int,
                 status = RouteImportStatus.PARSED,
                 pointCount = saved["pointCount"] as Int,
-                durationMinutes = (saved["durationMinutes"] as? Int)?.takeIf { it >= 0 }
+                durationMinutes = (saved["durationMinutes"] as? Int)?.takeIf { it >= 0 },
+                routePoints = latitudes.indices.mapNotNull { index ->
+                    val longitude = longitudes.getOrNull(index) ?: return@mapNotNull null
+                    val distance = distances.getOrNull(index) ?: return@mapNotNull null
+                    RoutePoint(
+                        latitude = latitudes[index],
+                        longitude = longitude,
+                        elevationMeters = elevations.getOrNull(index)?.takeIf { !it.isNaN() },
+                        distanceAlongRouteKm = distance
+                    )
+                }
             )
         }
 
@@ -782,6 +1191,9 @@ internal val TargetRouteImportQueueStateSaver = mapSaver(
         )
     }
 )
+
+private fun ImportedRoute?.orEmptyRoutePoints(): List<RoutePoint> =
+    this?.routePoints ?: emptyList()
 
 @Suppress("UNCHECKED_CAST")
 private val HistoricalActivitiesStateSaver = mapSaver(
@@ -828,11 +1240,11 @@ private fun Context.importRouteFromUri(uri: Uri, fileName: String): TargetRouteI
     }.getOrElse { error ->
         return TargetRouteImportState.Failed(
             fileName = fileName,
-            message = error.message ?: "Unable to open selected GPX file."
+            message = error.message ?: "无法打开所选 GPX 文件。"
         )
     } ?: return TargetRouteImportState.Failed(
         fileName = fileName,
-        message = "Unable to open selected GPX file."
+        message = "无法打开所选 GPX 文件。"
     )
 
     return TargetRouteImporter.importText(fileName = fileName, content = content)
@@ -846,11 +1258,11 @@ private fun Context.importHistoricalActivityFromUri(uri: Uri, fileName: String):
     }.getOrElse { error ->
         return HistoricalActivityImportState.Failed(
             fileName = fileName,
-            message = error.message ?: "Unable to open selected GPX file."
+            message = error.message ?: "无法打开所选 GPX 文件。"
         )
     } ?: return HistoricalActivityImportState.Failed(
         fileName = fileName,
-        message = "Unable to open selected GPX file."
+        message = "无法打开所选 GPX 文件。"
     )
 
     return HistoricalActivityImporter.importText(fileName = fileName, content = content)
@@ -885,4 +1297,4 @@ private val GPX_MIME_TYPES = arrayOf(
     "*/*"
 )
 
-private const val GPX_IMPORT_BUSY_MESSAGE = "Another GPX import is already running."
+private const val GPX_IMPORT_BUSY_MESSAGE = "另一个 GPX 导入任务正在运行。"

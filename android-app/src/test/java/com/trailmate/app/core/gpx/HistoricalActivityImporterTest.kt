@@ -15,7 +15,7 @@ class HistoricalActivityImporterTest {
 
         val activity = (state as HistoricalActivityImportState.Imported).activity
 
-        assertEquals("Longjing Ridge", activity.routeName)
+        assertEquals("龙井山脊", activity.routeName)
         assertEquals(15.2, activity.distanceKm, 0.0)
         assertEquals(860, activity.ascentMeters)
         assertTrue(activity.durationMinutes > 0)

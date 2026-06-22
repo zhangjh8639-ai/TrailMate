@@ -15,8 +15,8 @@ class CapabilityProfileEngineTest {
 
         assertEquals(ConfidenceLevel.LOW, profile.confidenceLevel)
         assertEquals("0/3 GPX", profile.evidenceLabel)
-        assertEquals("Questionnaire fallback", profile.title)
-        assertTrue(profile.caption.contains("Use sample history"))
+        assertEquals("问卷估算", profile.title)
+        assertTrue(profile.caption.contains("导入 3 条历史 GPX"))
     }
 
     @Test
@@ -28,11 +28,11 @@ class CapabilityProfileEngineTest {
 
         assertEquals(ConfidenceLevel.MEDIUM, profile.confidenceLevel)
         assertEquals("3/3 GPX", profile.evidenceLabel)
-        assertEquals("Historical profile", profile.title)
-        assertEquals("Longest 18.6 km / +980 m", profile.value)
-        assertTrue(profile.caption.contains("Average 13.7 km"))
+        assertEquals("历史能力画像", profile.title)
+        assertEquals("最长 18.6 km / +980 m", profile.value)
+        assertTrue(profile.caption.contains("平均 13.7 km"))
         assertTrue(profile.caption.contains("+720 m"))
-        assertTrue(profile.caption.contains("Pace 21 min/km"))
+        assertTrue(profile.caption.contains("配速约 21 分/公里"))
     }
 
     @Test
@@ -47,8 +47,8 @@ class CapabilityProfileEngineTest {
         )
 
         assertEquals(ConfidenceLevel.MEDIUM, profile.confidenceLevel)
-        assertTrue(profile.caption.contains("Average 0.0 km"))
-        assertFalse(profile.caption.contains("Pace"))
+        assertTrue(profile.caption.contains("平均 0.0 km"))
+        assertFalse(profile.caption.contains("配速"))
         assertFalse(profile.caption.contains("Infinity"))
     }
 }

@@ -19,7 +19,7 @@ class HistoricalActivityImportUiReducerTest {
 
         assertFalse(result.uiState.isImporting)
         assertEquals(listOf(importedActivity), result.activities)
-        assertEquals("Imported 1 GPX", result.uiState.value)
+        assertEquals("已导入 1 条 GPX", result.uiState.value)
     }
 
     @Test
@@ -35,8 +35,8 @@ class HistoricalActivityImportUiReducerTest {
 
         assertFalse(result.uiState.isImporting)
         assertEquals(TrailMateSampleData.historicalActivities, result.activities)
-        assertEquals("No new GPX", result.uiState.value)
-        assertEquals("All selected GPX activities were already imported.", result.uiState.caption)
+        assertEquals("没有新 GPX", result.uiState.value)
+        assertEquals("所选历史活动都已经导入过。", result.uiState.caption)
     }
 
     @Test
@@ -57,8 +57,8 @@ class HistoricalActivityImportUiReducerTest {
         )
 
         assertEquals(TrailMateSampleData.historicalActivities + newActivity, result.activities)
-        assertEquals("Imported 1 / 3", result.uiState.value)
-        assertEquals("Added 1 activity; 1 duplicate skipped; 1 failed: bad-history.gpx.", result.uiState.caption)
+        assertEquals("已导入 1 / 3", result.uiState.value)
+        assertEquals("新增 1 条活动；跳过 1 条重复；1 条失败：bad-history.gpx。", result.uiState.caption)
     }
 
     @Test
@@ -78,8 +78,8 @@ class HistoricalActivityImportUiReducerTest {
         )
 
         assertEquals(TrailMateSampleData.historicalActivities, result.activities)
-        assertEquals("No new GPX", result.uiState.value)
-        assertEquals("No new activities; 1 duplicate skipped; 1 failed: bad-history.gpx.", result.uiState.caption)
+        assertEquals("没有新 GPX", result.uiState.value)
+        assertEquals("没有新活动；跳过 1 条重复；1 条失败：bad-history.gpx。", result.uiState.caption)
     }
 
     @Test
@@ -92,7 +92,7 @@ class HistoricalActivityImportUiReducerTest {
 
         assertFalse(result.uiState.isImporting)
         assertEquals(existingActivities, result.activities)
-        assertEquals("Import failed", result.uiState.value)
+        assertEquals("导入失败", result.uiState.value)
         assertEquals("Content resolver was cancelled.", result.uiState.caption)
     }
 }

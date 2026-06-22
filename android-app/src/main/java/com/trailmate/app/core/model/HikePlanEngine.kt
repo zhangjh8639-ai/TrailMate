@@ -14,50 +14,50 @@ object HikePlanEngine {
         val checkpoints = mutableListOf(
             HikePlanCheckpoint(
                 type = HikePlanCheckpointType.START,
-                title = "Start",
+                title = "起点",
                 distanceKm = 0.0,
                 timeFromStart = "0:00",
-                note = "Confirm offline GPX, weather, daylight, and battery before leaving."
+                note = "出发前确认离线 GPX、天气、日照和电量。"
             )
         )
 
         if (route.distanceKm >= 3.0) {
             checkpoints += checkpointAt(
                 type = HikePlanCheckpointType.ENERGY_CHECK,
-                title = "Energy check",
+                title = "补给检查",
                 route = route,
                 durationMinutes = upperDurationMinutes,
                 progress = 0.35,
-                note = "Check pace and snack plan before effort starts to build."
+                note = "体感升高前检查配速和补给节奏。"
             )
         }
 
         checkpoints += checkpointAt(
             type = HikePlanCheckpointType.REST_CHECK,
-            title = "Rest check",
+            title = "休息判断",
             route = route,
             durationMinutes = upperDurationMinutes,
             progress = 0.58,
-            note = "Take a short rest if effort feels higher than planned."
+            note = "如果体感高于计划，安排短休。"
         )
 
         assessment.risks.firstOrNull()?.let { risk ->
             checkpoints += checkpointAt(
                 type = HikePlanCheckpointType.RISK_CHECK,
-                title = "Risk check",
+                title = "风险复核",
                 route = route,
                 durationMinutes = upperDurationMinutes,
                 progress = 0.74,
-                note = "Review assessment flag: $risk"
+                note = "复核路线评估提示：$risk"
             )
         }
 
         checkpoints += HikePlanCheckpoint(
             type = HikePlanCheckpointType.FINISH,
-            title = "Finish",
+            title = "终点",
             distanceKm = route.distanceKm.roundToTenth(),
             timeFromStart = formatMinutes(upperDurationMinutes),
-            note = "Log actual time and route feel to improve future assessments."
+            note = "记录实际用时和体感，用来改进下次评估。"
         )
 
         return HikePlanSummary(checkpoints = checkpoints.take(MAX_CHECKPOINTS))
@@ -86,10 +86,10 @@ object HikePlanEngine {
     ): HikePlanSummary {
         val finish = HikePlanCheckpoint(
             type = HikePlanCheckpointType.FINISH,
-            title = "Finish",
+            title = "终点",
             distanceKm = route.distanceKm.roundToTenth(),
             timeFromStart = formatMinutes(upperDurationMinutes),
-            note = "Log actual time and route feel to improve future assessments."
+            note = "记录实际用时和体感，用来改进下次评估。"
         )
         val withoutFinish = checkpoints.filterNot { it.type == HikePlanCheckpointType.FINISH }
 

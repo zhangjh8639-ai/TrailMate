@@ -41,9 +41,9 @@ object AiGearAdvisorContract {
             fallbackRecommendations = fallbackRecommendations,
             assessmentFingerprint = assessment.fingerprint(),
             guardrails = listOf(
-                "Do not change route assessment, match level, confidence, distance, ascent, or risks.",
-                "Only return gear recommendations with category, status, and rationale.",
-                "Use owned gear only to explain coverage; missing essentials must remain visible."
+                "不要改写路线评估、匹配等级、置信度、距离、爬升或风险。",
+                "只返回装备类别、状态和理由。",
+                "用户已有装备只能用于解释覆盖关系，缺失项必须继续可见。"
             )
         )
     }
@@ -73,7 +73,7 @@ object AiGearAdvisorContract {
         if (response == null) {
             return fallbackPresentation(
                 request = request,
-                statusLabel = "Fallback active",
+                statusLabel = "本地清单启用",
                 caption = fallbackCaption(request),
                 isStaleResponse = false
             )
@@ -82,9 +82,8 @@ object AiGearAdvisorContract {
         if (response.assessmentFingerprint != request.assessmentFingerprint) {
             return fallbackPresentation(
                 request = request,
-                statusLabel = "Stale response",
-                caption = "Showing local fallback because the AI checklist belongs to a different route. " +
-                    "Route assessment remains locked to ${request.assessment.matchLevel.name}.",
+                statusLabel = "响应已过期",
+                caption = "AI 清单属于另一条路线，当前展示本地兜底清单。路线评估仍锁定为${request.assessment.matchLevel.displayLabel()}。",
                 isStaleResponse = true
             )
         }
@@ -94,9 +93,8 @@ object AiGearAdvisorContract {
                 validateResponse(request = request, response = response)
             )
             AiGearAdvisorPresentation(
-                statusLabel = "AI ready",
-                caption = "${recommendations.size} AI checks validated against " +
-                    "${request.assessment.matchLevel.name} assessment.",
+                statusLabel = "AI 清单就绪",
+                caption = "${recommendations.size} 条 AI 装备检查已按${request.assessment.matchLevel.displayLabel()}评估校验。",
                 recommendations = recommendations,
                 isFallbackActive = false,
                 isStaleResponse = false
@@ -104,8 +102,8 @@ object AiGearAdvisorContract {
         } catch (_: IllegalArgumentException) {
             fallbackPresentation(
                 request = request,
-                statusLabel = "Fallback active",
-                caption = "Showing local fallback because the AI checklist was incomplete. " +
+                statusLabel = "本地清单启用",
+                caption = "AI 清单不完整，当前展示本地兜底清单。" +
                     fallbackCaption(request),
                 isStaleResponse = false
             )
@@ -138,6 +136,12 @@ object AiGearAdvisorContract {
         )
 
     private fun fallbackCaption(request: AiGearAdvisorRequest): String =
-        "${request.fallbackRecommendations.size} checks prepared; " +
-            "route assessment locked to ${request.assessment.matchLevel.name}."
+        "已准备 ${request.fallbackRecommendations.size} 条检查；路线评估锁定为${request.assessment.matchLevel.displayLabel()}。"
 }
+
+private fun MatchLevel.displayLabel(): String =
+    when (this) {
+        MatchLevel.RECOMMENDED -> "推荐"
+        MatchLevel.CAUTION -> "谨慎尝试"
+        MatchLevel.NOT_RECOMMENDED -> "不建议"
+    }

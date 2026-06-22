@@ -13,12 +13,12 @@ class RouteAssessmentEngineTest {
             route = TrailMateSampleData.importedTargetRoute
         )
 
-        assertEquals("Longjing Ridge", assessment.routeName)
+        assertEquals("龙井山脊", assessment.routeName)
         assertEquals(15.2, assessment.distanceKm, 0.0)
         assertEquals(860, assessment.ascentMeters)
         assertEquals(ConfidenceLevel.LOW, assessment.confidenceLevel)
         assertEquals(MatchLevel.CAUTION, assessment.matchLevel)
-        assertTrue(assessment.risks.any { it.contains("ascent", ignoreCase = true) })
+        assertTrue(assessment.risks.any { it.contains("爬升") })
     }
 
     @Test
@@ -57,8 +57,8 @@ class RouteAssessmentEngineTest {
 
         assertEquals(ConfidenceLevel.MEDIUM, assessment.confidenceLevel)
         assertEquals(MatchLevel.RECOMMENDED, assessment.matchLevel)
-        assertTrue(assessment.risks.any { it.contains("Historical GPX evidence", ignoreCase = true) })
-        assertFalse(assessment.risks.any { it.contains("Confidence stays LOW", ignoreCase = true) })
+        assertTrue(assessment.risks.any { it.contains("历史活动覆盖到") })
+        assertFalse(assessment.risks.any { it.contains("更保守的节奏") })
     }
 
     @Test
@@ -94,8 +94,8 @@ class RouteAssessmentEngineTest {
 
         assertEquals(ConfidenceLevel.MEDIUM, assessment.confidenceLevel)
         assertEquals(MatchLevel.NOT_RECOMMENDED, assessment.matchLevel)
-        assertTrue(assessment.risks.any { it.contains("historical GPX stable range (5 km)") })
-        assertTrue(assessment.risks.any { it.contains("historical GPX ascent range (+200 m)") })
+        assertTrue(assessment.risks.any { it.contains("历史 GPX稳定范围（5 km）") })
+        assertTrue(assessment.risks.any { it.contains("历史 GPX稳定范围（+200 m）") })
     }
 
     @Test
@@ -177,7 +177,7 @@ class RouteAssessmentEngineTest {
         assertEquals(MatchLevel.RECOMMENDED, assessment.matchLevel)
         assertFalse(assessment.estimatedDurationRange.contains("NaN"))
         assertFalse(assessment.estimatedDurationRange.contains("Infinity"))
-        assertTrue(assessment.risks.any { it.contains("Historical GPX evidence", ignoreCase = true) })
+        assertTrue(assessment.risks.any { it.contains("历史活动覆盖到") })
     }
 
     @Test
@@ -188,11 +188,11 @@ class RouteAssessmentEngineTest {
         )
 
         GearInventory(TrailMateSampleData.gearItems)
-            .addBrandGear("Trekking poles", "Leki", "Makalu Lite", 510)
+            .addBrandGear("登山杖", "Leki", "Makalu Lite", 510)
             .applyTo(TrailMateSampleData.gearRecommendations)
 
         assertEquals(MatchLevel.CAUTION, assessment.matchLevel)
         assertEquals(ConfidenceLevel.LOW, assessment.confidenceLevel)
-        assertEquals("Longjing Ridge", assessment.routeName)
+        assertEquals("龙井山脊", assessment.routeName)
     }
 }

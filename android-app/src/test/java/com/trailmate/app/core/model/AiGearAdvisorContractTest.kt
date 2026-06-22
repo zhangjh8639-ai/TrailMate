@@ -29,12 +29,12 @@ class AiGearAdvisorContractTest {
             fallbackRecommendations = fallback
         )
 
-        assertEquals("Longjing Ridge", request.route.routeName)
+        assertEquals("龙井山脊", request.route.routeName)
         assertEquals(assessment.matchLevel, request.assessment.matchLevel)
         assertEquals(TrailMateSampleData.baselineProfile.commonPackWeightKg, request.profile.commonPackWeightKg)
         assertEquals(TrailMateSampleData.gearItems.size, request.ownedGear.size)
         assertEquals(fallback.size, request.fallbackRecommendations.size)
-        assertTrue(request.guardrails.any { it.contains("Do not change route assessment", ignoreCase = true) })
+        assertTrue(request.guardrails.any { it.contains("不要改写路线评估") })
         assertTrue(request.assessmentFingerprint.isNotBlank())
     }
 
@@ -125,7 +125,7 @@ class AiGearAdvisorContractTest {
             response = response
         )
 
-        assertEquals("AI ready", presentation.statusLabel)
+        assertEquals("AI 清单就绪", presentation.statusLabel)
         assertFalse(presentation.isFallbackActive)
         assertFalse(presentation.isStaleResponse)
         assertEquals(listOf(aiRecommendation), presentation.recommendations)
@@ -134,7 +134,7 @@ class AiGearAdvisorContractTest {
     @Test
     fun presentationAppliesCurrentInventoryToValidatedAiRecommendations() {
         val inventoryWithPoles = inventory.addBrandGear(
-            category = "Trekking poles",
+            category = "登山杖",
             brand = "Leki",
             model = "Makalu Lite",
             weightGrams = 480
@@ -156,7 +156,7 @@ class AiGearAdvisorContractTest {
             assessmentFingerprint = request.assessmentFingerprint,
             recommendations = listOf(
                 GearRecommendation(
-                    category = "Trekking poles",
+                    category = "登山杖",
                     status = GearStatus.MISSING,
                     rationale = "AI route rationale before inventory refresh."
                 )
@@ -169,9 +169,9 @@ class AiGearAdvisorContractTest {
         )
 
         val poles = presentation.recommendations.single()
-        assertEquals("AI ready", presentation.statusLabel)
+        assertEquals("AI 清单就绪", presentation.statusLabel)
         assertEquals(GearStatus.COVERED, poles.status)
-        assertTrue(poles.matchedGearItemId.orEmpty().contains("trekking-poles-leki-makalu-lite"))
+        assertTrue(poles.matchedGearItemId.orEmpty().contains("leki-makalu-lite"))
     }
 
     @Test
@@ -199,11 +199,11 @@ class AiGearAdvisorContractTest {
             response = staleResponse
         )
 
-        assertEquals("Stale response", presentation.statusLabel)
+        assertEquals("响应已过期", presentation.statusLabel)
         assertTrue(presentation.isFallbackActive)
         assertTrue(presentation.isStaleResponse)
         assertEquals(fallback, presentation.recommendations)
-        assertTrue(presentation.caption.contains("different route", ignoreCase = true))
+        assertTrue(presentation.caption.contains("另一条路线"))
         assertFalse(presentation.recommendations.any { it.category == "Avalanche beacon" })
     }
 
@@ -226,10 +226,10 @@ class AiGearAdvisorContractTest {
             response = incompleteResponse
         )
 
-        assertEquals("Fallback active", presentation.statusLabel)
+        assertEquals("本地清单启用", presentation.statusLabel)
         assertTrue(presentation.isFallbackActive)
         assertFalse(presentation.isStaleResponse)
         assertEquals(fallback, presentation.recommendations)
-        assertTrue(presentation.caption.contains("incomplete", ignoreCase = true))
+        assertTrue(presentation.caption.contains("不完整"))
     }
 }

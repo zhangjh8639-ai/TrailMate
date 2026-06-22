@@ -31,6 +31,9 @@ class TargetRouteGpxParserTest {
         assertEquals(RouteImportStatus.PARSED, route.status)
         assertEquals(3, route.pointCount)
         assertEquals(860, route.ascentMeters)
+        assertEquals(3, route.routePoints.size)
+        assertEquals(0.0, route.routePoints.first().distanceAlongRouteKm, 0.001)
+        assertEquals(route.distanceKm, route.routePoints.last().distanceAlongRouteKm, 0.1)
         assertTrue(route.readyForAssessment())
         assertEquals("15.2 km / +860 m", route.summaryLabel())
     }
@@ -53,6 +56,50 @@ class TargetRouteGpxParserTest {
         assertEquals("River Loop", route.routeName)
         assertEquals(2, route.pointCount)
         assertEquals(30, route.ascentMeters)
+    }
+
+    @Test
+    fun prefersExporterExtensionMetadataWhenTrackHasNoName() {
+        val route = TargetRouteGpxParser.parse(
+            fileName = "2026-05-16 0834杭州上城区.gpx",
+            content = """
+                <?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+                <gpx version="1.1"
+                  creator="GPSBabel"
+                  xmlns="http://www.topografix.com/GPX/1/1">
+                  <metadata>
+                    <time>2026-05-16T00:34:42Z</time>
+                  </metadata>
+                  <extensions>
+                    <name><![CDATA[2026-05-16 08:34杭州上城区]]></name>
+                    <Distance>21610.625132127225</Distance>
+                    <ElevationGain>767.2122065862956</ElevationGain>
+                  </extensions>
+                  <trk>
+                    <trkseg>
+                      <trkpt lat="30.25544589" lon="120.15835535">
+                        <ele>56.0</ele>
+                        <time>2026-05-16T00:34:44Z</time>
+                      </trkpt>
+                      <trkpt lat="30.25555388" lon="120.15835964">
+                        <ele>57.0</ele>
+                        <time>2026-05-16T00:34:54Z</time>
+                      </trkpt>
+                      <trkpt lat="30.25565361" lon="120.15832435">
+                        <ele>58.0</ele>
+                        <time>2026-05-16T00:35:04Z</time>
+                      </trkpt>
+                    </trkseg>
+                  </trk>
+                </gpx>
+            """.trimIndent()
+        )
+
+        assertEquals("2026-05-16 08:34杭州上城区", route.routeName)
+        assertEquals(21.6, route.distanceKm, 0.0)
+        assertEquals(767, route.ascentMeters)
+        assertEquals(3, route.pointCount)
+        assertEquals(0.0, route.routePoints.first().distanceAlongRouteKm, 0.001)
     }
 
     @Test

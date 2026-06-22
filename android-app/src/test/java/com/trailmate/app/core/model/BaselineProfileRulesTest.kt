@@ -26,6 +26,6 @@ class BaselineProfileRulesTest {
         val profile = TrailMateSampleData.baselineProfile
 
         assertEquals("172cm / 68kg", profile.bodyMetricsLabel())
-        assertEquals("5 kg pack", profile.packWeightLabel())
+        assertEquals("背包 5 kg", profile.packWeightLabel())
     }
 }

@@ -11,8 +11,8 @@ data class HistoricalActivityImportUiState(
     fun importing(fileCount: Int): HistoricalActivityImportUiState =
         copy(
             isImporting = true,
-            value = "Importing GPX",
-            caption = "$fileCount history files are being parsed locally."
+            value = "正在导入 GPX",
+            caption = "$fileCount 个历史文件正在本地解析。"
         )
 
     fun completed(batch: HistoricalActivityImportBatch): HistoricalActivityImportUiState =
@@ -25,13 +25,13 @@ data class HistoricalActivityImportUiState(
     fun failed(message: String): HistoricalActivityImportUiState =
         copy(
             isImporting = false,
-            value = "Import failed",
+            value = "导入失败",
             caption = message
         )
 
     companion object {
-        const val READY_VALUE = "Ready for history GPX"
-        const val READY_CAPTION = "Choose past GPX files to improve capability confidence."
+        const val READY_VALUE = "等待历史 GPX"
+const val READY_CAPTION = "选择过往 GPX 文件，让后续路线建议更贴近你的体能。"
     }
 }
 
@@ -77,30 +77,30 @@ object HistoricalActivityImportUiReducer {
         if (addedCount == 0 && duplicateCount > 0 && batch.failures.isEmpty()) {
             return HistoricalActivityImportUiState(
                 isImporting = false,
-                value = "No new GPX",
-                caption = "All selected GPX activities were already imported."
+                value = "没有新 GPX",
+                caption = "所选历史活动都已经导入过。"
             )
         }
 
         val totalSelected = batch.activities.size + batch.failures.size
         val value = when {
-            addedCount == 0 && duplicateCount > 0 -> "No new GPX"
-            addedCount > 0 && (duplicateCount > 0 || batch.failures.isNotEmpty()) -> "Imported $addedCount / $totalSelected"
+            addedCount == 0 && duplicateCount > 0 -> "没有新 GPX"
+            addedCount > 0 && (duplicateCount > 0 || batch.failures.isNotEmpty()) -> "已导入 $addedCount / $totalSelected"
             else -> batch.summaryValue()
         }
         val caption = when {
             addedCount > 0 && (duplicateCount > 0 || batch.failures.isNotEmpty()) -> buildString {
-                append("Added $addedCount ${if (addedCount == 1) "activity" else "activities"}")
+                append("新增 $addedCount 条活动")
                 if (duplicateCount > 0) {
-                    append("; $duplicateCount duplicate ${if (duplicateCount == 1) "skipped" else "skipped"}")
+                    append("；跳过 $duplicateCount 条重复")
                 }
                 if (batch.failures.isNotEmpty()) {
-                    append("; ${batch.failures.size} failed: ${batch.failures.first().fileName}")
+                    append("；${batch.failures.size} 条失败：${batch.failures.first().fileName}")
                 }
-                append(".")
+                append("。")
             }
             addedCount == 0 && duplicateCount > 0 && batch.failures.isNotEmpty() ->
-                "No new activities; $duplicateCount duplicate ${if (duplicateCount == 1) "skipped" else "skipped"}; ${batch.failures.size} failed: ${batch.failures.first().fileName}."
+                "没有新活动；跳过 $duplicateCount 条重复；${batch.failures.size} 条失败：${batch.failures.first().fileName}。"
             else -> batch.summaryCaption()
         }
 

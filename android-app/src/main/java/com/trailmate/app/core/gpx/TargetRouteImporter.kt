@@ -58,25 +58,25 @@ data class TargetRouteImportQueueState(
     fun summary(): TargetRouteImportQueueSummary =
         when {
             activeFileName != null -> TargetRouteImportQueueSummary(
-                value = "Importing GPX",
-                caption = "$activeFileName is being parsed locally."
+                value = "正在导入 GPX",
+                caption = "$activeFileName 正在本地解析。"
             )
             failedFileName != null -> TargetRouteImportQueueSummary(
-                value = "Retry available",
+                value = "可重试",
                 caption = buildString {
-                    append("$failedFileName: ${failureMessage ?: "Unable to import GPX."}")
+                    append("$failedFileName：${failureMessage ?: "无法导入 GPX。"}")
                     lastImportedRoute?.let { route ->
-                        append(" Keeping ${route.routeName}.")
+                        append(" 保留当前路线：${route.routeName}。")
                     }
                 }
             )
             lastImportedRoute != null -> TargetRouteImportQueueSummary(
-                value = "Parsed",
-                caption = "${lastImportedRoute.fileName} / ${lastImportedRoute.summaryLabel()} / ${lastImportedRoute.pointCount} points"
+                value = "解析完成",
+                caption = "${lastImportedRoute.fileName} / ${lastImportedRoute.summaryLabel()} / ${lastImportedRoute.pointCount} 个点"
             )
             else -> TargetRouteImportQueueSummary(
-                value = "Ready for GPX",
-                caption = "Choose a GPX file or use the sample route."
+                value = "等待 GPX",
+                caption = "选择 GPX 文件，或使用示例路线。"
             )
         }
 
@@ -95,7 +95,7 @@ object TargetRouteImporter {
             onFailure = { error ->
                 TargetRouteImportState.Failed(
                     fileName = fileName,
-                    message = error.message ?: "Unable to parse this GPX route."
+                    message = error.message ?: "无法解析这条 GPX 路线。"
                 )
             }
         )

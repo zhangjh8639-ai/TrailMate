@@ -4,6 +4,8 @@ import com.trailmate.app.core.gpx.GpxImportJob
 import com.trailmate.app.core.gpx.GpxImportJobKind
 import com.trailmate.app.core.gpx.GpxImportJobStatus
 import com.trailmate.app.core.gpx.GpxImportQueue
+import com.trailmate.app.core.map.AmapOfflineBaseMapTileProof
+import com.trailmate.app.core.map.AmapPrivacyConsent
 import com.trailmate.app.core.model.AscentExperience
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.ExerciseFrequency
@@ -13,6 +15,9 @@ import com.trailmate.app.core.model.GearItem
 import com.trailmate.app.core.model.HistoricalActivity
 import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.RouteImportStatus
+import com.trailmate.app.core.model.RecordedTrackPoint
+import com.trailmate.app.core.model.RoutePoint
+import com.trailmate.app.core.model.TrackRecordingEngine
 import com.trailmate.app.core.model.TypicalDuration
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -50,7 +55,21 @@ class TrailMateSnapshotCodecTest {
                 ascentMeters = 540,
                 status = RouteImportStatus.PARSED,
                 pointCount = 64,
-                durationMinutes = 128
+                durationMinutes = 128,
+                routePoints = listOf(
+                    RoutePoint(
+                        latitude = 30.0,
+                        longitude = 120.0,
+                        elevationMeters = 100.0,
+                        distanceAlongRouteKm = 0.0
+                    ),
+                    RoutePoint(
+                        latitude = 30.01,
+                        longitude = 120.0,
+                        elevationMeters = 120.0,
+                        distanceAlongRouteKm = 1.1
+                    )
+                )
             ),
             historicalActivities = listOf(
                 HistoricalActivity(
@@ -59,7 +78,29 @@ class TrailMateSnapshotCodecTest {
                     ascentMeters = 620,
                     durationMinutes = 240
                 )
-            )
+            ),
+            latestTrackRecording = TrackRecordingEngine.appendLocation(
+                state = TrackRecordingEngine.start(routeName = "West Ridge", nowEpochMillis = 1_000L),
+                point = RecordedTrackPoint(
+                    latitude = 30.0,
+                    longitude = 120.0,
+                    elevationMeters = 100.0,
+                    horizontalAccuracyMeters = 8.0,
+                    timestampEpochMillis = 1_100L
+                )
+            ),
+            savedOfflineRoutePackKeys = setOf("west-ridge.gpx|West Ridge|8.4|540|64"),
+            offlineBaseMapTileProofs = listOf(
+                AmapOfflineBaseMapTileProof(
+                    routeKey = "west-ridge.gpx|West Ridge|8.4|540|64",
+                    targetAdcode = "330100",
+                    targetCityName = "杭州市",
+                    verifiedAtEpochMillis = 1_700_000_000_000L,
+                    networkDisabled = true,
+                    tileVisible = true
+                )
+            ),
+            amapPrivacyConsent = AmapPrivacyConsent.accepted(nowEpochMillis = 2_000L)
         )
 
         val decoded = TrailMateSnapshotCodec.decode(TrailMateSnapshotCodec.encode(snapshot))
@@ -148,6 +189,30 @@ class TrailMateSnapshotCodecTest {
         val decoded = TrailMateSnapshotCodec.decode(TrailMateSnapshotCodec.encode(snapshot))
 
         assertEquals(queue, decoded.gpxImportQueue)
+    }
+
+    @Test
+    fun snapshotDecodeDropsBlankOfflineRoutePackKeys() {
+        val raw = """
+            version=1
+            inventory.count=0
+            history.count=0
+            gpxQueue.count=0
+            offlineRoutePack.count=3
+            offlineRoutePack.0.key=west-ridge.gpx|West Ridge|8.4|540|64
+            offlineRoutePack.1.key=
+            offlineRoutePack.2.key=longjing-ridge-target.gpx|龙井山脊|15.2|860|120
+        """.trimIndent()
+
+        val decoded = TrailMateSnapshotCodec.decode(raw)
+
+        assertEquals(
+            setOf(
+                "west-ridge.gpx|West Ridge|8.4|540|64",
+                "longjing-ridge-target.gpx|龙井山脊|15.2|860|120"
+            ),
+            decoded.savedOfflineRoutePackKeys
+        )
     }
 
     @Test
