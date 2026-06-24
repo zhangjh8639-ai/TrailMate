@@ -71,15 +71,15 @@ object TrailMapLayerLegendEngine {
                 ),
                 TrailMapLayerLegendItem(
                     label = "底图",
-                    value = if (readiness.provider == TrailMapProvider.AMAP_SDK) {
-                        "在线底图"
-                    } else {
-                        "本地预览"
+                    value = when (readiness.provider) {
+                        TrailMapProvider.MAPLIBRE_PMTILES -> "PMTiles 离线地图包"
+                        TrailMapProvider.AMAP_SDK -> "在线底图"
+                        TrailMapProvider.LOCAL_GPX_PREVIEW -> "本地预览"
                     },
-                    status = if (readiness.provider == TrailMapProvider.AMAP_SDK) {
-                        TrailMapLayerLegendItemStatus.READY
-                    } else {
-                        TrailMapLayerLegendItemStatus.INACTIVE
+                    status = when (readiness.provider) {
+                        TrailMapProvider.MAPLIBRE_PMTILES,
+                        TrailMapProvider.AMAP_SDK -> TrailMapLayerLegendItemStatus.READY
+                        TrailMapProvider.LOCAL_GPX_PREVIEW -> TrailMapLayerLegendItemStatus.INACTIVE
                     }
                 )
             )

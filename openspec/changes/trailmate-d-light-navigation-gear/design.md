@@ -53,7 +53,6 @@ After real authentication succeeds, account-bound data includes:
 
 - baseline profile
 - historical GPX capability evidence
-- personal gear inventory
 - imported target routes
 - gear checklist artifacts
 - data export and delete state
@@ -96,27 +95,26 @@ Each import job stores:
 
 The import worker is serial: it only marks one queued job, or waiting-retry job whose next retry time has arrived, as running when no other job is running. Parsing is bound to the exact job that was marked running, so a queued user selection cannot accidentally complete a different older retry job. If the app restores a queue that still contains an old running job after process death, startup recovery converts that job back to waiting retry when budget remains, or failed when the budget is exhausted, so later imports cannot be blocked forever. Failed imports must not discard the last valid route or historical capability evidence. Successful imports save parsed route or activity records through their own data boundary and clear retry metadata.
 
-## Gear Inventory
+## Gear Catalog Matching
 
-Personal gear inventory is a private user profile feature.
+Gear preparation uses a server-owned brand catalog. The mobile app does not create, edit, delete, or save personal gear inventory records.
 
-Gear item:
+Catalog item:
 
 - id
-- userId
 - category
 - brand
 - model
+- displayName
 - weightGrams
-- conditionTags
-- seasonTags
-- ownershipStatus
-- notes
-- available
+- tags
+- imageUrl
+- imageAttribution
+- active
 - createdAt
 - updatedAt
 
-Brand and model are optional because the useful product behavior is category coverage, not shopping.
+Brand, model, and thumbnail are part of the server-managed catalog so Android can show realistic candidates without asking the hiker to maintain their own inventory.
 
 ## Gear Advisor
 
@@ -130,20 +128,20 @@ Structured AI input:
 - checkpoint list
 - risk factor summaries
 - match and confidence levels
-- saved gear categories and metadata
+- matched server catalog candidates
 
 AI output:
 
 - checklist item category
 - status: covered, check, missing, optional
-- matchedGearItemId when covered
+- matchedCatalogItemId when a catalog item is relevant
 - route-based rationale
 - suggested attributes
 - confidence note
 
 The backend must validate and normalize AI output before storing or returning it. Invalid AI output is discarded and the client falls back to deterministic essentials.
 
-Android connects to the backend through a pure service boundary. The boundary sends the structured `AiGearAdvisorRequest`, converts timeout, unavailable, thrown, stale, and invalid responses into explicit backend statuses, and always resolves display recommendations through the existing validation and inventory-refresh contract before the Gear tab can present them. The concrete HTTP transport, backend URL, auth token handling, and persistence of generated checklist artifacts remain integration work outside this Android core boundary.
+Android connects to the backend through a pure service boundary. The boundary sends the structured `AiGearAdvisorRequest`, converts timeout, unavailable, thrown, stale, and invalid responses into explicit backend statuses, and always resolves display recommendations through the server catalog refresh contract before the Gear tab can present them. The concrete HTTP transport, backend URL, auth token handling, and persistence of generated checklist artifacts remain integration work outside this Android core boundary.
 
 ## Safety And Privacy
 
@@ -158,13 +156,13 @@ Privacy:
 - Gear and body metrics are private.
 - Prompts should use the minimum fields required.
 - Do not log AI prompts containing personal profile or exact route detail.
-- Cloud profile/gear export includes baseline profile, gear inventory, related gear checklist records, and an audit record. It does not include imported target routes, historical GPX activities, or persisted GPX import queue jobs; those require separate route/GPX export scopes.
-- Cloud profile/gear delete removes account profile, gear inventory, related checklist artifacts, local profile/gear caches, and an audit tombstone. It does not delete route library records, historical GPX evidence, or persisted GPX import queue jobs in the same operation.
-- Pending sync or conflict state may allow a stale-labeled export snapshot, but must block cloud profile/gear deletion until sync or conflict resolution completes.
+- Cloud profile/export includes baseline profile, related gear checklist artifacts, and an audit record. It does not include server-owned gear catalog data, imported target routes, historical GPX activities, or persisted GPX import queue jobs; those require separate route/GPX export scopes.
+- Cloud profile/delete removes account profile, related checklist artifacts, local profile/checklist caches, and an audit tombstone. It does not delete server-owned gear catalog data, route library records, historical GPX evidence, or persisted GPX import queue jobs in the same operation.
+- Pending sync or conflict state may allow a stale-labeled export snapshot, but must block cloud profile/gear-advisor deletion until sync or conflict resolution completes.
 
 ## Failure Modes
 
 - AI unavailable: show deterministic essentials and retry.
-- User has no gear saved: show missing categories and "add owned gear" action.
+- No catalog match exists: show missing route need, suggested attributes, and retry/search actions without an add-owned-gear flow.
 - Route changed after checklist generated: mark checklist stale.
-- User deletes a gear item: previously generated checklist keeps category rationale but removes the matched item link.
+- Catalog item is retired: previously generated checklist keeps category rationale but removes the stale catalog item link.

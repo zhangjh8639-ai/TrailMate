@@ -17,6 +17,7 @@ import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.provider.OpenableColumns
 import android.provider.Settings
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -29,10 +30,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -49,6 +53,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -73,6 +78,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.trailmate.app.core.location.AndroidLocationTracker
+import com.trailmate.app.core.location.TrailMateLocationActiveUsePolicy
 import com.trailmate.app.core.location.TrailMateLocationActivationAction
 import com.trailmate.app.core.location.TrailMateLocationActivationEngine
 import com.trailmate.app.core.location.TrailMateLocationAppSettingsReturnEffect
@@ -118,6 +124,13 @@ import com.trailmate.app.core.map.AmapSdkAvailability
 import com.trailmate.app.core.map.AmapTargetRouteRegion
 import com.trailmate.app.core.map.AmapTargetRouteRegionReader
 import com.trailmate.app.core.map.MapScreenPoint
+import com.trailmate.app.core.map.MapLibreSdkAvailability
+import com.trailmate.app.core.map.PmTilesArchiveHeaderParser
+import com.trailmate.app.core.map.PmTilesLatLngBounds
+import com.trailmate.app.core.map.PmTilesOfflineBasemapImportCandidate
+import com.trailmate.app.core.map.PmTilesOfflineBasemapImportPolicy
+import com.trailmate.app.core.map.PmTilesOfflineBasemapManifestReader
+import com.trailmate.app.core.map.PmTilesOfflineBasemapStatusEngine
 import com.trailmate.app.core.map.TrailMapCheckpointMarker
 import com.trailmate.app.core.map.TrailMapCheckpointProjector
 import com.trailmate.app.core.map.TrailMapLayerLegend
@@ -138,6 +151,10 @@ import com.trailmate.app.core.map.TrailMateDeviceDiagnosticsReportAction
 import com.trailmate.app.core.map.TrailMateDeviceDiagnosticsReportActionPresenter
 import com.trailmate.app.core.map.TrailMateDeviceIdentity
 import com.trailmate.app.core.map.TrailMateDeviceDiagnosticsReportFormatter
+import com.trailmate.app.core.network.TrailMateHttpPmTilesBasemapFileDownloader
+import com.trailmate.app.core.network.TrailMateOfflineBasemapCatalogApi
+import com.trailmate.app.core.network.TrailMatePmTilesBasemapRemoteImportCoordinator
+import com.trailmate.app.core.network.TrailMatePmTilesRemoteImportAction
 import com.trailmate.app.core.design.TrailMateGlyph
 import com.trailmate.app.core.design.TrailMateLineIcon
 import com.trailmate.app.core.design.TrailMateMetricRow
@@ -152,8 +169,10 @@ import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.DepartureReadinessEngine
 import com.trailmate.app.core.model.DepartureReadinessStep
 import com.trailmate.app.core.model.DepartureReadinessSummary
-import com.trailmate.app.core.model.GearInventory
+import com.trailmate.app.core.model.GearCatalogItem
+import com.trailmate.app.core.model.GearCatalogSelectionEngine
 import com.trailmate.app.core.model.GearRecommendation
+import com.trailmate.app.core.model.GearDepartureQaOverridePolicy
 import com.trailmate.app.core.model.GearStatus
 import com.trailmate.app.core.model.HikeLocationFix
 import com.trailmate.app.core.model.HikePlanCheckpoint
@@ -173,6 +192,8 @@ import com.trailmate.app.core.model.LocationBackedHikeStatus
 import com.trailmate.app.core.model.LocationGuidancePresentation
 import com.trailmate.app.core.model.LocationGuidancePresentationEngine
 import com.trailmate.app.core.model.LocationGuidanceTone
+import com.trailmate.app.core.model.OfflineBaseMapDepartureQaOverridePolicy
+import com.trailmate.app.core.model.OfflineBaseMapDepartureState
 import com.trailmate.app.core.model.OfflineBaseMapRequirementPolicy
 import com.trailmate.app.core.model.MatchLevel
 import com.trailmate.app.core.model.RouteGeometryEngine
@@ -198,14 +219,17 @@ import com.trailmate.app.core.model.SafetyShareEngine
 import com.trailmate.app.core.model.SafetyShareLocation
 import com.trailmate.app.core.model.SafetySharePresentation
 import com.trailmate.app.core.model.SafetyShareRoutePlan
+import com.trailmate.app.core.model.TrailMateGearCatalogPreviewData
 import com.trailmate.app.core.model.TrailMateSampleData
 import com.trailmate.app.core.model.TrackRecordingActionGateEngine
 import com.trailmate.app.core.model.TrackRecordingActionGateStep
-import com.trailmate.app.core.model.TrackRecordingEngine
+import com.trailmate.app.core.model.TrackRecordingForegroundRecoveryPolicy
 import com.trailmate.app.core.model.TrackRecordingReviewEngine
 import com.trailmate.app.core.model.TrackRecordingReviewPresentation
+import com.trailmate.app.core.model.TrackRecordingServiceCommand
 import com.trailmate.app.core.model.TrackRecordingState
 import com.trailmate.app.core.model.TrackRecordingStatus
+import com.trailmate.app.core.model.TrackRecordingUiActionEngine
 import com.trailmate.app.core.model.offlineRoutePackKey
 import com.trailmate.app.BuildConfig
 import com.trailmate.app.feature.route.detail.RouteAssessmentTab
@@ -215,13 +239,16 @@ import com.trailmate.app.feature.route.detail.RoutePlanTab
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
 fun RouteDetailScreen(
     route: ImportedRoute = TrailMateSampleData.importedTargetRoute,
     profile: BaselineProfile = TrailMateSampleData.baselineProfile,
-    inventory: GearInventory = GearInventory(TrailMateSampleData.gearItems),
+    catalogItems: List<GearCatalogItem> = TrailMateGearCatalogPreviewData.items,
+    catalogStatusLabel: String = "品牌库 · 本地缓存",
+    offlineBasemapCatalogApi: TrailMateOfflineBasemapCatalogApi? = null,
     routeAssessment: RouteAssessmentSummary? = null,
     gearRecommendations: List<GearRecommendation>? = null,
     aiGearAdvisorResponse: AiGearAdvisorResponse? = null,
@@ -234,6 +261,7 @@ fun RouteDetailScreen(
     initialOfflineRoutePackReady: Boolean = false,
     initialOfflineBaseMapTileProofs: List<AmapOfflineBaseMapTileProof> = emptyList(),
     initiallyShowRouteCockpit: Boolean = false,
+    initiallyExpandRouteDiagnostics: Boolean = false,
     amapPrivacyConsent: AmapPrivacyConsent = AmapPrivacyConsent(),
     amapApiKeyConfigured: Boolean = BuildConfig.TRAILMATE_AMAP_API_KEY.isNotBlank(),
     amapSdkAvailable: Boolean = AmapSdkAvailability.isLinked,
@@ -244,22 +272,21 @@ fun RouteDetailScreen(
     onOfflineBaseMapTileProofsChanged: (List<AmapOfflineBaseMapTileProof>) -> Unit = {},
     onRouteNavigationFullscreenChanged: (Boolean) -> Unit = {},
     onOpenTrackDataRequested: () -> Unit = {},
-    onAddGearRequested: (String) -> Unit = {},
+    onViewGearMatchesRequested: (String) -> Unit = {},
     onBackToRouteWorkspace: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val packageSha1 = remember(context) { AndroidPackageSignatureSha1Reader.read(context) }
     val locationTracker = remember(context) { AndroidLocationTracker(context) }
     val assessment = routeAssessment ?: RouteAssessmentEngine.assess(profile = profile, route = route)
     val plan = HikePlanEngine.build(route = route, assessment = assessment)
-    val fallbackGearRecommendations = gearRecommendations ?: inventory.applyTo(
-        RouteGearAdvisorEngine.recommend(route = route, assessment = assessment)
-    )
+    val fallbackGearRecommendations = gearRecommendations
+        ?: RouteGearAdvisorEngine.recommend(route = route, assessment = assessment)
     val aiGearAdvisorRequest = AiGearAdvisorContract.buildRequest(
         route = route,
         profile = profile,
         assessment = assessment,
-        inventory = inventory,
         fallbackRecommendations = fallbackGearRecommendations
     )
     val aiGearAdvisorPresentation = AiGearAdvisorContract.resolvePresentation(
@@ -276,7 +303,7 @@ fun RouteDetailScreen(
             }
         )
     }
-    var offlineRoutePackReady by rememberSaveable(routeSessionKey) {
+    var offlineRoutePackReady by rememberSaveable(routeSessionKey, initialOfflineRoutePackReady) {
         mutableStateOf(initialOfflineRoutePackReady)
     }
     var offlineBaseMapTileProofs by remember(routeSessionKey) {
@@ -291,6 +318,7 @@ fun RouteDetailScreen(
     var hikeStatus by remember(routeSessionKey) { mutableStateOf(HikeSessionStatus.READY) }
     var reachedCheckpointIndex by remember(routeSessionKey) { mutableStateOf(0) }
     var gpsEnabled by rememberSaveable(routeSessionKey) { mutableStateOf(false) }
+    var locationTrackingRestartToken by rememberSaveable(routeSessionKey) { mutableStateOf(0) }
     var locationSnapshot by remember(routeSessionKey) { mutableStateOf(initialLocationSnapshot) }
     var locationGuidanceStatus by remember(routeSessionKey) { mutableStateOf(initialLocationGuidanceStatus) }
     var locationGuidanceCaption by remember(routeSessionKey) { mutableStateOf(initialLocationGuidanceCaption) }
@@ -313,6 +341,7 @@ fun RouteDetailScreen(
             }
         )
     }
+    var trackServiceRestoreAttempted by rememberSaveable(routeSessionKey) { mutableStateOf(false) }
     var pendingTrackActionAfterLocationPermission by rememberSaveable(routeSessionKey) { mutableStateOf(false) }
     var pendingTrackActionAfterNotificationPermission by rememberSaveable(routeSessionKey) { mutableStateOf(false) }
     var pendingLocationSettingsReturn by rememberSaveable(routeSessionKey) { mutableStateOf(false) }
@@ -321,14 +350,38 @@ fun RouteDetailScreen(
     var pendingOfflineMapManagerReturn by rememberSaveable(routeSessionKey) { mutableStateOf(false) }
     var pendingNetworkSettingsReturn by rememberSaveable(routeSessionKey) { mutableStateOf(false) }
     var offlineBaseMapStatusRefreshToken by rememberSaveable(routeSessionKey) { mutableStateOf(0) }
+    var pmTilesBasemapRefreshToken by rememberSaveable(routeSessionKey) { mutableStateOf(0) }
+    var pmTilesImportMessage by remember(routeSessionKey) { mutableStateOf<String?>(null) }
     var offlineBaseMapReturnStatusCheckToken by rememberSaveable(routeSessionKey) {
         mutableStateOf<Int?>(null)
     }
     var networkSettingsRefreshToken by rememberSaveable(routeSessionKey) { mutableStateOf(0) }
+    var targetRouteRegion by remember(routeSessionKey) {
+        mutableStateOf<AmapTargetRouteRegion?>(null)
+    }
+    val pmTilesRemoteImportCoordinator = remember(offlineBasemapCatalogApi) {
+        TrailMatePmTilesBasemapRemoteImportCoordinator(
+            catalogApi = offlineBasemapCatalogApi,
+            downloader = TrailMateHttpPmTilesBasemapFileDownloader()
+        )
+    }
+    val pmTilesBasemapStatus = remember(routeSessionKey, targetRouteRegion, pmTilesBasemapRefreshToken) {
+        PmTilesOfflineBasemapStatusEngine.resolve(
+            manifest = PmTilesOfflineBasemapManifestReader.read(
+                directory = context.pmTilesBasemapDirectory(),
+                routePackKey = route.offlineRoutePackKey(),
+                targetRegionName = targetRouteRegion?.cityName,
+                targetBounds = route.pmTilesTargetBounds()
+            ),
+            targetRegionName = targetRouteRegion?.cityName
+        )
+    }
     val mapReadiness = TrailMapReadinessEngine.resolve(
         hasAmapKey = amapApiKeyConfigured,
         amapSdkAvailable = amapSdkAvailable,
         amapPrivacyConsentAccepted = amapPrivacyConsent.accepted,
+        mapLibreRuntimeAvailable = MapLibreSdkAvailability.isLinked,
+        pmTilesBasemapPackReady = pmTilesBasemapStatus.ready,
         offlineRoutePackReady = offlineRoutePackReady,
         gpsEnabled = gpsEnabled,
         locationReadyForFieldUse = TrailMateLocationFixReliability.isReliableForFieldUse(
@@ -338,9 +391,6 @@ fun RouteDetailScreen(
         ),
         routePointCount = route.routePoints.size
     )
-    var targetRouteRegion by remember(routeSessionKey) {
-        mutableStateOf<AmapTargetRouteRegion?>(null)
-    }
     LaunchedEffect(routeSessionKey, amapSdkAvailable, amapPrivacyConsent.accepted) {
         targetRouteRegion = null
         if (amapSdkAvailable && amapPrivacyConsent.accepted) {
@@ -409,6 +459,57 @@ fun RouteDetailScreen(
             pendingOfflineMapManagerReturn = true
         }
     }
+    val pmTilesImportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) {
+            return@rememberLauncherForActivityResult
+        }
+        coroutineScope.launch {
+            val candidate = withContext(Dispatchers.IO) {
+                context.readPmTilesImportCandidate(uri)
+            }
+            val decision = PmTilesOfflineBasemapImportPolicy.resolve(
+                candidate = candidate,
+                routePackKey = route.offlineRoutePackKey(),
+                targetBounds = route.pmTilesTargetBounds()
+            )
+            if (!decision.canImport) {
+                pmTilesImportMessage = decision.caption
+                return@launch
+            }
+            val imported = withContext(Dispatchers.IO) {
+                context.copyPmTilesBasemap(uri = uri, targetFileName = decision.targetFileName)
+            }
+            pmTilesImportMessage = if (imported) {
+                pmTilesBasemapRefreshToken += 1
+                "已导入 ${decision.targetFileName}，正在刷新离线底图状态。"
+            } else {
+                "PMTiles 导入失败，请重新选择文件。"
+            }
+        }
+    }
+    val importPmTilesBasemap: () -> Unit = {
+        pmTilesImportMessage = "正在查找当前路线离线底图..."
+        coroutineScope.launch {
+            val remoteImportResult = withContext(Dispatchers.IO) {
+                pmTilesRemoteImportCoordinator.importForRoute(
+                    routeBounds = route.pmTilesTargetBounds(),
+                    routePackKey = route.offlineRoutePackKey(),
+                    targetDirectory = context.pmTilesBasemapDirectory()
+                )
+            }
+            pmTilesImportMessage = remoteImportResult.message
+            when (remoteImportResult.action) {
+                TrailMatePmTilesRemoteImportAction.IMPORTED -> {
+                    pmTilesBasemapRefreshToken += 1
+                }
+                TrailMatePmTilesRemoteImportAction.OPEN_LOCAL_PICKER -> {
+                    pmTilesImportLauncher.launch(arrayOf("*/*"))
+                }
+            }
+        }
+    }
     val openNetworkSettings: () -> Unit = {
         runCatching {
             context.startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS))
@@ -446,6 +547,38 @@ fun RouteDetailScreen(
             proofs = offlineBaseMapTileProofs,
             routeKey = routeSessionKey,
             targetRegion = targetRouteRegion
+        )
+    }
+    val offlineBaseMapDebugBypassEnabled = remember(offlineBaseMapStatusRefreshToken) {
+        context.isOfflineBaseMapDebugBypassEnabled()
+    }
+    val effectiveOfflineBaseMapDepartureState = remember(
+        offlineBaseMapStatus,
+        offlineBaseMapCoversTargetRoute,
+        offlineBaseMapTilesVerifiedWithoutNetwork,
+        offlineBaseMapDebugBypassEnabled
+    ) {
+        OfflineBaseMapDepartureQaOverridePolicy.apply(
+            state = OfflineBaseMapDepartureState(
+                downloadedRegionCount = offlineBaseMapStatus?.downloadedRegionCount,
+                coversTargetRoute = offlineBaseMapCoversTargetRoute,
+                tilesVerifiedWithoutNetwork = offlineBaseMapTilesVerifiedWithoutNetwork
+            ),
+            debugBypassEnabled = offlineBaseMapDebugBypassEnabled
+        )
+    }
+    val effectiveDepartureGearRecommendations = remember(
+        aiGearAdvisorPresentation.recommendations,
+        catalogItems,
+        offlineBaseMapDebugBypassEnabled
+    ) {
+        val catalogMatchedRecommendations = GearCatalogSelectionEngine.resolveRouteMatchesForDeparture(
+            recommendations = aiGearAdvisorPresentation.recommendations,
+            catalogItems = catalogItems
+        )
+        GearDepartureQaOverridePolicy.apply(
+            recommendations = catalogMatchedRecommendations,
+            debugBypassEnabled = offlineBaseMapDebugBypassEnabled
         )
     }
     val offlineBaseMapTileProofCaptureState = remember(
@@ -553,42 +686,48 @@ fun RouteDetailScreen(
     val toggleOfflineRoutePackReady: () -> Unit = {
         updateOfflineRoutePackReady(!offlineRoutePackReady)
     }
+    val prepareLocationForActiveUse: () -> Unit = {
+        val decision = TrailMateLocationActiveUsePolicy.prepare(
+            currentSnapshot = locationSnapshot,
+            nowEpochMillis = System.currentTimeMillis(),
+            maxAccuracyMeters = FIELD_LOCATION_MAX_ACCURACY_METERS
+        )
+        gpsEnabled = true
+        locationSnapshot = decision.snapshot
+        if (decision.shouldClearProjectedFix) {
+            locationGuidanceStatus = LocationBackedHikeStatus.WAITING
+            latestLocationFix = null
+            wasRecentlyOffRoute = false
+        }
+        if (decision.shouldRestartTracking) {
+            locationTrackingRestartToken += 1
+        }
+    }
     val applyTrackRecordingAction: () -> Unit = {
         val now = System.currentTimeMillis()
-        val updated = when (trackRecording.status) {
-            TrackRecordingStatus.IDLE,
-            TrackRecordingStatus.FINISHED -> TrackRecordingEngine.start(
-                routeName = route.routeName,
-                nowEpochMillis = now
-            )
-            TrackRecordingStatus.RECORDING -> TrackRecordingEngine.pause(trackRecording, now)
-            TrackRecordingStatus.PAUSED -> TrackRecordingEngine.resume(trackRecording, nowEpochMillis = now)
-        }
-        when (updated.status) {
-            TrackRecordingStatus.RECORDING -> {
-                gpsEnabled = true
-                locationSnapshot = TrailMateLocationSnapshot.searching()
-                locationGuidanceStatus = LocationBackedHikeStatus.WAITING
-                latestLocationFix = null
-                wasRecentlyOffRoute = false
-                if (trackRecording.status == TrackRecordingStatus.PAUSED) {
-                    TrackRecordingForegroundService.resumeRecording(context)
-                } else {
-                    TrackRecordingForegroundService.startRecording(context, route.routeName)
-                }
+        val decision = TrackRecordingUiActionEngine.resolvePrimaryAction(
+            current = trackRecording,
+            nowEpochMillis = now
+        )
+        when (decision.serviceCommand) {
+            TrackRecordingServiceCommand.START -> {
+                prepareLocationForActiveUse()
+                TrackRecordingForegroundService.startRecording(context, route.routeName)
             }
-            TrackRecordingStatus.PAUSED -> TrackRecordingForegroundService.pauseRecording(context)
-            TrackRecordingStatus.FINISHED -> TrackRecordingForegroundService.finishRecording(context)
-            TrackRecordingStatus.IDLE -> Unit
+            TrackRecordingServiceCommand.RESUME -> {
+                prepareLocationForActiveUse()
+                TrackRecordingForegroundService.resumeRecording(context)
+            }
+            TrackRecordingServiceCommand.PAUSE -> TrackRecordingForegroundService.pauseRecording(context)
+            TrackRecordingServiceCommand.FINISH -> TrackRecordingForegroundService.finishRecording(context)
+            TrackRecordingServiceCommand.NONE -> Unit
         }
-        publishTrackRecording(updated)
+        if (decision.shouldPublishTrackRecording) {
+            publishTrackRecording(decision.trackRecording)
+        }
     }
     val waitForReliableLocationBeforeTrackAction: () -> Unit = {
-        gpsEnabled = true
-        locationSnapshot = TrailMateLocationSnapshot.searching()
-        locationGuidanceStatus = LocationBackedHikeStatus.WAITING
-        latestLocationFix = null
-        wasRecentlyOffRoute = false
+        prepareLocationForActiveUse()
     }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -657,6 +796,7 @@ fun RouteDetailScreen(
             locationGuidanceStatus = LocationBackedHikeStatus.WAITING
             latestLocationFix = null
             wasRecentlyOffRoute = false
+            locationTrackingRestartToken += 1
             val shouldContinueTrackAction = pendingTrackActionAfterLocationPermission
             pendingTrackActionAfterLocationPermission = false
             if (shouldContinueTrackAction) {
@@ -724,6 +864,7 @@ fun RouteDetailScreen(
         locationGuidanceStatus = LocationBackedHikeStatus.WAITING
         latestLocationFix = null
         wasRecentlyOffRoute = false
+        locationTrackingRestartToken += 1
     }
     val showProviderDisabled: () -> Unit = {
         gpsEnabled = false
@@ -960,6 +1101,18 @@ fun RouteDetailScreen(
             context.unregisterReceiver(receiver)
         }
     }
+    LaunchedEffect(routeSessionKey, trackRecording.status, trackRecording.routeName, trackServiceRestoreAttempted) {
+        if (
+            TrackRecordingForegroundRecoveryPolicy.shouldResumeForegroundService(
+                current = trackRecording,
+                routeName = route.routeName,
+                alreadyAttempted = trackServiceRestoreAttempted
+            )
+        ) {
+            trackServiceRestoreAttempted = true
+            TrackRecordingForegroundService.resumeRecording(context)
+        }
+    }
     val handleLocationSnapshot: (TrailMateLocationSnapshot) -> Unit = { snapshot ->
         locationSnapshot = snapshot
         if (!TrailMateLocationSessionPolicy.shouldKeepLocationRequestActive(snapshot)) {
@@ -1007,7 +1160,7 @@ fun RouteDetailScreen(
             locationPresentationNowEpochMillis = System.currentTimeMillis()
         }
     }
-    DisposableEffect(gpsEnabled, routeSessionKey) {
+    DisposableEffect(gpsEnabled, locationTrackingRestartToken, routeSessionKey) {
         if (gpsEnabled) {
             locationTracker.start { snapshot ->
                 currentHandleLocationSnapshot(snapshot)
@@ -1037,10 +1190,10 @@ fun RouteDetailScreen(
             liveGuidance = liveCheckpointGuidance,
             mapReadiness = mapReadiness,
             offlineRoutePackReady = offlineRoutePackReady,
-            offlineBaseMapRegionCount = offlineBaseMapStatus?.downloadedRegionCount,
-            offlineBaseMapCoversTargetRoute = offlineBaseMapCoversTargetRoute,
-            offlineBaseMapTilesVerifiedWithoutNetwork = offlineBaseMapTilesVerifiedWithoutNetwork,
-            gearRecommendations = aiGearAdvisorPresentation.recommendations,
+            offlineBaseMapRegionCount = effectiveOfflineBaseMapDepartureState.downloadedRegionCount,
+            offlineBaseMapCoversTargetRoute = effectiveOfflineBaseMapDepartureState.coversTargetRoute,
+            offlineBaseMapTilesVerifiedWithoutNetwork = effectiveOfflineBaseMapDepartureState.tilesVerifiedWithoutNetwork,
+            gearRecommendations = effectiveDepartureGearRecommendations,
             onSessionChange = updateHikeSession,
             onCheckpointFocused = focusPlanCheckpoint,
             onOfflineRoutePackToggle = toggleOfflineRoutePackReady,
@@ -1063,23 +1216,28 @@ fun RouteDetailScreen(
             onRequestNotificationPermission = requestTrackNotificationPermission,
             onOpenTrackDataRequested = onOpenTrackDataRequested,
             onFinishTrack = {
-                val updated = TrackRecordingEngine.finish(
-                    state = trackRecording,
+                val decision = TrackRecordingUiActionEngine.resolveFinishAction(
+                    current = trackRecording,
                     nowEpochMillis = System.currentTimeMillis()
                 )
                 TrackRecordingForegroundService.finishRecording(context)
-                publishTrackRecording(updated)
+                if (decision.shouldPublishTrackRecording) {
+                    publishTrackRecording(decision.trackRecording)
+                }
             },
             onAcknowledgeRouteRejoin = {
                 wasRecentlyOffRoute = false
             },
+            initiallyExpandDiagnostics = initiallyExpandRouteDiagnostics,
             amapLaunchDiagnostics = amapLaunchDiagnostics,
             onOpenOfflineMap = openOfflineMapManager,
+            onImportPmTilesBasemap = importPmTilesBasemap,
             onOpenNetworkSettings = openNetworkSettings,
             onRecordOfflineBaseMapTileProof = recordOfflineBaseMapTileProof,
             offlineBaseMapTileProofCaptureState = offlineBaseMapTileProofCaptureState,
             offlineBaseMapTileProofMessage = offlineBaseMapTileProofMessage,
             offlineBaseMapManagerReturnMessage = offlineBaseMapManagerReturnMessage,
+            pmTilesImportMessage = pmTilesImportMessage,
             onAmapBaseMapRenderedChange = { rendered ->
                 amapBaseMapRenderedInCurrentSession = rendered
             },
@@ -1132,13 +1290,14 @@ fun RouteDetailScreen(
                 selected = RouteDetailTab.entries.first { it.label == label }
             }
         )
-        if (selected == RouteDetailTab.Plan) {
+        if (selected == RouteDetailTab.Route || selected == RouteDetailTab.Plan) {
             RouteReadinessStrip(
-                assessment = assessment,
                 plan = plan,
                 gearStatusLabel = aiGearAdvisorPresentation.recommendations.routeGearStatusLabel(),
                 offlineRoutePackReady = offlineRoutePackReady,
-                onOfflineRoutePackToggle = toggleOfflineRoutePackReady
+                mapReadiness = mapReadiness,
+                onOfflineRoutePackSave = { updateOfflineRoutePackReady(true) },
+                onOfflineBaseMapAction = importPmTilesBasemap
             )
         }
         when (selected) {
@@ -1151,13 +1310,14 @@ fun RouteDetailScreen(
             )
             RouteDetailTab.Route -> routeCockpitContent()
             RouteDetailTab.Plan -> RoutePlanTab(plan = plan)
-            RouteDetailTab.Gear -> RouteGearTab(
-                recommendations = aiGearAdvisorPresentation.recommendations,
-                inventory = inventory,
-                aiGearAdvisorPresentation = aiGearAdvisorPresentation,
-                onAddGearRequested = onAddGearRequested
-            )
-        }
+                RouteDetailTab.Gear -> RouteGearTab(
+                    recommendations = aiGearAdvisorPresentation.recommendations,
+                    catalogItems = catalogItems,
+                    catalogStatusLabel = catalogStatusLabel,
+                    aiGearAdvisorPresentation = aiGearAdvisorPresentation,
+                    onViewGearMatches = onViewGearMatchesRequested
+                )
+            }
     }
 }
 
@@ -1170,13 +1330,15 @@ private enum class RouteDetailTab(val label: String) {
 
 @Composable
 private fun RouteReadinessStrip(
-    assessment: RouteAssessmentSummary,
     plan: HikePlanSummary,
     gearStatusLabel: String,
     offlineRoutePackReady: Boolean,
-    onOfflineRoutePackToggle: () -> Unit
+    mapReadiness: TrailMapReadiness,
+    onOfflineRoutePackSave: () -> Unit,
+    onOfflineBaseMapAction: () -> Unit
 ) {
-    val weatherLabel = if (assessment.risks.any { it.contains("天气") }) "多变" else "待复核"
+    val offlineBasemapStep = mapReadiness.setupSteps.firstOrNull { it.label == "离线地图包" }
+    val offlineBasemapReady = offlineBasemapStep?.status == TrailMapReadinessStepStatus.READY
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -1194,32 +1356,37 @@ private fun RouteReadinessStrip(
             verticalAlignment = Alignment.CenterVertically
         ) {
             RouteReadinessTile(
-                title = "路线包",
-                value = if (offlineRoutePackReady) "已保存" else "保存路线包",
+                title = if (offlineRoutePackReady) "离线路线：已保存" else "保存离线路线",
+                value = if (offlineRoutePackReady) "GPX 路线包" else "待保存",
                 glyph = if (offlineRoutePackReady) TrailMateGlyph.Check else TrailMateGlyph.Map,
                 active = offlineRoutePackReady,
-                onClick = onOfflineRoutePackToggle,
-                modifier = Modifier.weight(1f)
+                onClick = if (offlineRoutePackReady) null else onOfflineRoutePackSave,
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("route-readiness-offline-route-pack")
             )
             RouteReadinessTile(
-                title = "补给休息",
-                value = "${plan.checkpointCount} 点",
-                glyph = TrailMateGlyph.Location,
-                active = true,
-                modifier = Modifier.weight(1f)
+                title = if (offlineBasemapReady) "离线地图包：已导入" else "导入离线地图包",
+                value = offlineBasemapStep?.value ?: "待导入",
+                glyph = if (offlineBasemapReady) TrailMateGlyph.Check else TrailMateGlyph.Map,
+                active = offlineBasemapReady,
+                onClick = if (offlineBasemapReady) null else onOfflineBaseMapAction,
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("route-readiness-offline-basemap")
             )
             RouteReadinessTile(
-                title = "装备清单",
+                title = "装备需求",
                 value = gearStatusLabel,
                 glyph = TrailMateGlyph.Gear,
                 active = gearStatusLabel.startsWith("已"),
                 modifier = Modifier.weight(1f)
             )
             RouteReadinessTile(
-                title = "天气",
-                value = weatherLabel,
-                glyph = TrailMateGlyph.Weather,
-                active = false,
+                title = "计划补给",
+                value = "${plan.checkpointCount} 点",
+                glyph = TrailMateGlyph.Location,
+                active = true,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -1342,6 +1509,7 @@ internal fun RouteCockpitTabContent(
     onAcknowledgeRouteRejoin: () -> Unit,
     amapLaunchDiagnostics: AmapLaunchDiagnostics? = null,
     onOpenOfflineMap: () -> Unit = {},
+    onImportPmTilesBasemap: () -> Unit = {},
     onOpenNetworkSettings: () -> Unit = {},
     onRecordOfflineBaseMapTileProof: () -> Unit = {},
     offlineBaseMapTileProofCaptureState: AmapOfflineBaseMapTileProofCaptureState = AmapOfflineBaseMapTileProofCaptureEngine.evaluate(
@@ -1352,12 +1520,16 @@ internal fun RouteCockpitTabContent(
     ),
     offlineBaseMapTileProofMessage: String? = null,
     offlineBaseMapManagerReturnMessage: String? = null,
+    pmTilesImportMessage: String? = null,
     onAmapBaseMapRenderedChange: (Boolean) -> Unit = {},
     navigationFullscreen: Boolean = false,
-    onNavigationFullscreenChange: (Boolean) -> Unit = {}
+    onNavigationFullscreenChange: (Boolean) -> Unit = {},
+    initiallyExpandDiagnostics: Boolean = false
 ) {
     val context = LocalContext.current
-    var diagnosticsExpanded by rememberSaveable { mutableStateOf(false) }
+    var diagnosticsExpanded by rememberSaveable(route.offlineRoutePackKey(), initiallyExpandDiagnostics) {
+        mutableStateOf(initiallyExpandDiagnostics)
+    }
     var diagnosticsReportCopied by rememberSaveable { mutableStateOf(false) }
     val diagnosticsReport = amapLaunchDiagnostics?.let { diagnostics ->
         TrailMateDeviceDiagnosticsReportFormatter.format(
@@ -1436,6 +1608,16 @@ internal fun RouteCockpitTabContent(
         trackRecording = trackRecording,
         wasRecentlyOffRoute = wasRecentlyOffRoute
     )
+    val handleOfflineBaseMapAction: () -> Unit = {
+        if (
+            shouldOpenPmTilesImport(mapReadiness, cockpitPresentation.primaryAction.label) ||
+            shouldOpenPmTilesImport(mapReadiness, departureReadiness.primaryActionLabel)
+        ) {
+            onImportPmTilesBasemap()
+        } else {
+            onOpenOfflineMap()
+        }
+    }
     val handlePrimaryAction: () -> Unit = {
         when (cockpitPresentation.primaryAction.kind) {
             RouteCockpitPrimaryActionKind.REQUEST_LOCATION -> onRequestLocation()
@@ -1448,7 +1630,7 @@ internal fun RouteCockpitTabContent(
             RouteCockpitPrimaryActionKind.PAUSE_RECORDING,
             RouteCockpitPrimaryActionKind.RESUME_RECORDING -> onTrackAction()
             RouteCockpitPrimaryActionKind.SAVE_OFFLINE_ROUTE_PACK -> onOfflineRoutePackToggle()
-            RouteCockpitPrimaryActionKind.OPEN_OFFLINE_BASE_MAP -> onOpenOfflineMap()
+            RouteCockpitPrimaryActionKind.OPEN_OFFLINE_BASE_MAP -> handleOfflineBaseMapAction()
             RouteCockpitPrimaryActionKind.SHOW_GEAR -> onShowGearTab()
             RouteCockpitPrimaryActionKind.VIEW_RECOVERY -> {
                 diagnosticsExpanded = true
@@ -1507,21 +1689,9 @@ internal fun RouteCockpitTabContent(
             onLocateRequested = onRequestLocation,
             onCheckpointFocused = onCheckpointFocused,
             onPrimaryAction = handlePrimaryAction,
+            onSaveOfflineRoutePack = onOfflineRoutePackToggle,
+            onOpenOfflineBaseMap = handleOfflineBaseMapAction,
             onSafetyShare = handleSafetyShare,
-            onReadinessAction = { item ->
-                when (item.actionKind) {
-                    RouteCockpitReadinessActionKind.REQUEST_LOCATION -> onRequestLocation()
-                    RouteCockpitReadinessActionKind.OPEN_LOCATION_SETTINGS -> onRequestLocation()
-                    RouteCockpitReadinessActionKind.START_RECORDING,
-                    RouteCockpitReadinessActionKind.PAUSE_RECORDING,
-                    RouteCockpitReadinessActionKind.RESUME_RECORDING -> onTrackAction()
-                    RouteCockpitReadinessActionKind.REVIEW_TRACK -> onOpenTrackDataRequested()
-                    RouteCockpitReadinessActionKind.SAVE_OFFLINE_ROUTE_PACK -> onOfflineRoutePackToggle()
-                    RouteCockpitReadinessActionKind.SHOW_GEAR -> onShowGearTab()
-                    RouteCockpitReadinessActionKind.OPEN_OFFLINE_BASE_MAP -> onOpenOfflineMap()
-                    RouteCockpitReadinessActionKind.NONE -> Unit
-                }
-            },
             onEnterFullscreen = { onNavigationFullscreenChange(true) },
             onAmapBaseMapRenderedChange = onAmapBaseMapRenderedChange
         )
@@ -1555,7 +1725,19 @@ internal fun RouteCockpitTabContent(
                 onAcknowledgeRouteRejoin = onAcknowledgeRouteRejoin
             )
             MapLayerLegendPanel(legend = mapLayerLegend)
-            MapSetupHintPanel(hint = mapReadiness.setupHint)
+            MapSetupHintPanel(
+                hint = mapReadiness.setupHint,
+                actionLabel = if (mapReadiness.shouldShowPmTilesSetupAction()) "导入离线地图包" else null,
+                onAction = onImportPmTilesBasemap
+            )
+            pmTilesImportMessage?.let { message ->
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
             amapLaunchDiagnostics?.let { diagnostics ->
                 AmapLaunchDiagnosticsPanel(
                     diagnostics = diagnostics,
@@ -1574,9 +1756,8 @@ internal fun RouteCockpitTabContent(
                 summary = departureReadiness,
                 onPrimaryAction = {
                     when {
-                        departureReadiness.primaryActionLabel == "保存路线包" -> onOfflineRoutePackToggle()
-                        departureReadiness.primaryActionLabel.contains("离线底图") -> onOpenOfflineMap()
-                        departureReadiness.primaryActionLabel == "飞行模式验证底图" -> onOpenOfflineMap()
+                        departureReadiness.primaryActionLabel.isSaveRouteAction() -> onOfflineRoutePackToggle()
+                        departureReadiness.primaryActionLabel.isOfflineBaseMapRepairAction() -> handleOfflineBaseMapAction()
                         departureReadiness.primaryActionLabel == "授权定位" ||
                             departureReadiness.primaryActionLabel == "打开系统定位" ||
                             departureReadiness.primaryActionLabel == "等待定位稳定" ||
@@ -1934,7 +2115,7 @@ private fun RouteCockpitStatusSummary(summary: RouteFieldStatusSummary) {
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
-                    text = "现场状态",
+                    text = "定位与记录",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.SemiBold
@@ -2056,12 +2237,12 @@ private fun RouteCockpitSection(
     onLocateRequested: () -> Unit,
     onCheckpointFocused: (HikePlanCheckpoint) -> Unit,
     onPrimaryAction: () -> Unit,
+    onSaveOfflineRoutePack: () -> Unit,
+    onOpenOfflineBaseMap: () -> Unit,
     onSafetyShare: () -> Unit,
-    onReadinessAction: (RouteCockpitReadinessItem) -> Unit,
     onEnterFullscreen: () -> Unit,
     onAmapBaseMapRenderedChange: (Boolean) -> Unit = {}
 ) {
-    val offlineReadinessItem = presentation.readinessItems.firstOrNull { it.label == "路线包" }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -2085,22 +2266,15 @@ private fun RouteCockpitSection(
                 showMapReadinessFloatingCard = false,
                 showAssessmentFloatingCard = false,
                 showCurrentCheckpointMiniCard = false,
+                showCheckpointLayerCard = false,
                 onAmapBaseMapRenderedChange = onAmapBaseMapRenderedChange
             )
-            offlineReadinessItem?.let { item ->
-                MapToolButton(
-                    glyph = TrailMateGlyph.Map,
-                    contentDescription = "路线包",
-                    onClick = { onReadinessAction(item) },
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(start = 14.dp, top = 92.dp)
-                )
-            }
         }
         RouteCockpitActionDrawer(
             presentation = presentation,
             onPrimaryAction = onPrimaryAction,
+            onSaveOfflineRoutePack = onSaveOfflineRoutePack,
+            onOpenOfflineBaseMap = onOpenOfflineBaseMap,
             onSafetyShare = onSafetyShare,
             onEnterFullscreen = onEnterFullscreen
         )
@@ -2134,7 +2308,7 @@ private fun RouteMapStatusOverlay(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "地图与离线",
+                    text = "地图准备",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.SemiBold
@@ -2174,15 +2348,18 @@ private fun RouteMapStatusOverlay(
 private fun RouteCockpitActionDrawer(
     presentation: RouteCockpitPresentation,
     onPrimaryAction: () -> Unit,
+    onSaveOfflineRoutePack: () -> Unit,
+    onOpenOfflineBaseMap: () -> Unit,
     onSafetyShare: () -> Unit,
     onEnterFullscreen: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val primaryActionOpensFullscreen = presentation.primaryAction.kind.opensFullscreenFromCockpit()
-    val cockpitPrimaryLabel = if (primaryActionOpensFullscreen) {
-        "进入导航"
-    } else {
-        presentation.primaryAction.label
+    val showFullscreenShortcut = presentation.primaryAction.kind.showsFullscreenShortcutInActionDrawer()
+    val cockpitPrimaryLabel = when {
+        primaryActionOpensFullscreen -> "进入导航"
+        presentation.primaryAction.kind == RouteCockpitPrimaryActionKind.SAVE_OFFLINE_ROUTE_PACK -> "保存路线包"
+        else -> presentation.primaryAction.label
     }
     val cockpitPrimaryGlyph = if (primaryActionOpensFullscreen) {
         TrailMateGlyph.Compass
@@ -2199,6 +2376,8 @@ private fun RouteCockpitActionDrawer(
     } else {
         onPrimaryAction
     }
+    val offlineRouteItem = presentation.readinessItems.firstOrNull { it.label == "离线路线" }
+    val offlineBaseMapItem = presentation.readinessItems.firstOrNull { it.label == "离线地图包" }
 
     Surface(
         modifier = modifier
@@ -2274,9 +2453,10 @@ private fun RouteCockpitActionDrawer(
                     onClick = cockpitPrimaryAction,
                     enabled = cockpitPrimaryEnabled,
                     modifier = Modifier
-                        .weight(0.72f)
+                        .weight(0.9f)
                         .height(44.dp)
-                        .testTag("route-cockpit-primary-action")
+                        .testTag("route-cockpit-primary-action"),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                 ) {
                     TrailMateLineIcon(
                         glyph = cockpitPrimaryGlyph,
@@ -2299,15 +2479,36 @@ private fun RouteCockpitActionDrawer(
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                presentation.readinessItems.take(3).forEach { item ->
-                    TrailMateStatusPill(
-                        text = "${item.label}：${item.value}",
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+            if (offlineRouteItem != null && offlineBaseMapItem != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    RouteCockpitPrepActionButton(
+                        label = if (offlineRouteItem.tone == RouteCockpitReadinessTone.READY) {
+                            "离线路线已保存"
+                        } else {
+                            "离线路线"
+                        },
+                        value = offlineRouteItem.value,
+                        glyph = TrailMateGlyph.Folder,
+                        enabled = offlineRouteItem.tone != RouteCockpitReadinessTone.READY,
+                        onClick = onSaveOfflineRoutePack,
+                        modifier = Modifier.weight(1f)
+                    )
+                    RouteCockpitPrepActionButton(
+                        label = if (offlineBaseMapItem.tone == RouteCockpitReadinessTone.READY) {
+                            "离线地图已导入"
+                        } else if (presentation.primaryAction.kind == RouteCockpitPrimaryActionKind.OPEN_OFFLINE_BASE_MAP) {
+                            "离线地图包"
+                        } else {
+                            "导入离线地图包"
+                        },
+                        value = offlineBaseMapItem.value,
+                        glyph = TrailMateGlyph.Map,
+                        enabled = offlineBaseMapItem.tone != RouteCockpitReadinessTone.READY,
+                        onClick = onOpenOfflineBaseMap,
+                        modifier = Modifier.weight(1f)
                     )
                 }
             }
@@ -2323,39 +2524,61 @@ private fun RouteCockpitActionDrawer(
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-        text = "仅提供路线辅助，不替代路标与离线地图",
+                    text = "仅提供路线辅助，不替代路标与离线地图",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1
                 )
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(
-                    onClick = onEnterFullscreen,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(42.dp)
+            if (showFullscreenShortcut) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    OutlinedButton(
+                        onClick = onEnterFullscreen,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
                     ) {
-                        TrailMateLineIcon(
-                            glyph = TrailMateGlyph.Compass,
-                            contentDescription = null,
-                            modifier = Modifier.size(17.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Text("全屏导航", maxLines = 1)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TrailMateLineIcon(
+                                glyph = TrailMateGlyph.Compass,
+                                contentDescription = null,
+                                modifier = Modifier.size(17.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Text("全屏导航", maxLines = 1)
+                        }
+                    }
+                    OutlinedButton(
+                        onClick = onSafetyShare,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TrailMateLineIcon(
+                                glyph = TrailMateGlyph.Location,
+                                contentDescription = null,
+                                modifier = Modifier.size(17.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Text("安全分享", maxLines = 1)
+                        }
                     }
                 }
+            } else {
                 OutlinedButton(
                     onClick = onSafetyShare,
                     modifier = Modifier
-                        .weight(1f)
+                        .fillMaxWidth()
                         .height(42.dp)
                 ) {
                     Row(
@@ -2372,6 +2595,50 @@ private fun RouteCockpitActionDrawer(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun RouteCockpitPrepActionButton(
+    label: String,
+    value: String,
+    glyph: TrailMateGlyph,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier.height(42.dp),
+        enabled = enabled,
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 7.dp)
+    ) {
+        TrailMateLineIcon(
+            glyph = glyph,
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+            tint = if (enabled) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            }
+        )
+        Column(
+            modifier = Modifier.padding(start = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(1.dp)
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1
+            )
         }
     }
 }
@@ -2529,10 +2796,26 @@ private fun RouteCockpitPrimaryActionKind.primaryActionGlyph(): TrailMateGlyph =
 
 internal fun RouteCockpitPrimaryActionKind.opensFullscreenFromCockpit(): Boolean =
     when (this) {
-        RouteCockpitPrimaryActionKind.START_HIKE,
         RouteCockpitPrimaryActionKind.START_RECORDING,
         RouteCockpitPrimaryActionKind.PAUSE_RECORDING,
         RouteCockpitPrimaryActionKind.RESUME_RECORDING -> true
+        RouteCockpitPrimaryActionKind.START_HIKE,
+        RouteCockpitPrimaryActionKind.REQUEST_LOCATION,
+        RouteCockpitPrimaryActionKind.OPEN_LOCATION_SETTINGS,
+        RouteCockpitPrimaryActionKind.SAVE_OFFLINE_ROUTE_PACK,
+        RouteCockpitPrimaryActionKind.OPEN_OFFLINE_BASE_MAP,
+        RouteCockpitPrimaryActionKind.SHOW_GEAR,
+        RouteCockpitPrimaryActionKind.VIEW_RECOVERY,
+        RouteCockpitPrimaryActionKind.REVIEW_TRACK,
+        RouteCockpitPrimaryActionKind.RESET_SESSION -> false
+    }
+
+internal fun RouteCockpitPrimaryActionKind.showsFullscreenShortcutInActionDrawer(): Boolean =
+    when (this) {
+        RouteCockpitPrimaryActionKind.START_RECORDING,
+        RouteCockpitPrimaryActionKind.PAUSE_RECORDING,
+        RouteCockpitPrimaryActionKind.RESUME_RECORDING -> true
+        RouteCockpitPrimaryActionKind.START_HIKE,
         RouteCockpitPrimaryActionKind.REQUEST_LOCATION,
         RouteCockpitPrimaryActionKind.OPEN_LOCATION_SETTINGS,
         RouteCockpitPrimaryActionKind.SAVE_OFFLINE_ROUTE_PACK,
@@ -2827,7 +3110,7 @@ private fun RouteFieldStatusPanel(summary: RouteFieldStatusSummary) {
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = "现场状态",
+                    text = "定位与记录",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.SemiBold
@@ -2914,7 +3197,11 @@ private fun RouteFieldStatusSummary.statusAccentColor(): Color =
     }
 
 @Composable
-private fun MapSetupHintPanel(hint: TrailMapSetupHint) {
+private fun MapSetupHintPanel(
+    hint: TrailMapSetupHint,
+    actionLabel: String? = null,
+    onAction: () -> Unit = {}
+) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
@@ -2925,52 +3212,71 @@ private fun MapSetupHintPanel(hint: TrailMapSetupHint) {
         ),
         shadowElevation = 1.dp
     ) {
-        Row(
+        Column(
             modifier = Modifier.padding(14.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                TrailMateLineIcon(
-                    glyph = TrailMateGlyph.Map,
-                    contentDescription = null,
-                    modifier = Modifier.size(22.dp),
-                    tint = MaterialTheme.colorScheme.primary
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    TrailMateLineIcon(
+                        glyph = TrailMateGlyph.Map,
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                    text = "地图准备",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = hint.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = hint.caption,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                TrailMateStatusPill(
+                    text = hint.statusLabel,
+                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.11f),
+                    contentColor = MaterialTheme.colorScheme.primary
                 )
             }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = "地图与离线",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    text = hint.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = hint.caption,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            actionLabel?.let { label ->
+                OutlinedButton(
+                    onClick = onAction,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    TrailMateLineIcon(
+                        glyph = TrailMateGlyph.Map,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(label)
+                }
             }
-            TrailMateStatusPill(
-                text = hint.statusLabel,
-                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.11f),
-                contentColor = MaterialTheme.colorScheme.primary
-            )
         }
     }
 }
@@ -3983,22 +4289,23 @@ internal fun ReferenceRouteSurface(
     var selectedCheckpointIndex by rememberSaveable(route.sessionKey()) { mutableStateOf<Int?>(null) }
     val selectedCheckpoint = selectedCheckpointIndex?.let { index -> plan.checkpoints.getOrNull(index) }
     val mapSurfaceMode = TrailMapSurfaceSelector.select(mapReadiness)
-    var amapMapLoaded by remember(route.sessionKey(), mapSurfaceMode) {
-        mutableStateOf(mapSurfaceMode != TrailMapSurfaceMode.AMAP_MAP_VIEW)
+    val context = LocalContext.current
+    var nativeMapLoaded by remember(route.sessionKey(), mapSurfaceMode) {
+        mutableStateOf(mapSurfaceMode == TrailMapSurfaceMode.LOCAL_CANVAS)
     }
     var mapLoadElapsedMillis by remember(route.sessionKey(), mapSurfaceMode) { mutableStateOf(0L) }
 
-    LaunchedEffect(route.sessionKey(), mapSurfaceMode, amapMapLoaded) {
-        onAmapBaseMapRenderedChange(mapSurfaceMode == TrailMapSurfaceMode.AMAP_MAP_VIEW && amapMapLoaded)
-        if (mapSurfaceMode == TrailMapSurfaceMode.AMAP_MAP_VIEW && !amapMapLoaded) {
+    LaunchedEffect(route.sessionKey(), mapSurfaceMode, nativeMapLoaded) {
+        onAmapBaseMapRenderedChange(false)
+        if (mapSurfaceMode != TrailMapSurfaceMode.LOCAL_CANVAS && !nativeMapLoaded) {
             mapLoadElapsedMillis = 0L
-            delay(AMAP_SLOW_LOAD_HINT_MILLIS)
-            mapLoadElapsedMillis = AMAP_SLOW_LOAD_HINT_MILLIS
+            delay(NATIVE_MAP_SLOW_LOAD_HINT_MILLIS)
+            mapLoadElapsedMillis = NATIVE_MAP_SLOW_LOAD_HINT_MILLIS
         }
     }
     val mapLoadingPresentation = TrailMapLoadingPresentationEngine.present(
         provider = mapReadiness.provider,
-        mapLoaded = amapMapLoaded,
+        mapLoaded = nativeMapLoaded,
         elapsedMillis = mapLoadElapsedMillis
     )
 
@@ -4010,13 +4317,12 @@ internal fun ReferenceRouteSurface(
             .background(MaterialTheme.colorScheme.surfaceVariant)
     ) {
         when (mapSurfaceMode) {
-            TrailMapSurfaceMode.AMAP_MAP_VIEW -> AmapRouteMap(
+            TrailMapSurfaceMode.MAPLIBRE_PMTILES -> MapLibrePmTilesRouteMap(
                 route = route,
                 plan = plan,
                 trackRecording = trackRecording,
-                showUserLocation = showUserLocationOnAmap,
-                locationSnapshot = locationSnapshot,
-                onMapLoaded = { amapMapLoaded = true },
+                pmTilesFile = context.pmTilesBasemapDirectory().resolve("${route.offlineRoutePackKey()}.pmtiles"),
+                onMapLoaded = { nativeMapLoaded = true },
                 modifier = Modifier.fillMaxSize()
             )
             TrailMapSurfaceMode.LOCAL_CANVAS -> RouteMapCanvas(
@@ -4231,8 +4537,10 @@ private fun RouteAssessmentFloatingCard(
     }
 }
 
-private const val AMAP_SLOW_LOAD_HINT_MILLIS = 3_100L
+private const val NATIVE_MAP_SLOW_LOAD_HINT_MILLIS = 3_100L
 private const val FIELD_LOCATION_MAX_ACCURACY_METERS = 50.0
+private const val OFFLINE_BASE_MAP_DEBUG_BYPASS_SETTING =
+    "trailmate_debug_allow_offline_basemap_bypass"
 
 @Composable
 private fun MapReadinessFloatingCard(
@@ -4293,6 +4601,44 @@ private fun MapReadinessFloatingCard(
 
 private fun TrailMapReadinessStep.mapCheckLabel(): String =
     "$label：$value"
+
+internal fun TrailMapReadiness.shouldImportPmTilesBasemap(): Boolean =
+    provider == com.trailmate.app.core.map.TrailMapProvider.LOCAL_GPX_PREVIEW &&
+        actionLabel.isPmTilesBasemapImportAction() &&
+        setupSteps.any { step ->
+            (step.label == "离线地图包" || step.label == "底图") &&
+                (step.value == "待导入" || step.value == "待下载")
+        }
+
+internal fun shouldOpenPmTilesImport(
+    readiness: TrailMapReadiness,
+    visibleActionLabel: String
+): Boolean =
+    readiness.shouldImportPmTilesBasemap() ||
+        visibleActionLabel.isPmTilesBasemapImportAction()
+
+private fun TrailMapReadiness.shouldShowPmTilesSetupAction(): Boolean =
+    !isProductionMapReady &&
+        (setupHint.title.contains("PMTiles") || setupHint.caption.contains("PMTiles"))
+
+private fun String.isPmTilesBasemapImportAction(): Boolean =
+    this == "导入离线地图包" ||
+        this == "导入底图" ||
+        this == "下载底图" ||
+        this == "下载离线底图" ||
+        this == "导入离线底图"
+
+private fun String.isOfflineBaseMapRepairAction(): Boolean =
+    this == "导入离线地图包" ||
+        this == "导入底图" ||
+        this == "导入离线底图" ||
+        this == "下载底图" ||
+        contains("离线地图包") ||
+        contains("离线底图") ||
+        this == "飞行模式验证底图"
+
+private fun String.isSaveRouteAction(): Boolean =
+    this == "保存离线路线" || this == "保存 GPX 路线" || this == "保存路线包"
 
 @Composable
 private fun TrailMapReadinessStepStatus.mapCheckContainerColor(): Color =
@@ -4887,6 +5233,58 @@ private fun Context.isNetworkValidated(): Boolean {
         capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
 }
 
+private fun Context.isOfflineBaseMapDebugBypassEnabled(): Boolean =
+    BuildConfig.DEBUG && runCatching {
+        Settings.Global.getInt(contentResolver, OFFLINE_BASE_MAP_DEBUG_BYPASS_SETTING, 0) == 1
+    }.getOrDefault(false)
+
+private fun Context.pmTilesBasemapDirectory() =
+    filesDir.resolve("pmtiles-basemaps").apply { mkdirs() }
+
+private fun Context.readPmTilesImportCandidate(uri: Uri): PmTilesOfflineBasemapImportCandidate {
+    var displayName: String? = null
+    var sizeBytes: Long? = null
+    contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+        if (cursor.moveToFirst()) {
+            val displayNameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (displayNameIndex >= 0 && !cursor.isNull(displayNameIndex)) {
+                displayName = cursor.getString(displayNameIndex)
+            }
+            val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+            if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) {
+                sizeBytes = cursor.getLong(sizeIndex)
+            }
+        }
+    }
+    val headerBytes = contentResolver.openInputStream(uri)?.use { input ->
+        val bytes = ByteArray(127)
+        val count = input.read(bytes)
+        if (count <= 0) ByteArray(0) else bytes.copyOf(count)
+    } ?: ByteArray(0)
+    return PmTilesOfflineBasemapImportCandidate(
+        displayName = displayName ?: uri.lastPathSegment,
+        sizeBytes = sizeBytes,
+        archiveInspection = PmTilesArchiveHeaderParser.inspect(
+            bytes = headerBytes,
+            fileSizeBytes = sizeBytes
+        )
+    )
+}
+
+private fun Context.copyPmTilesBasemap(uri: Uri, targetFileName: String): Boolean =
+    runCatching {
+        runCatching {
+            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val targetFile = pmTilesBasemapDirectory().resolve(targetFileName)
+        contentResolver.openInputStream(uri)?.use { input ->
+            targetFile.outputStream().use { output ->
+                input.copyTo(output)
+            }
+        } ?: return@runCatching false
+        targetFile.isFile && targetFile.length() > 0L
+    }.getOrDefault(false)
+
 private suspend fun readOfflineBaseMapStatus(
     context: Context,
     amapSdkAvailable: Boolean,
@@ -4909,6 +5307,18 @@ private fun Context.shareSafetyText(text: String) {
 
 private fun ImportedRoute.sessionKey(): String =
     offlineRoutePackKey()
+
+private fun ImportedRoute.pmTilesTargetBounds(): PmTilesLatLngBounds? {
+    if (routePoints.isEmpty()) return null
+    val latitudes = routePoints.map { it.latitude }
+    val longitudes = routePoints.map { it.longitude }
+    return PmTilesLatLngBounds(
+        minLongitude = longitudes.minOrNull() ?: return null,
+        minLatitude = latitudes.minOrNull() ?: return null,
+        maxLongitude = longitudes.maxOrNull() ?: return null,
+        maxLatitude = latitudes.maxOrNull() ?: return null
+    )
+}
 
 @Composable
 private fun RouteSketch() {

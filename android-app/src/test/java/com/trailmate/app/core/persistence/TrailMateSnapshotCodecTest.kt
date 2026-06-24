@@ -4,14 +4,14 @@ import com.trailmate.app.core.gpx.GpxImportJob
 import com.trailmate.app.core.gpx.GpxImportJobKind
 import com.trailmate.app.core.gpx.GpxImportJobStatus
 import com.trailmate.app.core.gpx.GpxImportQueue
+import com.trailmate.app.core.auth.TrailMateAuthProvider
+import com.trailmate.app.core.auth.TrailMateAuthSession
 import com.trailmate.app.core.map.AmapOfflineBaseMapTileProof
 import com.trailmate.app.core.map.AmapPrivacyConsent
 import com.trailmate.app.core.model.AscentExperience
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.ExerciseFrequency
 import com.trailmate.app.core.model.ExperienceLevel
-import com.trailmate.app.core.model.GearInventory
-import com.trailmate.app.core.model.GearItem
 import com.trailmate.app.core.model.HistoricalActivity
 import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.RouteImportStatus
@@ -20,13 +20,24 @@ import com.trailmate.app.core.model.RoutePoint
 import com.trailmate.app.core.model.TrackRecordingEngine
 import com.trailmate.app.core.model.TypicalDuration
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
 
 class TrailMateSnapshotCodecTest {
     @Test
-    fun snapshotRoundTripsProfileInventoryAndImportedRoute() {
+    fun snapshotRoundTripsProfileAndImportedRoute() {
         val snapshot = TrailMateSnapshot(
+            authSession = TrailMateAuthSession(
+                userId = "usr-1",
+                provider = TrailMateAuthProvider.PHONE,
+                accessToken = "access-token",
+                refreshToken = "refresh-token",
+                expiresAt = "2026-06-22T12:00:00Z",
+                phoneNumber = "+8613800138000",
+                wechatOpenId = null,
+                displayName = null
+            ),
             profile = BaselineProfile(
                 exerciseFrequency = ExerciseFrequency.THREE_PLUS_PER_WEEK,
                 typicalDuration = TypicalDuration.OVER_60,
@@ -35,18 +46,6 @@ class TrailMateSnapshotCodecTest {
                 heightCm = 181,
                 weightKg = 76,
                 commonPackWeightKg = 7
-            ),
-            inventory = GearInventory(
-                items = listOf(
-                    GearItem(
-                        id = "warm-layer-1",
-                        category = "Warm layer",
-                        brand = "Rab",
-                        model = "Xenair Alpine Light",
-                        weightGrams = 309,
-                        available = false
-                    )
-                )
             ),
             importedRoute = ImportedRoute(
                 routeName = "West Ridge",
@@ -109,7 +108,7 @@ class TrailMateSnapshotCodecTest {
     }
 
     @Test
-    fun snapshotRoundTripPreservesUnsetBodyAndOptionalGearFields() {
+    fun snapshotRoundTripPreservesUnsetBodyFields() {
         val snapshot = TrailMateSnapshot(
             profile = BaselineProfile(
                 exerciseFrequency = ExerciseFrequency.RARELY,
@@ -119,18 +118,6 @@ class TrailMateSnapshotCodecTest {
                 heightCm = null,
                 weightKg = null,
                 commonPackWeightKg = null
-            ),
-            inventory = GearInventory(
-                items = listOf(
-                    GearItem(
-                        id = "warm-layer-1",
-                        category = "Warm layer",
-                        brand = null,
-                        model = null,
-                        weightGrams = null,
-                        available = true
-                    )
-                )
             )
         )
 
@@ -139,9 +126,6 @@ class TrailMateSnapshotCodecTest {
         assertNull(decoded.profile?.heightCm)
         assertNull(decoded.profile?.weightKg)
         assertNull(decoded.profile?.commonPackWeightKg)
-        assertNull(decoded.inventory.items.single().brand)
-        assertNull(decoded.inventory.items.single().model)
-        assertNull(decoded.inventory.items.single().weightGrams)
     }
 
     @Test
@@ -149,7 +133,6 @@ class TrailMateSnapshotCodecTest {
         val decoded = TrailMateSnapshotCodec.decode("")
 
         assertNull(decoded.profile)
-        assertEquals(3, decoded.inventory.items.size)
         assertNull(decoded.importedRoute)
     }
 
@@ -159,10 +142,64 @@ class TrailMateSnapshotCodecTest {
             TrailMateSnapshotCodec.encode(TrailMateSnapshot.empty())
         )
 
+        assertNull(decoded.authSession)
         assertNull(decoded.profile)
-        assertEquals(0, decoded.inventory.items.size)
         assertNull(decoded.importedRoute)
         assertEquals(0, decoded.historicalActivities.size)
+    }
+
+    @Test
+    fun snapshotEncodeDoesNotPersistPersonalGearInventory() {
+        val encoded = TrailMateSnapshotCodec.encode(TrailMateSnapshot())
+
+        assertFalse(encoded.contains("inventory.count"))
+        assertFalse(encoded.contains("inventory.0."))
+    }
+
+    @Test
+    fun snapshotDecodeIgnoresLegacyPersonalGearInventoryFields() {
+        val raw = """
+            version=1
+            inventory.count=1
+            inventory.0.id=shell-1
+            inventory.0.category=雨衣
+            inventory.0.brand=Patagonia
+            inventory.0.model=Torrentshell
+            inventory.0.weightGrams=400
+            inventory.0.available=true
+            route.present=true
+            route.routeName=龙井山脊
+            route.fileName=longjing.gpx
+            route.distanceKm=15.2
+            route.ascentMeters=860
+            route.status=PARSED
+            route.pointCount=120
+            history.count=0
+            gpxQueue.count=0
+        """.trimIndent()
+
+        val decoded = TrailMateSnapshotCodec.decode(raw)
+
+        assertEquals("龙井山脊", decoded.importedRoute?.routeName)
+    }
+
+    @Test
+    fun snapshotRoundTripPreservesWechatAuthSession() {
+        val session = TrailMateAuthSession(
+            userId = "usr-wechat",
+            provider = TrailMateAuthProvider.WECHAT,
+            accessToken = "access-token",
+            refreshToken = "refresh-token",
+            expiresAt = "2026-06-22T12:00:00Z",
+            phoneNumber = null,
+            wechatOpenId = "wx-open-id",
+            displayName = "张三"
+        )
+        val snapshot = TrailMateSnapshot(authSession = session)
+
+        val decoded = TrailMateSnapshotCodec.decode(TrailMateSnapshotCodec.encode(snapshot))
+
+        assertEquals(session, decoded.authSession)
     }
 
     @Test

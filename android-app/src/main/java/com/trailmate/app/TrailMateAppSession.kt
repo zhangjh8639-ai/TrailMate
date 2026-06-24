@@ -1,10 +1,10 @@
 package com.trailmate.app
 
+import com.trailmate.app.core.auth.TrailMateAuthSession
 import com.trailmate.app.core.gpx.GpxImportQueue
 import com.trailmate.app.core.map.AmapOfflineBaseMapTileProof
 import com.trailmate.app.core.map.AmapPrivacyConsent
 import com.trailmate.app.core.model.BaselineProfile
-import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.HistoricalActivity
 import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.TrailMateSampleData
@@ -14,17 +14,26 @@ import com.trailmate.app.core.persistence.TrailMateSnapshot
 data class TrailMateAppSession(
     val snapshot: TrailMateSnapshot
 ) {
+    val hasAuthenticatedAccount: Boolean
+        get() = snapshot.authSession != null
+
     val hasProfile: Boolean
         get() = snapshot.profile != null
+
+    val isReadyForHome: Boolean
+        get() = hasAuthenticatedAccount && hasProfile
 
     val baselineProfile: BaselineProfile
         get() = snapshot.profile ?: TrailMateSampleData.baselineProfile
 
+    fun withAuthSession(session: TrailMateAuthSession): TrailMateAppSession =
+        copy(snapshot = snapshot.copy(authSession = session))
+
+    fun withoutAuthSession(): TrailMateAppSession =
+        copy(snapshot = snapshot.copy(authSession = null))
+
     fun withProfile(profile: BaselineProfile): TrailMateAppSession =
         copy(snapshot = snapshot.copy(profile = profile))
-
-    fun withInventory(inventory: GearInventory): TrailMateAppSession =
-        copy(snapshot = snapshot.copy(inventory = inventory))
 
     fun withImportedRoute(route: ImportedRoute): TrailMateAppSession =
         copy(snapshot = snapshot.copy(importedRoute = route))

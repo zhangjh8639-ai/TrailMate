@@ -49,7 +49,8 @@ class AmapOfflineDownloadQaDiagnosticEngineTest {
 
         assertFalse(diagnostic.passed)
         assertTrue(diagnostic.blockers.contains("高德 SDK 停留在检查更新状态"))
-        assertEquals("真机重试离线下载", diagnostic.nextActionLabel)
+        assertEquals(AmapOfflineDownloadRecoveryAction.VERIFY_AMAP_KEY_BINDING, diagnostic.recoveryAction)
+        assertEquals("核对高德 Key 权限", diagnostic.nextActionLabel)
         assertTrue(diagnostic.summary.contains("CHECKUPDATES(6)"))
         assertTrue(diagnostic.summary.contains("request=CITY_CODE:0571"))
         assertTrue(diagnostic.summary.contains("package=com.trailmate.app"))
@@ -73,10 +74,11 @@ class AmapOfflineDownloadQaDiagnosticEngineTest {
 
         assertFalse(diagnostic.passed)
         assertTrue(diagnostic.blockers.contains("高德 SDK 未返回离线下载回调"))
-        assertEquals(AmapOfflineDownloadRecoveryAction.RETRY_TARGET_CITY_DOWNLOAD, diagnostic.recoveryAction)
-        assertEquals("打开高德离线管理器确认任务", diagnostic.nextActionLabel)
-        assertTrue(diagnostic.recoverySteps.any { it.contains("保持 TrailMate 在前台") })
-        assertTrue(diagnostic.recoverySteps.any { it.contains("高德离线底图管理") })
+        assertEquals(AmapOfflineDownloadRecoveryAction.VERIFY_AMAP_KEY_BINDING, diagnostic.recoveryAction)
+        assertEquals("核对高德 Key 权限", diagnostic.nextActionLabel)
+        assertTrue(diagnostic.recoverySteps.any { it.contains("com.trailmate.app") })
+        assertTrue(diagnostic.recoverySteps.any { it.contains("DF:CB:37") })
+        assertTrue(diagnostic.recoverySteps.any { it.contains("infocode=10012") })
     }
 
     @Test

@@ -10,7 +10,7 @@ TrailMate SHALL keep the default route cockpit focused and scannable.
 - **WHEN** the default cockpit is displayed
 - **THEN** the first viewport prioritizes a standalone map preview, a separate action panel, current checkpoint, next checkpoint, route progress, one primary action, and full-screen entry
 - **AND** it may show lightweight status chips for location, recording, and offline route state
-- **AND** it does not display map diagnostics, authorization panels, a `地图状态与轻导航` block, or a multi-row field-control stack by default
+- **AND** it does not display map diagnostics, authorization panels, a mixed map-diagnostics block, or a multi-row field-control stack by default
 
 #### Scenario: Route details are framed around hiking tasks
 

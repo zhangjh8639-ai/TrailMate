@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "TrailMate"
 include(":android-app")
+include(":trailmate-server")

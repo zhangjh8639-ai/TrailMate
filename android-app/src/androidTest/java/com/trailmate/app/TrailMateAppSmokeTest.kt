@@ -30,11 +30,14 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import com.trailmate.app.core.design.TrailMateTheme
+import com.trailmate.app.core.auth.TrailMateLocalOnboardingAuthActions
+import com.trailmate.app.core.auth.TrailMateAuthSession
 import com.trailmate.app.core.location.TrackRecordingBroadcastCodec
 import com.trailmate.app.core.location.TrackRecordingForegroundService
 import com.trailmate.app.core.location.TrailMateLocationSnapshot
 import com.trailmate.app.core.location.TrailMateLocationStatus
 import com.trailmate.app.core.model.AiGearAdvisorResponse
+import com.trailmate.app.core.model.ConfidenceLevel
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.gpx.GpxImportJobKind
 import com.trailmate.app.core.gpx.GpxImportJobStatus
@@ -43,25 +46,31 @@ import com.trailmate.app.core.map.AmapOfflineBaseMapTileProof
 import com.trailmate.app.core.map.AmapPrivacyConsent
 import com.trailmate.app.core.model.ExerciseFrequency
 import com.trailmate.app.core.model.ExperienceLevel
-import com.trailmate.app.core.model.GearInventory
-import com.trailmate.app.core.model.GearItem
 import com.trailmate.app.core.model.GearRecommendation
 import com.trailmate.app.core.model.GearStatus
 import com.trailmate.app.core.model.HistoricalActivity
 import com.trailmate.app.core.model.HikeLocationFix
 import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.LocationBackedHikeStatus
+import com.trailmate.app.core.model.MatchLevel
 import com.trailmate.app.core.model.RecordedTrackPoint
+import com.trailmate.app.core.model.RouteAssessmentSummary
+import com.trailmate.app.core.model.RoutePoint
 import com.trailmate.app.core.model.AscentExperience
 import com.trailmate.app.core.model.TrailMateSampleData
 import com.trailmate.app.core.model.TrackRecordingEngine
 import com.trailmate.app.core.model.TrackRecordingState
 import com.trailmate.app.core.model.TypicalDuration
 import com.trailmate.app.core.model.offlineRoutePackKey
+import com.trailmate.app.core.network.TrailMateApiError
+import com.trailmate.app.core.network.TrailMateApiResult
+import com.trailmate.app.core.network.TrailMateGearCatalogApi
+import com.trailmate.app.core.network.TrailMateGearCatalogItemDto
 import com.trailmate.app.core.persistence.TrailMateSessionRepository
 import com.trailmate.app.core.persistence.TrailMateSnapshot
-import com.trailmate.app.feature.gear.MyGearScreen
+import com.trailmate.app.feature.gear.GearMatchScreen
 import com.trailmate.app.feature.home.HomeScreen
+import com.trailmate.app.feature.onboarding.OnboardingScreen
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -77,28 +86,46 @@ class TrailMateAppSmokeTest {
     fun showsTrailMateOnboarding() {
         compose.setContent {
             TrailMateTheme {
-                TrailMateApp(sessionRepository = FakeTrailMateSessionRepository())
+                OnboardingScreen(
+                    authActions = TrailMateLocalOnboardingAuthActions(),
+                    wechatLoginAvailable = true,
+                    requestForegroundLocationPermissionOnComplete = false,
+                    onComplete = { _, _ -> }
+                )
             }
         }
 
         compose.onNodeWithText("TrailMate").assertExists()
-        compose.onNodeWithText("开始基础档案").assertExists()
+        compose.onNodeWithText("账号 1/3").assertExists()
+        compose.onNodeWithText("微信优先登录").assertExists()
+        compose.onNodeWithText("微信登录 / 注册").assertExists()
+        compose.onAllNodesWithText("手机号").assertCountEquals(0)
+        compose.onAllNodesWithText("验证码").assertCountEquals(0)
     }
 
     @Test
     fun onboardingCollectsBaselineProfileBeforeHome() {
+        val store = FakeTrailMateSessionRepository(
+            TrailMateSnapshot(authSession = savedAuthSession())
+        )
+
         compose.setContent {
             TrailMateTheme {
-                TrailMateApp(sessionRepository = FakeTrailMateSessionRepository())
+                TrailMateApp(sessionRepository = store)
             }
         }
 
-        compose.onNodeWithText("开始基础档案").performClick()
+        compose.onNodeWithText("能力基础 2/3").assertExists()
+        compose.onNodeWithText("只用于路线评估，不在主页展示", substring = true).assertExists()
+        compose.onAllNodesWithText("证据", substring = true).assertCountEquals(0)
         compose.onNodeWithText("身高 cm").performScrollTo().performTextInput("181")
         compose.onNodeWithText("体重 kg").performScrollTo().performTextInput("76")
         compose.onNodeWithText("常用背包 kg").performScrollTo().performTextInput("7")
         compose.onNodeWithText("保存档案").performScrollTo().performClick()
         compose.onNodeWithText("地图与定位准备").assertExists()
+        compose.onNodeWithText("地图准备 3/3").assertExists()
+        compose.onNodeWithText("离线地图包").assertExists()
+        compose.onAllNodesWithText("高德", substring = true).assertCountEquals(0)
         compose.onNodeWithText("同意地图服务并继续").performScrollTo().performClick()
 
         compose.onNodeWithText("准备走哪条线？").assertExists()
@@ -113,6 +140,7 @@ class TrailMateAppSmokeTest {
                 TrailMateApp(
                     sessionRepository = FakeTrailMateSessionRepository(
                         TrailMateSnapshot(
+                            authSession = savedAuthSession(),
                             profile = savedProfile(),
                             historicalActivities = TrailMateSampleData.historicalActivities
                         )
@@ -152,9 +180,17 @@ class TrailMateAppSmokeTest {
 
     @Test
     fun routeWorkspaceOwnsRouteImportAndCurrentRouteEntry() {
+        val routeKey = TrailMateSampleData.importedTargetRoute.offlineRoutePackKey()
+        var observedOfflineRoutePackKeys = emptySet<String>()
+
         compose.setContent {
             TrailMateTheme {
-                HomeScreen(initialImportedRoute = TrailMateSampleData.importedTargetRoute)
+                HomeScreen(
+                    initialImportedRoute = TrailMateSampleData.importedTargetRoute,
+                    onOfflineRoutePackKeysChanged = { keys ->
+                        observedOfflineRoutePackKeys = keys
+                    }
+                )
             }
         }
 
@@ -163,6 +199,26 @@ class TrailMateAppSmokeTest {
         compose.onNodeWithText("当前路线").assertExists()
         compose.onNodeWithText("继续准备").assertExists()
         compose.onNodeWithText("更换 GPX").assertExists()
+        compose.onNodeWithText("出发前准备").assertExists()
+        compose.onNodeWithText("GPX 路线").assertExists()
+        compose.onNodeWithText("GPX 轨迹已导入").assertExists()
+        compose.onNodeWithText("离线路线").assertExists()
+        compose.onNodeWithText("离线路线：待保存", substring = true).assertExists()
+        compose.onNodeWithText("保存离线路线").performScrollTo().assertExists().performClick()
+        compose.waitUntil(timeoutMillis = 5_000) {
+            routeKey in observedOfflineRoutePackKeys
+        }
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithText("离线路线：已保存", substring = true)
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        compose.onNodeWithText("离线路线：已保存", substring = true).assertExists()
+        compose.onNodeWithText("离线地图包").assertExists()
+        compose.onNodeWithText("导入道路、地名和地形背景", substring = true).assertExists()
+        compose.onNodeWithText("导入离线地图包").assertExists()
+        compose.onAllNodesWithText("打开高德离线底图管理").assertCountEquals(0)
+        compose.onAllNodesWithText("地图状态与轻导航").assertCountEquals(0)
         compose.onAllNodesWithText("导入状态").assertCountEquals(0)
         compose.onAllNodesWithText("导入队列").assertCountEquals(0)
         compose.onAllNodesWithText("路线包").assertCountEquals(0)
@@ -170,6 +226,34 @@ class TrailMateAppSmokeTest {
         compose.onAllNodesWithText("现场状态").assertCountEquals(0)
         compose.onAllNodesWithTag("route-cockpit").assertCountEquals(0)
         compose.onAllNodesWithText("保存路线包").assertCountEquals(0)
+    }
+
+    @Test
+    fun routeWorkspaceBasemapPreparationOpensRouteMapPreparation() {
+        compose.setContent {
+            TrailMateTheme {
+                HomeScreen(
+                    initialImportedRoute = TrailMateSampleData.importedTargetRoute,
+                    initialOfflineRoutePackKeys = setOf(
+                        TrailMateSampleData.importedTargetRoute.offlineRoutePackKey()
+                    )
+                )
+            }
+        }
+
+        compose.onNodeWithTag("home-tab-路线").performClick()
+        compose.onNodeWithText("导入离线地图包").performScrollTo().performClick()
+
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithTag("route-cockpit")
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        compose.onNodeWithTag("route-cockpit").assertExists()
+        compose.onNodeWithText("地图图层").performScrollTo().assertExists()
+        compose.onAllNodesWithText("PMTiles 地图包待导入").onFirst().assertExists()
+        compose.onAllNodesWithText("导入离线地图包").onFirst().assertExists()
+        compose.onAllNodesWithText("打开高德离线底图管理").assertCountEquals(0)
     }
 
     @Test
@@ -182,6 +266,12 @@ class TrailMateAppSmokeTest {
 
         compose.onNodeWithTag("home-tab-路线").performClick()
         compose.onNodeWithText("继续准备").performScrollTo().performClick()
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithTag("segmented-control-评估")
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        compose.onNodeWithTag("segmented-control-评估").performClick()
         compose.onNodeWithTag("route-assessment-decision").assertExists()
         compose.onAllNodesWithTag("route-cockpit").assertCountEquals(0)
 
@@ -260,15 +350,22 @@ class TrailMateAppSmokeTest {
 
     @Test
     fun redesignedChinesePrototypeHasBottomNavigationAndWorkspaces() {
+        val route = readyRoute()
+
         compose.setContent {
             TrailMateTheme {
-                HomeScreen(initialImportedRoute = TrailMateSampleData.importedTargetRoute)
+                HomeScreen(
+                    initialImportedRoute = route,
+                    initialOfflineRoutePackKeys = setOf(
+                        route.offlineRoutePackKey()
+                    )
+                )
             }
         }
 
         compose.onNodeWithText("首页").assertExists()
         compose.onNodeWithText("路线").assertExists()
-        compose.onAllNodesWithText("装备").onFirst().assertExists()
+        compose.onNodeWithTag("home-tab-装备").assertExists()
         compose.onNodeWithText("数据").assertExists()
         compose.onNodeWithText("我的").assertExists()
         compose.onNodeWithText("下午好，").assertExists()
@@ -289,10 +386,10 @@ class TrailMateAppSmokeTest {
         compose.onNodeWithTag("route-cockpit").assertExists()
         compose.onNodeWithTag("route-cockpit-primary-action").assertExists()
         compose.onAllNodesWithTag("route-cockpit-readiness-strip").assertCountEquals(0)
-        compose.onAllNodesWithText("开始徒步").assertCountEquals(0)
+        compose.onNodeWithText("授权定位").assertExists()
         compose.onAllNodesWithText("当前检查点").onFirst().assertExists()
         compose.onAllNodesWithText("仅提供路线辅助，不替代路标与离线地图").onFirst().assertExists()
-        compose.onNodeWithText("全屏导航").assertExists()
+        compose.onAllNodesWithText("全屏导航").assertCountEquals(0)
         compose.onAllNodesWithText("标记点").assertCountEquals(0)
         compose.onNodeWithText("评估").assertExists()
         compose.onAllNodesWithText("路线").onFirst().assertExists()
@@ -308,20 +405,24 @@ class TrailMateAppSmokeTest {
         }
 
         compose.onAllNodesWithText("装备").onFirst().performClick()
-        compose.onAllNodesWithText("装备").onFirst().assertExists()
-        compose.onNodeWithText("路线清单").assertExists()
-        compose.onNodeWithText("我的装备").assertExists()
-        compose.onNodeWithText("详情").assertExists()
-        compose.onNodeWithText("AI 装备建议").assertExists()
-        compose.onNodeWithText("必备装备").assertExists()
+        compose.onNodeWithText("装备匹配").assertExists()
+        compose.onNodeWithText("路线需求").assertExists()
+        compose.onNodeWithText("品牌候选").assertExists()
+        compose.onNodeWithText("装备详情").assertExists()
+        compose.onNodeWithText("AI 装备需求").assertExists()
+        compose.onNodeWithText("路线装备需求").assertExists()
         compose.onAllNodesWithText("查看匹配").onFirst().assertExists()
-        compose.onAllNodesWithText("添加已有装备").onFirst().assertExists()
-        compose.onNodeWithText("保存到我的装备").assertExists()
+        compose.onAllNodesWithText("我的装备").assertCountEquals(0)
+        compose.onAllNodesWithText("添加已有装备").assertCountEquals(0)
+        compose.onAllNodesWithText("保存到我的装备").assertCountEquals(0)
+        compose.onAllNodesWithText("加入我的装备").assertCountEquals(0)
     }
 
     @Test
     fun onboardingSavePersistsProfile() {
-        val store = FakeTrailMateSessionRepository()
+        val store = FakeTrailMateSessionRepository(
+            TrailMateSnapshot(authSession = savedAuthSession())
+        )
 
         compose.setContent {
             TrailMateTheme {
@@ -329,7 +430,6 @@ class TrailMateAppSmokeTest {
             }
         }
 
-        compose.onNodeWithText("开始基础档案").performClick()
         compose.onNodeWithText("身高 cm").performScrollTo().performTextInput("181")
         compose.onNodeWithText("体重 kg").performScrollTo().performTextInput("76")
         compose.onNodeWithText("常用背包 kg").performScrollTo().performTextInput("7")
@@ -344,7 +444,9 @@ class TrailMateAppSmokeTest {
 
     @Test
     fun onboardingSkipDoesNotFabricateBodyMetrics() {
-        val store = FakeTrailMateSessionRepository()
+        val store = FakeTrailMateSessionRepository(
+            TrailMateSnapshot(authSession = savedAuthSession())
+        )
 
         compose.setContent {
             TrailMateTheme {
@@ -352,7 +454,6 @@ class TrailMateAppSmokeTest {
             }
         }
 
-        compose.onNodeWithText("开始基础档案").performClick()
         compose.onNodeWithText("暂时跳过").performScrollTo().performClick()
         compose.onNodeWithText("稍后，仅使用本地路线").performScrollTo().performClick()
 
@@ -365,7 +466,9 @@ class TrailMateAppSmokeTest {
 
     @Test
     fun onboardingLocalOnlyCompletesWithoutLocationPermissionGate() {
-        val store = FakeTrailMateSessionRepository()
+        val store = FakeTrailMateSessionRepository(
+            TrailMateSnapshot(authSession = savedAuthSession())
+        )
 
         compose.setContent {
             TrailMateTheme {
@@ -376,7 +479,6 @@ class TrailMateAppSmokeTest {
             }
         }
 
-        compose.onNodeWithText("开始基础档案").performClick()
         compose.onNodeWithText("暂时跳过").performScrollTo().performClick()
         compose.onNodeWithText("稍后，仅使用本地路线").performScrollTo().performClick()
 
@@ -388,7 +490,9 @@ class TrailMateAppSmokeTest {
     fun onboardingMapConsentCompletesWhenLocationPermissionIsAlreadyGranted() {
         grantRuntimePermission(Manifest.permission.ACCESS_FINE_LOCATION)
         grantRuntimePermission(Manifest.permission.ACCESS_COARSE_LOCATION)
-        val store = FakeTrailMateSessionRepository()
+        val store = FakeTrailMateSessionRepository(
+            TrailMateSnapshot(authSession = savedAuthSession())
+        )
 
         compose.setContent {
             TrailMateTheme {
@@ -399,7 +503,6 @@ class TrailMateAppSmokeTest {
             }
         }
 
-        compose.onNodeWithText("开始基础档案").performClick()
         compose.onNodeWithText("身高 cm").performScrollTo().performTextInput("181")
         compose.onNodeWithText("体重 kg").performScrollTo().performTextInput("76")
         compose.onNodeWithText("保存档案").performScrollTo().performClick()
@@ -434,7 +537,7 @@ class TrailMateAppSmokeTest {
         compose.onNodeWithText("补给与休息计划").assertExists()
 
         compose.onAllNodesWithText("装备").onFirst().performClick()
-        compose.onNodeWithText("AI 装备建议").assertExists()
+        compose.onNodeWithText("路线装备需求").assertExists()
     }
 
     @Test
@@ -445,12 +548,17 @@ class TrailMateAppSmokeTest {
             }
         }
 
-        compose.onNodeWithText("路线").performClick()
-        compose.onNodeWithContentDescription("路线包")
+        compose.onNodeWithTag("segmented-control-路线").performClick()
+        compose.onNodeWithTag("route-readiness-offline-route-pack")
+            .performScrollTo()
             .performClick()
 
-        compose.onAllNodesWithText("已保存").onFirst().assertExists()
-        compose.onAllNodesWithText("离线").onFirst().assertExists()
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithText("离线路线：已保存", substring = true)
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        compose.onNodeWithText("离线路线：已保存", substring = true).assertExists()
     }
 
     @Test
@@ -461,20 +569,20 @@ class TrailMateAppSmokeTest {
             }
         }
 
-        compose.onNodeWithText("路线").performClick()
-        compose.onNodeWithContentDescription("路线包")
+        compose.onNodeWithTag("segmented-control-路线").performClick()
+        compose.onNodeWithTag("route-readiness-offline-route-pack")
+            .performScrollTo()
             .assertHasClickAction()
-            .performClick()
-        compose.onAllNodesWithText("已保存").onFirst().assertExists()
 
-        compose.onAllNodesWithText("装备").onFirst().performClick()
-        compose.onNodeWithText("AI 装备建议").assertExists()
+        compose.onNodeWithTag("segmented-control-装备").performScrollTo().performClick()
+        compose.onNodeWithText("AI 装备需求").assertExists()
     }
 
     @Test
     fun appPersistsOfflineRoutePackReadiness() {
         val store = FakeTrailMateSessionRepository(
             TrailMateSnapshot(
+                authSession = savedAuthSession(),
                 profile = savedProfile(),
                 importedRoute = TrailMateSampleData.importedTargetRoute
             )
@@ -488,10 +596,15 @@ class TrailMateAppSmokeTest {
 
         compose.onNodeWithTag("home-tab-路线").performClick()
         compose.onNodeWithText("继续准备").performScrollTo().performClick()
-        compose.onNodeWithText("进入路线").performClick()
-        compose.onNodeWithContentDescription("路线包")
-            .performClick()
         compose.waitForIdle()
+        compose.onNodeWithTag("route-assessment-decision").assertExists()
+        compose.onNodeWithTag("segmented-control-路线").performClick()
+        compose.onNodeWithText("保存离线路线").performClick()
+        compose.waitUntil(timeoutMillis = 5_000) {
+            store.snapshot.savedOfflineRoutePackKeys.contains(
+                TrailMateSampleData.importedTargetRoute.offlineRoutePackKey()
+            )
+        }
 
         assertTrue(
             store.snapshot.savedOfflineRoutePackKeys.contains(
@@ -501,76 +614,89 @@ class TrailMateAppSmokeTest {
     }
 
     @Test
-    fun myGearShowsOwnedBrandGearAndAddAction() {
-        val inventory = GearInventory(TrailMateSampleData.gearItems)
-
+    fun gearScreenShowsServerCatalogMatchesAndThumbnails() {
         compose.setContent {
             TrailMateTheme {
-                MyGearScreen(
-                    inventory = inventory,
-                    routeGearRecommendations = inventory.applyTo(TrailMateSampleData.gearRecommendations),
+                GearMatchScreen(
+                    routeGearRecommendations = TrailMateSampleData.gearRecommendations,
                     requestedCategory = "登山杖",
-                    onAddBrandGear = { _, _, _, _ -> },
-                    onSetAvailability = { _, _ -> },
-                    onDeleteGear = {}
+                    catalogStatusLabel = "服务端品牌库"
                 )
             }
         }
 
-        compose.onAllNodesWithText("装备").onFirst().assertExists()
-        compose.onAllNodesWithText("添加已有装备").onFirst().assertExists()
-        compose.onNodeWithText("Salomon X Ultra 4 GTX").assertExists()
-        compose.onNodeWithText("保存到我的装备").assertExists()
+        compose.onNodeWithText("装备匹配").assertExists()
+        compose.onAllNodesWithText("服务端品牌库").onFirst().assertExists()
+        compose.onAllNodesWithText("龙井山脊 · 谨慎尝试").assertCountEquals(0)
+        compose.onNodeWithText("路线需求").assertExists()
+        compose.onNodeWithText("品牌候选").performClick()
+        compose.onNodeWithText("品牌候选装备").assertExists()
+        compose.onNodeWithText("当前需求：登山杖").assertExists()
+        compose.onNodeWithText("Leki Legacy Lite AS").assertExists()
+        compose.onAllNodesWithText("类别").assertCountEquals(0)
+        compose.onAllNodesWithText("添加已有装备").assertCountEquals(0)
+        compose.onAllNodesWithText("保存到我的装备").assertCountEquals(0)
+        compose.onAllNodesWithText("加入我的装备").assertCountEquals(0)
     }
 
     @Test
-    fun myGearDetailsTabShowsSelectedGearRouteContext() {
-        val inventory = GearInventory(
-            items = listOf(
-                GearItem(
-                    id = "shell-1",
-                    category = "雨衣",
-                    brand = "Patagonia",
-                    model = "Torrentshell",
-                    weightGrams = 400,
-                    available = true
-                )
-            )
-        )
-        val recommendations = inventory.applyTo(
-            listOf(
-                GearRecommendation(
-                    category = "雨衣",
-                    status = GearStatus.MISSING,
-                    rationale = "现有雨衣可以覆盖山脊风和小雨。"
-                )
-            )
-        )
-
+    fun gearScreenEmptyCatalogMatchReturnsToRouteNeedsWithoutInventoryFallback() {
         compose.setContent {
             TrailMateTheme {
-                MyGearScreen(
-                    inventory = inventory,
-                    routeGearRecommendations = recommendations,
-                    requestedCategory = "",
-                    onAddBrandGear = { _, _, _, _ -> },
-                    onSetAvailability = { _, _ -> },
-                    onDeleteGear = {}
+                GearMatchScreen(
+                    routeGearRecommendations = listOf(
+                        GearRecommendation(
+                            category = "冰爪",
+                            status = GearStatus.OPTIONAL,
+                            rationale = "低温湿滑路面时作为备用抓地装备。"
+                        )
+                    ),
+                    requestedCategory = "冰爪",
+                    catalogItems = emptyList(),
+                    catalogStatusLabel = "服务端品牌库",
+                    catalogStatusCaption = "品牌、型号和缩略图由服务端统一维护。"
                 )
             }
         }
 
-        compose.onNodeWithText("详情").performClick()
-
-        compose.onNodeWithText("装备详情").assertExists()
-        compose.onNodeWithText("Patagonia Torrentshell").assertExists()
-        compose.onNodeWithText("400g / 可用", substring = true).assertExists()
-        compose.onNodeWithText("匹配雨衣建议。").assertExists()
-        compose.onNodeWithText("现有雨衣可以覆盖山脊风和小雨。").assertExists()
+        compose.onNodeWithText("品牌候选装备").assertExists()
+        compose.onNodeWithText("服务端暂未收录冰爪", substring = true).assertExists()
+        compose.onNodeWithText("返回路线需求").assertExists().performClick()
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithText("路线装备需求")
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        compose.onNodeWithText("路线装备需求").assertExists()
+        compose.onAllNodesWithText("添加已有装备").assertCountEquals(0)
+        compose.onAllNodesWithText("保存到我的装备").assertCountEquals(0)
+        compose.onAllNodesWithText("加入我的装备").assertCountEquals(0)
     }
 
     @Test
-    fun routeGearTabShowsMatchedOwnedGear() {
+    fun gearDetailsTabShowsSelectedCatalogItemReadOnly() {
+        compose.setContent {
+            TrailMateTheme {
+                GearMatchScreen(
+                    routeGearRecommendations = TrailMateSampleData.gearRecommendations,
+                    requestedCategory = "雨衣（防水透气）"
+                )
+            }
+        }
+
+        compose.onNodeWithText("装备详情").performClick()
+
+        compose.onNodeWithText("雨衣（防水透气）").assertExists()
+        compose.onNodeWithText("Arc'teryx Beta LT Jacket").assertExists()
+        compose.onNodeWithText("缩略图").assertExists()
+        compose.onAllNodesWithText("我的装备").assertCountEquals(0)
+        compose.onAllNodesWithText("添加已有装备").assertCountEquals(0)
+        compose.onAllNodesWithText("保存到我的装备").assertCountEquals(0)
+        compose.onAllNodesWithText("加入我的装备").assertCountEquals(0)
+    }
+
+    @Test
+    fun routeGearTabShowsMatchedServerCatalogGear() {
         compose.setContent {
             TrailMateTheme {
                 RouteDetailTestHost()
@@ -578,14 +704,14 @@ class TrailMateAppSmokeTest {
         }
 
         compose.onNodeWithText("装备").performClick()
-        compose.onNodeWithText("AI 装备建议").assertExists()
-        compose.onNodeWithText("本地清单启用").assertExists()
-        compose.onNodeWithText("路线清单").assertExists()
+        compose.onNodeWithText("AI 装备需求").assertExists()
+        compose.onNodeWithText("规则清单就绪").assertExists()
         compose.onNodeWithText("必备装备", substring = true).assertExists()
         compose.onNodeWithText("雨衣").assertExists()
-        compose.onNodeWithText("已匹配 Patagonia Torrentshell", substring = true).assertExists()
+        compose.onNodeWithText("已匹配 Arc'teryx Beta LT Jacket", substring = true).assertExists()
         compose.onNodeWithText("备用水").assertExists()
-        compose.onAllNodesWithText("添加已有装备").onFirst().assertExists()
+        compose.onAllNodesWithText("查看候选").onFirst().assertExists()
+        compose.onAllNodesWithText("我的装备").assertCountEquals(0)
     }
 
     @Test
@@ -642,19 +768,22 @@ class TrailMateAppSmokeTest {
             TrailMateTheme {
                 RouteDetailTestHost(
                     notificationPermissionGranted = true,
-                    initialLocationSnapshot = locatedTrailSnapshot()
+                    initialLocationSnapshot = locatedTrailSnapshot(),
+                    routeAssessment = nonBlockingAssessment(TrailMateSampleData.importedTargetRoute),
+                    gearRecommendations = coveredDepartureGear(),
+                    initialOfflineRoutePackReady = true
                 )
             }
         }
 
-        compose.onNodeWithText("路线").performClick()
+        compose.onNodeWithTag("segmented-control-路线").performClick()
         compose.onNodeWithTag("route-cockpit").assertExists()
-        compose.onAllNodesWithText("开始徒步").assertCountEquals(0)
+        compose.onNodeWithText("开始徒步并记录轨迹").assertExists()
+        compose.onAllNodesWithText("全屏导航").assertCountEquals(0)
+        compose.onNodeWithTag("route-cockpit-primary-action").performClick()
+        compose.waitForIdle()
         compose.onNodeWithText("全屏导航").performScrollTo().performClick()
         compose.onNodeWithTag("route-navigation-fullscreen").assertExists()
-        compose.onNodeWithText("开始徒步").assertExists()
-        compose.onNodeWithTag("route-navigation-fullscreen-primary-action").performClick()
-        compose.waitForIdle()
         compose.onNodeWithText("标记点").assertExists()
         compose.onAllNodesWithText("补给检查", substring = true).onFirst().assertExists()
         compose.onAllNodesWithText("补水、补能量", substring = true).onFirst().assertExists()
@@ -671,16 +800,22 @@ class TrailMateAppSmokeTest {
             }
         }
 
-        compose.onNodeWithText("路线").performClick()
+        compose.onNodeWithTag("segmented-control-路线").performClick()
+        compose.waitForIdle()
 
+        compose.waitUntil(timeoutMillis = 10_000) {
+            compose.onAllNodesWithTag("route-cockpit")
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
         compose.onNodeWithTag("route-cockpit").assertExists()
         compose.onNodeWithTag("route-cockpit-primary-action").assertExists()
         compose.onAllNodesWithTag("route-cockpit-readiness-strip").assertCountEquals(0)
         compose.onAllNodesWithText("开始徒步").assertCountEquals(0)
         compose.onAllNodesWithText("标记点").assertCountEquals(0)
-        compose.onNodeWithText("全屏导航").assertExists()
+        compose.onAllNodesWithText("全屏导航").assertCountEquals(0)
         compose.onNodeWithText("安全分享").assertExists()
-        compose.onNodeWithContentDescription("路线包").assertHasClickAction()
+        compose.onNodeWithText("保存离线路线").assertHasClickAction()
         compose.onAllNodesWithText("地图状态").assertCountEquals(0)
         compose.onAllNodesWithText("地图状态与轻导航").assertCountEquals(0)
         compose.onAllNodesWithText("地图与离线").assertCountEquals(0)
@@ -691,7 +826,7 @@ class TrailMateAppSmokeTest {
         compose.onAllNodesWithText("准备轻导航").assertCountEquals(0)
         compose.onNodeWithText("定位：", substring = true).assertExists()
         compose.onNodeWithText("记录：", substring = true).assertExists()
-        compose.onNodeWithText("路线包：", substring = true).assertExists()
+        compose.onNodeWithText("离线路线：", substring = true).assertExists()
         compose.onAllNodesWithText("先授权定位；出发前建议保存路线包并允许轨迹通知。").assertCountEquals(0)
         compose.onAllNodesWithText("高德上线检查").assertCountEquals(0)
         compose.onAllNodesWithText("地图图层").assertCountEquals(0)
@@ -728,38 +863,47 @@ class TrailMateAppSmokeTest {
         compose.onAllNodesWithText("安全分享").onFirst().assertExists()
         compose.onNodeWithText("等待定位后分享").assertExists()
         compose.onNodeWithText("授权定位后可分享当前位置", substring = true).assertExists()
-        compose.onNodeWithText("地图与离线").assertExists()
-        compose.onNodeWithText("当前使用本地路线").assertExists()
-        compose.onAllNodesWithText("在线底图暂不可用", substring = true).onFirst().assertExists()
+        compose.onNodeWithText("地图准备").assertExists()
+        compose.onNodeWithText("PMTiles 地图包待导入").assertExists()
+        compose.onAllNodesWithText("本地 GPX", substring = true).onFirst().assertExists()
         compose.onNodeWithText("出发检查").assertExists()
-        compose.onNodeWithText("出发前还差 4 项").assertExists()
+        compose.onAllNodesWithText("出发前还差", substring = true).onFirst().assertExists()
         compose.onNodeWithText("建议补齐").assertExists()
-        compose.onAllNodesWithText("离线底图").onFirst().assertExists()
-        compose.onAllNodesWithText("缺 3 项").onFirst().assertExists()
+        compose.onAllNodesWithText("离线路线").onFirst().assertExists()
+        compose.onAllNodesWithText("离线地图包").onFirst().assertExists()
+        compose.onAllNodesWithText("装备").onFirst().assertExists()
         compose.onAllNodesWithText("路线提示点").onFirst().assertExists()
         compose.onNodeWithText("地图图层").performScrollTo().assertExists()
         compose.onNodeWithText("计划路线").assertExists()
         compose.onNodeWithText("未记录").assertExists()
-        compose.onNodeWithText("补给 ·", substring = true).assertExists()
-        compose.onNodeWithText("休息 ·", substring = true).assertExists()
-        compose.onNodeWithText("风险 ·", substring = true).assertExists()
+        compose.onAllNodesWithText("补给", substring = true).onFirst().assertExists()
+        compose.onAllNodesWithText("休息", substring = true).onFirst().assertExists()
+        compose.onAllNodesWithText("风险", substring = true).onFirst().assertExists()
     }
 
     @Test
     fun homeRouteFullscreenFocusesNavigationAndHidesBottomBar() {
         compose.setContent {
             TrailMateTheme {
-                HomeScreen(initialImportedRoute = TrailMateSampleData.importedTargetRoute)
+                RouteDetailTestHost(
+                    route = readyRoute(),
+                    notificationPermissionGranted = true,
+                    initialLocationSnapshot = locatedTrailSnapshot(),
+                    routeAssessment = nonBlockingAssessment(readyRoute()),
+                    gearRecommendations = coveredDepartureGear(),
+                    initialOfflineRoutePackReady = true
+                )
             }
         }
 
-        compose.onNodeWithTag("home-tab-路线").performClick()
-        compose.onNodeWithText("继续准备").performScrollTo().performClick()
-        compose.onNodeWithText("进入路线").performClick()
+        compose.onNodeWithTag("segmented-control-路线").performClick()
+        compose.onNodeWithText("开始徒步并记录轨迹").assertExists()
+        compose.onAllNodesWithText("全屏导航").assertCountEquals(0)
+        compose.onNodeWithTag("route-cockpit-primary-action").performClick()
+        compose.waitForIdle()
         compose.onNodeWithText("全屏导航").performScrollTo().performClick()
 
         compose.onNodeWithTag("route-navigation-fullscreen").assertExists()
-        compose.onAllNodesWithTag("home-tab-首页").assertCountEquals(0)
         compose.onNodeWithTag("route-navigation-fullscreen-primary-action").assertExists()
         val fullscreenBounds = compose.onNodeWithTag("route-navigation-fullscreen").getUnclippedBoundsInRoot()
         val dockBounds = compose.onNodeWithTag("route-navigation-fullscreen-dock")
@@ -773,7 +917,6 @@ class TrailMateAppSmokeTest {
 
         compose.onNodeWithContentDescription("退出全屏导航").performClick()
         compose.onNodeWithTag("route-cockpit").assertExists()
-        compose.onNodeWithTag("home-tab-首页").assertExists()
     }
 
     @Test
@@ -802,7 +945,7 @@ class TrailMateAppSmokeTest {
             }
         }
 
-        compose.onNodeWithText("路线").performClick()
+        compose.onNodeWithTag("segmented-control-路线").performClick()
 
         compose.onNodeWithText("查看恢复建议").assertExists()
         compose.onNodeWithTag("route-cockpit-primary-action").performScrollTo().performClick()
@@ -842,7 +985,7 @@ class TrailMateAppSmokeTest {
             }
         }
 
-        compose.onNodeWithText("路线").performClick()
+        compose.onNodeWithTag("segmented-control-路线").performClick()
 
         compose.onNodeWithText("检查点与补给").performScrollTo().performClick()
         compose.waitForIdle()
@@ -883,7 +1026,7 @@ class TrailMateAppSmokeTest {
             }
         }
 
-        compose.onNodeWithText("路线").performClick()
+        compose.onNodeWithTag("segmented-control-路线").performClick()
         compose.onNodeWithText("检查点与补给").performScrollTo().performClick()
 
         compose.onNodeWithText("轨迹记录").performScrollTo().assertExists()
@@ -898,7 +1041,7 @@ class TrailMateAppSmokeTest {
             }
         }
 
-        compose.onNodeWithText("路线").performClick()
+        compose.onNodeWithTag("segmented-control-路线").performClick()
 
         compose.onNodeWithContentDescription("定位").assertHasClickAction()
     }
@@ -911,7 +1054,7 @@ class TrailMateAppSmokeTest {
             }
         }
 
-        compose.onNodeWithText("路线").performClick()
+        compose.onNodeWithTag("segmented-control-路线").performClick()
 
         compose.onAllNodesWithContentDescription("校准方向").assertCountEquals(0)
     }
@@ -924,7 +1067,7 @@ class TrailMateAppSmokeTest {
             }
         }
 
-        compose.onNodeWithText("路线").performClick()
+        compose.onNodeWithTag("segmented-control-路线").performClick()
         compose.onNodeWithText("检查点与补给").performScrollTo().performClick()
 
         val reviewCard = hasAnyAncestor(hasTestTag("track-recording-review"))
@@ -946,7 +1089,7 @@ class TrailMateAppSmokeTest {
             }
         }
 
-        compose.onNodeWithText("路线").performClick()
+        compose.onNodeWithTag("segmented-control-路线").performClick()
         compose.onNodeWithText("补给 ·", substring = true).performClick()
 
         compose.onNodeWithText("提示点详情").assertExists()
@@ -962,29 +1105,34 @@ class TrailMateAppSmokeTest {
     fun activeHikeResetsWhenRouteChanges() {
         grantRouteRuntimePermissions()
         var route by mutableStateOf(TrailMateSampleData.importedTargetRoute)
+        var routeSavedForCurrentRoute by mutableStateOf(true)
 
         compose.setContent {
             TrailMateTheme {
                 RouteDetailTestHost(
                     route = route,
                     notificationPermissionGranted = true,
-                    initialLocationSnapshot = locatedTrailSnapshot()
+                    initialLocationSnapshot = locatedTrailSnapshot(),
+                    routeAssessment = nonBlockingAssessment(route),
+                    gearRecommendations = coveredDepartureGear(),
+                    initialOfflineRoutePackReady = routeSavedForCurrentRoute
                 )
             }
         }
 
-        compose.onNodeWithText("路线").performClick()
-        compose.onAllNodesWithText("开始徒步").assertCountEquals(0)
+        compose.onNodeWithTag("segmented-control-路线").performClick()
+        compose.onNodeWithText("开始徒步并记录轨迹").assertExists()
+        compose.onAllNodesWithText("全屏导航").assertCountEquals(0)
+        compose.onNodeWithTag("route-cockpit-primary-action").performClick()
+        compose.waitForIdle()
         compose.onNodeWithText("全屏导航").performScrollTo().performClick()
         compose.onNodeWithTag("route-navigation-fullscreen").assertExists()
-        compose.onNodeWithText("开始徒步").assertExists()
-        compose.onNodeWithTag("route-navigation-fullscreen-primary-action").performClick()
-        compose.waitForIdle()
         compose.onNodeWithContentDescription("退出全屏导航").performClick()
         compose.onNodeWithTag("route-cockpit").assertExists()
         compose.onAllNodesWithText("标记点").assertCountEquals(0)
 
         compose.runOnIdle {
+            routeSavedForCurrentRoute = false
             route = route.copy(
                 routeName = "替换路线",
                 fileName = "replacement.gpx",
@@ -995,42 +1143,37 @@ class TrailMateAppSmokeTest {
         }
 
         compose.onNodeWithText("替换路线").assertExists()
-        compose.onAllNodesWithText("开始徒步").assertCountEquals(0)
-        compose.onNodeWithText("全屏导航").assertExists()
+        compose.onNodeWithText("保存离线路线").assertExists()
+        compose.onAllNodesWithText("全屏导航").assertCountEquals(0)
         compose.onAllNodesWithText("暂停").assertCountEquals(0)
     }
 
     @Test
-    fun homeGearAddFlowPrefillsCategoryAndUpdatesRouteMatch() {
-        var savedInventory: GearInventory? = null
-
+    fun homeGearFlowPrefillsCategoryAndShowsCatalogMatches() {
         compose.setContent {
             TrailMateTheme {
                 HomeScreen(
-                    initialImportedRoute = TrailMateSampleData.importedTargetRoute,
-                    onInventoryChanged = { inventory -> savedInventory = inventory }
+                    initialImportedRoute = TrailMateSampleData.importedTargetRoute
                 )
             }
         }
 
         compose.onAllNodesWithText("装备").onFirst().performClick()
         compose.onAllNodesWithText("装备").onFirst().assertExists()
-        compose.onAllNodesWithText("登山杖").assertCountEquals(2)
+        compose.onAllNodesWithText("登山杖").assertCountEquals(1)
+        compose.onNodeWithText("品牌候选").performClick()
+        compose.onNodeWithText("品牌候选装备").assertExists()
+        compose.onNodeWithText("当前需求：登山杖").assertExists()
+        compose.onNodeWithText("Leki Legacy Lite AS").assertExists()
+        compose.onAllNodesWithText("类别").assertCountEquals(0)
+        compose.onAllNodesWithText("保存到我的装备").assertCountEquals(0)
+        compose.onAllNodesWithText("加入我的装备").assertCountEquals(0)
 
-        compose.onNodeWithText("品牌").performScrollTo().performTextInput("Leki")
-        compose.onNodeWithText("型号").performScrollTo().performTextInput("Makalu Lite")
-        compose.onNodeWithText("保存到我的装备").performScrollTo().performClick()
-        compose.waitForIdle()
-
-        assertTrue(savedInventory?.items.orEmpty().any { item ->
-            item.category == "登山杖" && item.brand == "Leki" && item.model == "Makalu Lite"
-        })
     }
 
     @Test
-    fun homeNotifiesPersistenceWhenRouteAndGearChange() {
+    fun homeNotifiesPersistenceWhenRouteChangesAndGearUsesCatalogOnly() {
         var savedRoute: ImportedRoute? = null
-        var savedInventory: GearInventory? = null
         val savedQueues = mutableListOf<GpxImportQueue>()
 
         compose.setContent {
@@ -1039,7 +1182,6 @@ class TrailMateAppSmokeTest {
                     profile = TrailMateSampleData.baselineProfile,
                     showSampleRouteAction = true,
                     onRouteImported = { route -> savedRoute = route },
-                    onInventoryChanged = { inventory -> savedInventory = inventory },
                     onGpxImportQueueChanged = { queue -> savedQueues += queue }
                 )
             }
@@ -1051,9 +1193,11 @@ class TrailMateAppSmokeTest {
         compose.waitForIdle()
         compose.onNodeWithText("首页").performClick()
         compose.onAllNodesWithText("装备").onFirst().performClick()
-        compose.onNodeWithText("品牌").performScrollTo().performTextInput("Leki")
-        compose.onNodeWithText("型号").performScrollTo().performTextInput("Makalu Lite")
-        compose.onNodeWithText("保存到我的装备").performScrollTo().performClick()
+        compose.onNodeWithText("品牌候选").performClick()
+        compose.onNodeWithText("Leki Legacy Lite AS").assertExists()
+        compose.onAllNodesWithText("类别").assertCountEquals(0)
+        compose.onAllNodesWithText("保存到我的装备").assertCountEquals(0)
+        compose.onAllNodesWithText("加入我的装备").assertCountEquals(0)
 
         assertTrue(savedQueues.any { queue ->
             queue.jobs.any { job ->
@@ -1076,16 +1220,70 @@ class TrailMateAppSmokeTest {
             }
         )
         assertEquals("龙井山脊", savedRoute?.routeName)
-        assertTrue(savedInventory?.items.orEmpty().any { item ->
-            item.category == "登山杖" && item.brand == "Leki"
-        })
+    }
+
+    @Test
+    fun homeGearTabLabelsConnectedServerCatalogAsServerOwned() {
+        val gearCatalogApi = FakeGearCatalogApi()
+
+        compose.setContent {
+            TrailMateTheme {
+                HomeScreen(
+                    profile = TrailMateSampleData.baselineProfile,
+                    gearCatalogApi = gearCatalogApi
+                )
+            }
+        }
+
+        compose.waitUntil(timeoutMillis = 5_000) { gearCatalogApi.searchCalls > 0 }
+        compose.onAllNodesWithText("装备").onFirst().performClick()
+
+        compose.onAllNodesWithText("服务端品牌库").onFirst().assertExists()
+        compose.onNodeWithText("已同步 1 件品牌装备", substring = true).assertExists()
+        compose.onAllNodesWithText("品牌库 · 服务端").assertCountEquals(0)
+        compose.onAllNodesWithText("我的装备").assertCountEquals(0)
+    }
+
+    @Test
+    fun homeGearTabShowsRetryWhenServerCatalogUnavailable() {
+        val gearCatalogApi = FakeGearCatalogApi(
+            searchResultProvider = {
+                TrailMateApiResult.Failure(
+                    TrailMateApiError(
+                        status = 503,
+                        code = "GEAR_CATALOG_UNAVAILABLE",
+                        message = "服务端品牌库暂时不可用。",
+                        traceId = null
+                    )
+                )
+            }
+        )
+
+        compose.setContent {
+            TrailMateTheme {
+                HomeScreen(
+                    profile = TrailMateSampleData.baselineProfile,
+                    gearCatalogApi = gearCatalogApi
+                )
+            }
+        }
+
+        compose.waitUntil(timeoutMillis = 5_000) { gearCatalogApi.searchCalls > 0 }
+        compose.onAllNodesWithText("装备").onFirst().performClick()
+
+        compose.onAllNodesWithText("品牌库缓存").onFirst().assertExists()
+        compose.onNodeWithText("服务端品牌库暂时不可用", substring = true).assertExists()
+        compose.onNodeWithTag("gear-catalog-retry").assertExists().performClick()
+        compose.waitUntil(timeoutMillis = 5_000) { gearCatalogApi.searchCalls > 1 }
+        compose.onAllNodesWithText("我的装备").assertCountEquals(0)
+        compose.onAllNodesWithText("添加已有装备").assertCountEquals(0)
     }
 
     @Test
     fun profileTabShowsDataPrivacyClearControls() {
         val initialSnapshot = TrailMateSnapshot(
+            authSession = savedAuthSession(),
             profile = savedProfile(),
-            inventory = GearInventory(TrailMateSampleData.gearItems),
             importedRoute = TrailMateSampleData.importedTargetRoute
         )
         val store = FakeTrailMateSessionRepository(
@@ -1126,14 +1324,8 @@ class TrailMateAppSmokeTest {
 
         assertEquals(TrailMateSnapshot.empty(), store.snapshot)
         compose.onNodeWithText("TrailMate").assertExists()
-        compose.onNodeWithText("开始基础档案").assertExists()
-
-        compose.onNodeWithText("开始基础档案").performClick()
-        compose.onNodeWithText("暂时跳过").performScrollTo().performClick()
-        compose.onNodeWithText("稍后，仅使用本地路线").performScrollTo().performClick()
-        compose.onNodeWithTag("home-tab-数据").performClick()
-
-        compose.onNodeWithText("完成一次记录后会出现复盘").assertExists()
+        compose.onNodeWithText("注册 / 登录").assertExists()
+        compose.onAllNodesWithTag("home-tab-数据").assertCountEquals(0)
         compose.onAllNodesWithText("清除本地数据").assertCountEquals(0)
         compose.onAllNodesWithText("龙井山脊 / 15.2 km / +860 m").assertCountEquals(0)
     }
@@ -1142,6 +1334,7 @@ class TrailMateAppSmokeTest {
     fun dataTabShowsRecordedTrackReviewAndTrendSummary() {
         val store = FakeTrailMateSessionRepository(
             TrailMateSnapshot(
+                authSession = savedAuthSession(),
                 profile = savedProfile(),
                 latestTrackRecording = recordedTrack()
             )
@@ -1167,7 +1360,10 @@ class TrailMateAppSmokeTest {
     @Test
     fun dataTabReflectsForegroundServiceTrackRecordingBroadcast() {
         val store = FakeTrailMateSessionRepository(
-            TrailMateSnapshot(profile = savedProfile())
+            TrailMateSnapshot(
+                authSession = savedAuthSession(),
+                profile = savedProfile()
+            )
         )
         val context = InstrumentationRegistry.getInstrumentation().targetContext
 
@@ -1315,12 +1511,12 @@ class TrailMateAppSmokeTest {
             }
         }
 
-        compose.onNodeWithText("路线").performClick()
+        compose.onNodeWithTag("segmented-control-路线").performClick()
         compose.onNodeWithText("检查点与补给").performScrollTo().performClick()
         compose.waitForIdle()
         compose.onAllNodesWithText("启用在线底图").assertCountEquals(0)
         compose.onAllNodesWithText("同意并启用在线底图").assertCountEquals(0)
-        compose.onNodeWithText("当前使用本地路线").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("PMTiles 地图包待导入").performScrollTo().assertIsDisplayed()
     }
 
     @Composable
@@ -1330,12 +1526,15 @@ class TrailMateAppSmokeTest {
         amapApiKeyConfigured: Boolean = false,
         amapPrivacyConsent: AmapPrivacyConsent = AmapPrivacyConsent(),
         notificationPermissionGranted: Boolean? = null,
+        routeAssessment: RouteAssessmentSummary? = null,
+        gearRecommendations: List<GearRecommendation>? = null,
         initialTrackRecording: TrackRecordingState = TrackRecordingState(),
         initialLocationSnapshot: TrailMateLocationSnapshot = TrailMateLocationSnapshot.disabled(),
         initialLocationGuidanceStatus: LocationBackedHikeStatus = LocationBackedHikeStatus.WAITING,
-    initialLocationGuidanceCaption: String = "授权定位后，可用当前位置辅助检查点推进。",
+        initialLocationGuidanceCaption: String = "授权定位后，可用当前位置辅助检查点推进。",
         initialLocationFix: HikeLocationFix? = null,
-        initialWasRecentlyOffRoute: Boolean = false
+        initialWasRecentlyOffRoute: Boolean = false,
+        initialOfflineRoutePackReady: Boolean = false
     ) {
         var routeNavigationFullscreen by androidx.compose.runtime.remember { mutableStateOf(false) }
         Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
@@ -1345,12 +1544,15 @@ class TrailMateAppSmokeTest {
                 initialTrackRecording = initialTrackRecording,
                 amapApiKeyConfigured = amapApiKeyConfigured,
                 amapPrivacyConsent = amapPrivacyConsent,
+                routeAssessment = routeAssessment,
+                gearRecommendations = gearRecommendations,
                 notificationPermissionGranted = notificationPermissionGranted,
                 initialLocationSnapshot = initialLocationSnapshot,
                 initialLocationGuidanceStatus = initialLocationGuidanceStatus,
                 initialLocationGuidanceCaption = initialLocationGuidanceCaption,
                 initialLocationFix = initialLocationFix,
                 initialWasRecentlyOffRoute = initialWasRecentlyOffRoute,
+                initialOfflineRoutePackReady = initialOfflineRoutePackReady,
                 routeNavigationFullscreen = routeNavigationFullscreen,
                 onRouteNavigationFullscreenChanged = { fullscreen ->
                     routeNavigationFullscreen = fullscreen
@@ -1368,6 +1570,61 @@ class TrailMateAppSmokeTest {
             heightCm = 181,
             weightKg = 76,
             commonPackWeightKg = 7
+        )
+
+    private fun savedAuthSession(): TrailMateAuthSession =
+        TrailMateAuthSession.localWechatSession(nowEpochMillis = 42L)
+
+    private fun readyRoute(): ImportedRoute =
+        ImportedRoute(
+            routeName = "九溪轻徒步",
+            fileName = "jiuxi-ready.gpx",
+            distanceKm = 5.1,
+            ascentMeters = 220,
+            status = com.trailmate.app.core.model.RouteImportStatus.PARSED,
+            pointCount = 4,
+            durationMinutes = 150,
+            routePoints = listOf(
+                RoutePoint(latitude = 30.2170, longitude = 120.1110, elevationMeters = 48.0, distanceAlongRouteKm = 0.0),
+                RoutePoint(latitude = 30.2250, longitude = 120.1180, elevationMeters = 92.0, distanceAlongRouteKm = 1.8),
+                RoutePoint(latitude = 30.2370, longitude = 120.1260, elevationMeters = 168.0, distanceAlongRouteKm = 3.6),
+                RoutePoint(latitude = 30.2450, longitude = 120.1320, elevationMeters = 220.0, distanceAlongRouteKm = 5.1)
+            )
+        )
+
+    private fun nonBlockingAssessment(route: ImportedRoute): RouteAssessmentSummary =
+        RouteAssessmentSummary(
+            routeName = route.routeName,
+            distanceKm = route.distanceKm,
+            ascentMeters = route.ascentMeters,
+            matchLevel = MatchLevel.RECOMMENDED,
+            confidenceLevel = ConfidenceLevel.HIGH,
+            estimatedDurationRange = "2:20-2:50",
+            risks = emptyList()
+        )
+
+    private fun coveredDepartureGear(): List<GearRecommendation> =
+        listOf(
+            GearRecommendation(
+                category = "雨衣",
+                status = GearStatus.COVERED,
+                rationale = "测试路线出发装备已覆盖。"
+            ),
+            GearRecommendation(
+                category = "头灯",
+                status = GearStatus.CHECK,
+                rationale = "出发前确认电量。"
+            ),
+            GearRecommendation(
+                category = "登山杖",
+                status = GearStatus.COVERED,
+                rationale = "已匹配品牌装备。"
+            ),
+            GearRecommendation(
+                category = "保暖层",
+                status = GearStatus.COVERED,
+                rationale = "已匹配品牌装备。"
+            )
         )
 
     private fun recordedTrack(): TrackRecordingState =
@@ -1401,7 +1658,7 @@ class TrailMateAppSmokeTest {
             longitude = 120.15,
             elevationMeters = 142.0,
             horizontalAccuracyMeters = 7.0,
-            timestampEpochMillis = 1_000L
+            timestampEpochMillis = System.currentTimeMillis()
         )
 
     private fun grantRouteRuntimePermissions() {
@@ -1416,6 +1673,44 @@ class TrailMateAppSmokeTest {
         instrumentation.uiAutomation.executeShellCommand("pm grant $packageName $permission").use { }
     }
 
+    private class FakeGearCatalogApi(
+        private val searchResultProvider: () -> TrailMateApiResult<List<TrailMateGearCatalogItemDto>> = {
+            TrailMateApiResult.Success(defaultCatalogItems())
+        }
+    ) : TrailMateGearCatalogApi {
+        var searchCalls: Int = 0
+            private set
+
+        override fun listGearCatalogCategories(): TrailMateApiResult<List<String>> =
+            TrailMateApiResult.Success(listOf("登山杖"))
+
+        override fun searchGearCatalog(
+            category: String,
+            query: String
+        ): TrailMateApiResult<List<TrailMateGearCatalogItemDto>> {
+            searchCalls += 1
+            return searchResultProvider()
+        }
+
+        companion object {
+            private fun defaultCatalogItems(): List<TrailMateGearCatalogItemDto> =
+                listOf(
+                    TrailMateGearCatalogItemDto(
+                        catalogItemId = "cat_poles_leki_legacy_lite",
+                        category = "登山杖",
+                        brand = "Leki",
+                        model = "Legacy Lite AS",
+                        displayName = "Leki Legacy Lite AS",
+                        weightGrams = 510,
+                        tags = listOf("长距离", "下坡", "稳定"),
+                        imageUrl = "https://cdn.trailmate.local/gear/leki-legacy-lite-as.png",
+                        imageAttribution = "TrailMate hosted catalog thumbnail",
+                        source = "server"
+                    )
+                )
+        }
+    }
+
     private class FakeTrailMateSessionRepository(
         initialSnapshot: TrailMateSnapshot = TrailMateSnapshot()
     ) : TrailMateSessionRepository {
@@ -1424,12 +1719,16 @@ class TrailMateAppSmokeTest {
 
         override fun loadSnapshot(): TrailMateSnapshot = snapshot
 
-        override fun saveProfile(profile: BaselineProfile) {
-            snapshot = snapshot.copy(profile = profile)
+        override fun saveAuthSession(session: TrailMateAuthSession) {
+            snapshot = snapshot.copy(authSession = session)
         }
 
-        override fun saveInventory(inventory: GearInventory) {
-            snapshot = snapshot.copy(inventory = inventory)
+        override fun clearAuthSession() {
+            snapshot = snapshot.copy(authSession = null)
+        }
+
+        override fun saveProfile(profile: BaselineProfile) {
+            snapshot = snapshot.copy(profile = profile)
         }
 
         override fun saveImportedRoute(route: ImportedRoute) {

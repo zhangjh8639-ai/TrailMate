@@ -57,6 +57,7 @@ internal fun RouteCockpitTab(
     onAcknowledgeRouteRejoin: () -> Unit,
     amapLaunchDiagnostics: AmapLaunchDiagnostics? = null,
     onOpenOfflineMap: () -> Unit = {},
+    onImportPmTilesBasemap: () -> Unit = {},
     onOpenNetworkSettings: () -> Unit = {},
     onRecordOfflineBaseMapTileProof: () -> Unit = {},
     offlineBaseMapTileProofCaptureState: AmapOfflineBaseMapTileProofCaptureState = AmapOfflineBaseMapTileProofCaptureEngine.evaluate(
@@ -67,9 +68,11 @@ internal fun RouteCockpitTab(
     ),
     offlineBaseMapTileProofMessage: String? = null,
     offlineBaseMapManagerReturnMessage: String? = null,
+    pmTilesImportMessage: String? = null,
     onAmapBaseMapRenderedChange: (Boolean) -> Unit = {},
     navigationFullscreen: Boolean = false,
-    onNavigationFullscreenChange: (Boolean) -> Unit = {}
+    onNavigationFullscreenChange: (Boolean) -> Unit = {},
+    initiallyExpandDiagnostics: Boolean = false
 ) {
     RouteCockpitTabContent(
         route = route,
@@ -108,13 +111,16 @@ internal fun RouteCockpitTab(
         onAcknowledgeRouteRejoin = onAcknowledgeRouteRejoin,
         amapLaunchDiagnostics = amapLaunchDiagnostics,
         onOpenOfflineMap = onOpenOfflineMap,
+        onImportPmTilesBasemap = onImportPmTilesBasemap,
         onOpenNetworkSettings = onOpenNetworkSettings,
         onRecordOfflineBaseMapTileProof = onRecordOfflineBaseMapTileProof,
         offlineBaseMapTileProofCaptureState = offlineBaseMapTileProofCaptureState,
         offlineBaseMapTileProofMessage = offlineBaseMapTileProofMessage,
         offlineBaseMapManagerReturnMessage = offlineBaseMapManagerReturnMessage,
+        pmTilesImportMessage = pmTilesImportMessage,
         onAmapBaseMapRenderedChange = onAmapBaseMapRenderedChange,
         navigationFullscreen = navigationFullscreen,
-        onNavigationFullscreenChange = onNavigationFullscreenChange
+        onNavigationFullscreenChange = onNavigationFullscreenChange,
+        initiallyExpandDiagnostics = initiallyExpandDiagnostics
     )
 }

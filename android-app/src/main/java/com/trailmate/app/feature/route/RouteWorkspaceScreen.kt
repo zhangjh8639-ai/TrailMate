@@ -52,10 +52,14 @@ fun RouteWorkspaceScreen(
     importSummary: TargetRouteImportQueueSummary,
     isImporting: Boolean,
     canRetry: Boolean,
+    offlineRoutePackReady: Boolean = false,
+    offlineBaseMapReady: Boolean = false,
     showSampleRouteAction: Boolean = false,
     onPickRouteFile: () -> Unit,
     onImportSampleRoute: () -> Unit,
+    onSaveOfflineRoute: () -> Unit = {},
     onOpenRouteDetail: () -> Unit,
+    onOpenBasemapPreparation: () -> Unit = onOpenRouteDetail,
     modifier: Modifier = Modifier
 ) {
     val hasRoute = importedRoute != null
@@ -71,6 +75,14 @@ fun RouteWorkspaceScreen(
             onPrimaryAction = if (hasRoute) onOpenRouteDetail else onPickRouteFile
         )
 
+        if (hasRoute) {
+            RoutePreparationSummary(
+                offlineRoutePackReady = offlineRoutePackReady,
+                offlineBaseMapReady = offlineBaseMapReady,
+                onSaveOfflineRoute = onSaveOfflineRoute
+            )
+        }
+
         if (isImporting || canRetry) {
             ImportStatusPanel(importSummary = importSummary, canRetry = canRetry)
         }
@@ -81,8 +93,132 @@ fun RouteWorkspaceScreen(
             canRetry = canRetry,
             showSampleRouteAction = showSampleRouteAction,
             onPickRouteFile = onPickRouteFile,
-            onImportSampleRoute = onImportSampleRoute
+            onImportSampleRoute = onImportSampleRoute,
+            onOpenBasemapPreparation = onOpenBasemapPreparation
         )
+    }
+}
+
+@Composable
+private fun RoutePreparationSummary(
+    offlineRoutePackReady: Boolean,
+    offlineBaseMapReady: Boolean,
+    onSaveOfflineRoute: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        TrailMateSectionHeader(title = "出发前准备")
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.76f))
+        ) {
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                RoutePreparationRow(
+                    title = "GPX 路线",
+                    value = "GPX 轨迹已导入",
+                    caption = "路线距离、爬升和检查点已可用于评估与计划。",
+                    glyph = TrailMateGlyph.Route,
+                    active = true
+                )
+                RoutePreparationRow(
+                    title = "离线路线",
+                    value = if (offlineRoutePackReady) "离线路线：已保存" else "离线路线：待保存",
+                    caption = "保存 GPX 折线、检查点与计划，弱网时仍可查看路线。",
+                    glyph = if (offlineRoutePackReady) TrailMateGlyph.Check else TrailMateGlyph.Map,
+                    active = offlineRoutePackReady,
+                    actionLabel = if (offlineRoutePackReady) null else "保存离线路线",
+                    onAction = onSaveOfflineRoute
+                )
+                RoutePreparationRow(
+                    title = if (offlineBaseMapReady) "离线地图包：已导入" else "离线地图包：待导入",
+                    value = if (offlineBaseMapReady) "地图上下文可用" else "等待导入地图包",
+                    caption = "导入道路、地名和地形背景，辅助判断撤退与岔路。",
+                    glyph = TrailMateGlyph.Map,
+                    active = offlineBaseMapReady
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RoutePreparationRow(
+    title: String,
+    value: String,
+    caption: String,
+    glyph: TrailMateGlyph,
+    active: Boolean,
+    actionLabel: String? = null,
+    onAction: () -> Unit = {}
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .clip(CircleShape)
+                .background(
+                    if (active) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    }
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            TrailMateLineIcon(
+                glyph = glyph,
+                contentDescription = null,
+                modifier = Modifier.size(21.dp),
+                tint = if (active) {
+                    MaterialTheme.colorScheme.onPrimary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
+            )
+        }
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1
+            )
+            Text(
+                text = caption,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        if (actionLabel != null) {
+            OutlinedButton(onClick = onAction) {
+                Text(
+                    text = actionLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
     }
 }
 
@@ -200,7 +336,7 @@ private fun CurrentRouteSummary(importedRoute: ImportedRoute?) {
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = importedRoute?.let { "来自 ${it.fileName}" } ?: "导入后会生成评估、计划、装备和轻导航入口。",
+                    text = importedRoute?.let { "来自 ${it.fileName}" } ?: "导入后会生成评估、计划、装备和路线辅助入口。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
@@ -323,7 +459,7 @@ private fun RouteFloatingStatus(
                     maxLines = 1
                 )
                 Text(
-                    text = if (importedRoute == null) "支持 GPX 文件" else "评估 · 计划 · 装备 · 轻导航",
+                    text = if (importedRoute == null) "支持 GPX 文件" else "评估 · 计划 · 装备 · 路线辅助",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1
@@ -340,7 +476,8 @@ private fun RouteWorkspaceActions(
     canRetry: Boolean,
     showSampleRouteAction: Boolean,
     onPickRouteFile: () -> Unit,
-    onImportSampleRoute: () -> Unit
+    onImportSampleRoute: () -> Unit,
+    onOpenBasemapPreparation: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         TrailMateSectionHeader(title = if (hasRoute) "路线管理" else "快速开始")
@@ -358,6 +495,60 @@ private fun RouteWorkspaceActions(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("更换 GPX")
+            }
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.74f))
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TrailMateLineIcon(
+                            glyph = TrailMateGlyph.Map,
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Text(
+                                text = "离线地图包",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "导入目标区域 PMTiles 地图包，补齐 OSM 底图上下文。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    OutlinedButton(
+                        onClick = onOpenBasemapPreparation,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isImporting
+                    ) {
+                        TrailMateLineIcon(
+                            glyph = TrailMateGlyph.Map,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("导入离线地图包")
+                    }
+                }
             }
         } else if (showSampleRouteAction) {
             TextButton(

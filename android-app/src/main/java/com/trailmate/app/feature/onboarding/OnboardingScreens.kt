@@ -23,26 +23,34 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
+import com.trailmate.app.core.auth.TrailMateAuthActionResult
+import com.trailmate.app.core.auth.TrailMateAuthSession
+import com.trailmate.app.core.auth.TrailMateLocalOnboardingAuthActions
+import com.trailmate.app.core.auth.TrailMateOnboardingAuthActions
+import com.trailmate.app.core.auth.TrailMateWechatCallbackAuthActions
 import com.trailmate.app.core.design.TrailMateGlyph
 import com.trailmate.app.core.design.TrailMateLineIcon
 import com.trailmate.app.core.design.TrailMateSegmentedControl
@@ -53,16 +61,29 @@ import com.trailmate.app.core.model.ExerciseFrequency
 import com.trailmate.app.core.model.ExperienceLevel
 import com.trailmate.app.core.model.TrailMateSampleData
 import com.trailmate.app.core.model.TypicalDuration
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun OnboardingScreen(
+    initialAuthSession: TrailMateAuthSession? = null,
+    onAuthenticated: (TrailMateAuthSession) -> Unit = {},
+    authActions: TrailMateOnboardingAuthActions = TrailMateLocalOnboardingAuthActions(),
+    wechatLoginAvailable: Boolean = true,
     onComplete: (BaselineProfile, AmapPrivacyConsent) -> Unit,
     requestForegroundLocationPermissionOnComplete: Boolean = true
 ) {
     val context = LocalContext.current
-    var step by rememberSaveable { mutableStateOf(OnboardingStep.Account) }
-    var email by rememberSaveable { mutableStateOf("") }
-    var password by rememberSaveable { mutableStateOf("") }
+    var step by rememberSaveable {
+        mutableStateOf(
+            if (initialAuthSession == null) {
+                OnboardingStep.Account
+            } else {
+                OnboardingStep.Profile
+            }
+        )
+    }
     var pendingProfile by rememberSaveable(stateSaver = OnboardingProfileStateSaver) {
         mutableStateOf(TrailMateSampleData.skippedBaselineProfile)
     }
@@ -112,11 +133,12 @@ fun OnboardingScreen(
 
         when (step) {
             OnboardingStep.Account -> AccountStep(
-                email = email,
-                password = password,
-                onEmailChange = { email = it },
-                onPasswordChange = { password = it },
-                onContinue = { step = OnboardingStep.Profile }
+                authActions = authActions,
+                wechatLoginAvailable = wechatLoginAvailable,
+                onAuthenticated = { session ->
+                    onAuthenticated(session)
+                    step = OnboardingStep.Profile
+                }
             )
 
             OnboardingStep.Profile -> BaselineProfileStep(
@@ -142,47 +164,251 @@ fun OnboardingScreen(
 
 @Composable
 private fun AccountStep(
-    email: String,
-    password: String,
-    onEmailChange: (String) -> Unit,
-    onPasswordChange: (String) -> Unit,
-    onContinue: () -> Unit
+    authActions: TrailMateOnboardingAuthActions,
+    wechatLoginAvailable: Boolean,
+    onAuthenticated: (TrailMateAuthSession) -> Unit
 ) {
+    var authState by rememberSaveable(stateSaver = AccountAuthUiStateSaver) {
+        mutableStateOf(AccountAuthUiState.initial(wechatAvailable = wechatLoginAvailable))
+    }
+    var phoneInput by rememberSaveable { mutableStateOf("") }
+    var smsCode by rememberSaveable { mutableStateOf("") }
+    val context = LocalContext.current
+    val lifecycleOwner = context as? LifecycleOwner
+    val selectedMethod = authState.method
+    val authScope = rememberCoroutineScope()
+    val authMethodLabels = accountAuthMethodLabels(wechatAvailable = wechatLoginAvailable)
+
+    LaunchedEffect(wechatLoginAvailable) {
+        authState = authState.withWechatAvailability(wechatLoginAvailable)
+    }
+
+    fun handleAuthResult(result: TrailMateAuthActionResult<TrailMateAuthSession>) {
+        when (result) {
+            is TrailMateAuthActionResult.Success -> onAuthenticated(result.value)
+            is TrailMateAuthActionResult.InvalidInput -> {
+                authState = authState.idle(result.message)
+            }
+            is TrailMateAuthActionResult.Failure -> {
+                authState = authState.idle(result.message)
+            }
+        }
+    }
+
+    fun requestPhoneCode() {
+        if (authState.phase != AccountAuthPhase.IDLE) {
+            return
+        }
+        authState = authState.processing("正在获取验证码...")
+        authScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                authActions.requestPhoneCode(phoneInput)
+            }
+            when (result) {
+                is TrailMateAuthActionResult.Success -> {
+                    authState = authState.idle(
+                        message = "验证码已发送至 ${result.value.phoneNumber.takeLast(4).padStart(11, '*')}。",
+                        codeRequested = true
+                    )
+                }
+                is TrailMateAuthActionResult.InvalidInput -> {
+                    authState = authState.idle(result.message, codeRequested = false)
+                }
+                is TrailMateAuthActionResult.Failure -> {
+                    authState = authState.idle(result.message, codeRequested = false)
+                }
+            }
+        }
+    }
+
+    fun loginWithPhone() {
+        if (authState.phase != AccountAuthPhase.IDLE) {
+            return
+        }
+        authState = authState.processing("正在登录...")
+        authScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                authActions.loginWithPhone(phoneInput, smsCode)
+            }
+            handleAuthResult(result)
+        }
+    }
+
+    fun consumeWechatCallbackIfAvailable() {
+        val callbackActions = authActions as? TrailMateWechatCallbackAuthActions ?: return
+        if (!authState.shouldConsumeWechatCallbackOnResume) {
+            return
+        }
+        if (authState.phase == AccountAuthPhase.PROCESSING) {
+            return
+        }
+        val wasWaitingForWechat = authState.phase == AccountAuthPhase.WAITING_WECHAT_CALLBACK
+        authState = authState.processing("正在确认微信授权...")
+        authScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                callbackActions.consumeWechatCallback()
+            }
+            if (result == null) {
+                authState = if (wasWaitingForWechat) {
+                    authState.idle("未收到微信授权结果，可以重新发起。")
+                } else {
+                    authState.idle(authState.message)
+                }
+            } else {
+                handleAuthResult(result)
+            }
+        }
+    }
+
+    fun loginWithWechat() {
+        if (!authState.canSubmitWechat) {
+            return
+        }
+        authState = authState.processing("正在打开微信...")
+        authScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                authActions.loginWithWechat()
+            }
+            if (
+                result is TrailMateAuthActionResult.InvalidInput &&
+                result.message.contains("已打开微信授权")
+            ) {
+                authState = authState.waitingForWechatCallback()
+            } else {
+                handleAuthResult(result)
+            }
+        }
+    }
+
+    DisposableEffect(selectedMethod, authState.phase, authActions, lifecycleOwner) {
+        if (selectedMethod == AccountAuthMethod.WECHAT && lifecycleOwner != null) {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    consumeWechatCallbackIfAvailable()
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+            }
+        } else {
+            onDispose { }
+        }
+    }
+
     OnboardingHeroCard(
         glyph = TrailMateGlyph.Profile,
-        eyebrow = "注册 / 登录",
+        eyebrow = "微信优先登录",
         title = "先建立你的私人空间",
-        caption = "账号只用于保存本机档案状态，后续路线评估会优先使用你主动提供的信息。"
+        caption = if (wechatLoginAvailable) {
+            "一个入口完成登录或注册。随后只收集必要资料，用于路线评估、补给和装备建议。"
+        } else {
+            "微信登录暂不可用时使用手机号兜底。登录后再收集基础资料，用于路线评估、补给和装备建议。"
+        }
     )
-    AccountFormCard(
-        email = email,
-        password = password,
-        onEmailChange = onEmailChange,
-        onPasswordChange = onPasswordChange
-    )
+    OnboardingSectionCard(
+        glyph = TrailMateGlyph.Profile,
+        title = "账号方式",
+        caption = if (wechatLoginAvailable) {
+            "同一个微信入口完成注册和登录；授权处理中会保持等待状态，避免重复发起。"
+        } else {
+            "微信登录未配置，先使用手机号完成注册和登录。"
+        }
+    ) {
+        TrailMateSegmentedControl(
+            labels = authMethodLabels,
+            selected = selectedMethod.label,
+            onSelected = { selected ->
+                if (authState.canChangeMethod) {
+                    val nextMethod = AccountAuthMethod.fromLabel(
+                        label = selected,
+                        wechatAvailable = wechatLoginAvailable
+                    )
+                    authState = authState.withMethod(nextMethod)
+                }
+            }
+        )
+        if (selectedMethod == AccountAuthMethod.PHONE) {
+            OutlinedTextField(
+                value = phoneInput,
+                onValueChange = { input ->
+                    phoneInput = input.filter { char -> char.isDigit() || char == '+' || char == ' ' || char == '-' }
+                        .take(18)
+                },
+                label = { Text("手机号") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = smsCode,
+                    onValueChange = { input -> smsCode = input.filter(Char::isDigit).take(8) },
+                    label = { Text("验证码") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+                TextButton(
+                    onClick = {
+                        requestPhoneCode()
+                    },
+                    enabled = phoneInput.isNotBlank() && authState.phase == AccountAuthPhase.IDLE
+                ) {
+                    Text(authState.phoneCodeActionLabel)
+                }
+            }
+            Text(
+                text = authState.message,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Button(
+                onClick = {
+                    loginWithPhone()
+                },
+                enabled = phoneInput.isNotBlank() &&
+                    smsCode.isNotBlank() &&
+                    authState.phase == AccountAuthPhase.IDLE,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 54.dp)
+            ) {
+                Text(authState.primaryActionLabel)
+            }
+        } else {
+            OnboardingPermissionNote(
+                glyph = TrailMateGlyph.Check,
+                title = "微信授权",
+                caption = "使用微信完成身份确认，TrailMate 后端会创建或绑定你的私人账号。"
+            )
+            Button(
+                onClick = {
+                    loginWithWechat()
+                },
+                enabled = authState.canSubmitWechat,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 54.dp)
+            ) {
+                Text(authState.primaryActionLabel)
+            }
+            Text(
+                text = authState.message,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
     OnboardingInfoCard(
         glyph = TrailMateGlyph.Check,
         title = "默认私密",
-        caption = "运动、户外经验和身体信息只作为 AI 评估依据，默认不在首页和路线页展开。"
+        caption = "运动、户外经验和身体信息只用于路线评估，不在主页展示。"
     )
-    Button(
-        onClick = onContinue,
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 54.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary
-        )
-    ) {
-        Text("开始基础档案")
-    }
-    TextButton(
-        onClick = onContinue,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text("已有账号，直接登录")
-    }
     Text(
         text = "TrailMate 仅提供路线准备辅助，不替代离线地图、路标与安全判断。",
         style = MaterialTheme.typography.bodySmall,
@@ -275,8 +501,8 @@ private fun BaselineProfileStep(
 
     OnboardingInfoCard(
         glyph = TrailMateGlyph.Folder,
-        title = "作为评估证据保存",
-        caption = "这些资料用于分析目标路线、休息补给和装备清单；正式页面只展示结论。"
+        title = "默认不展示这些资料",
+        caption = "只用于路线评估，不在主页展示；正式页面只展示目标路线、休息补给和装备结论。"
     )
 
     Button(
@@ -322,17 +548,17 @@ private fun MapServicesStep(
         glyph = TrailMateGlyph.Map,
         eyebrow = "地图与定位准备",
         title = "先完成出发前授权",
-        caption = "高德在线底图、当前位置和轻导航授权集中在首次设置处理；路线页只展示路线与行动。"
+        caption = "离线地图包、当前位置和轨迹记录授权集中在首次设置处理；路线页只展示路线与行动。"
     )
     OnboardingSectionCard(
         glyph = TrailMateGlyph.Map,
-        title = "在线底图",
-        caption = "同意后路线页可加载高德底图；本地路线预览始终可用。"
+        title = "离线地图包",
+        caption = "导入目标区域 PMTiles/OSM 地图包后，弱网时也能查看道路、地名和地形背景。"
     ) {
         OnboardingPermissionNote(
             glyph = TrailMateGlyph.Check,
             title = "同意地图服务",
-            caption = "TrailMate 会在初始化在线底图前记录你的选择，避免进入路线页后反复打断。"
+            caption = "TrailMate 会在初始化地图与定位能力前记录你的选择，避免进入路线页后反复打断。"
         )
         OnboardingPermissionNote(
             glyph = TrailMateGlyph.Folder,
@@ -343,12 +569,12 @@ private fun MapServicesStep(
     OnboardingSectionCard(
         glyph = TrailMateGlyph.Location,
         title = "定位授权",
-        caption = "继续后会请求系统定位权限，用于当前位置、轻导航和真实轨迹记录。"
+        caption = "继续后会请求系统定位权限，用于当前位置、路线辅助和真实轨迹记录。"
     ) {
         OnboardingPermissionNote(
             glyph = TrailMateGlyph.Location,
-            title = "当前位置与轻导航",
-            caption = "授权后路线页可直接进入导航与轨迹记录；若你拒绝授权，开始徒步时会再给出兜底提醒。"
+            title = "当前位置与路线辅助",
+            caption = "授权后路线页可直接进入定位、路线校验与轨迹记录；若你拒绝授权，开始徒步时会再给出兜底提醒。"
         )
         OnboardingPermissionNote(
             glyph = TrailMateGlyph.Bell,
@@ -400,7 +626,7 @@ private fun OnboardingHeader(step: OnboardingStep) {
                 color = MaterialTheme.colorScheme.primary
             )
             Text(
-                text = "路线评估、轻导航和装备检查",
+                text = "路线评估、路线辅助和装备检查",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.72f)
             )
@@ -423,38 +649,6 @@ private fun StepPill(text: String) {
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.Bold
-        )
-    }
-}
-
-@Composable
-private fun AccountFormCard(
-    email: String,
-    password: String,
-    onEmailChange: (String) -> Unit,
-    onPasswordChange: (String) -> Unit
-) {
-    OnboardingSectionCard(
-        glyph = TrailMateGlyph.Profile,
-        title = "账号信息",
-        caption = "现在先用本地模拟登录，后续可接入真实服务端。"
-    ) {
-        OutlinedTextField(
-            value = email,
-            onValueChange = onEmailChange,
-            label = { Text("邮箱") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
-        )
-        OutlinedTextField(
-            value = password,
-            onValueChange = onPasswordChange,
-            label = { Text("密码") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
         )
     }
 }
@@ -706,10 +900,32 @@ private fun Context.hasForegroundLocationPermission(): Boolean =
 
 private fun OnboardingStep.stepText(): String =
     when (this) {
-        OnboardingStep.Account -> "1/3"
-        OnboardingStep.Profile -> "2/3"
-        OnboardingStep.MapServices -> "3/3"
+        OnboardingStep.Account -> "账号 1/3"
+        OnboardingStep.Profile -> "能力基础 2/3"
+        OnboardingStep.MapServices -> "地图准备 3/3"
     }
+
+@Suppress("UNCHECKED_CAST")
+private val AccountAuthUiStateSaver = androidx.compose.runtime.saveable.mapSaver(
+    save = { state ->
+        mapOf(
+            "method" to state.method.name,
+            "phase" to state.phase.name,
+            "message" to state.message,
+            "codeRequested" to state.codeRequested,
+            "wechatAvailable" to state.wechatAvailable
+        )
+    },
+    restore = { saved ->
+        AccountAuthUiState(
+            method = AccountAuthMethod.valueOf(saved["method"] as String),
+            phase = AccountAuthPhase.valueOf(saved["phase"] as String),
+            message = saved["message"] as String,
+            codeRequested = saved["codeRequested"] as Boolean,
+            wechatAvailable = saved["wechatAvailable"] as? Boolean ?: true
+        )
+    }
+)
 
 @Suppress("UNCHECKED_CAST")
 private val OnboardingProfileStateSaver = androidx.compose.runtime.saveable.mapSaver(

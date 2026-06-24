@@ -5,17 +5,31 @@ import org.junit.Test
 
 class TrailMapSurfaceSelectorTest {
     @Test
-    fun selectsAmapMapViewForAmapProviderWithoutProductionClaim() {
+    fun selectsMapLibreSurfaceForPmtilesProvider() {
+        val readiness = TrailMapReadiness(
+            provider = TrailMapProvider.MAPLIBRE_PMTILES,
+            title = "离线地图包",
+            caption = "PMTiles 本地离线地图包已就绪。",
+            layerChips = listOf("GPX 折线", "检查点", "PMTiles 底图"),
+            actionLabel = "查看路线辅助",
+            isProductionMapReady = true
+        )
+
+        assertEquals(TrailMapSurfaceMode.MAPLIBRE_PMTILES, TrailMapSurfaceSelector.select(readiness))
+    }
+
+    @Test
+    fun keepsLocalCanvasForAmapProviderBecausePmtilesOwnsOfflineBasemap() {
         val readiness = TrailMapReadiness(
             provider = TrailMapProvider.AMAP_SDK,
-            title = "在线底图",
-            caption = "在线底图可用，建议出发前保存路线包。",
-            layerChips = listOf("GPX 折线", "检查点", "在线底图"),
-            actionLabel = "保存路线包",
+            title = "本地路线预览",
+            caption = "PMTiles 离线地图包待导入，当前使用本地 GPX 路线预览。",
+            layerChips = listOf("GPX 折线", "检查点"),
+            actionLabel = "使用本地路线",
             isProductionMapReady = false
         )
 
-        assertEquals(TrailMapSurfaceMode.AMAP_MAP_VIEW, TrailMapSurfaceSelector.select(readiness))
+        assertEquals(TrailMapSurfaceMode.LOCAL_CANVAS, TrailMapSurfaceSelector.select(readiness))
     }
 
     @Test

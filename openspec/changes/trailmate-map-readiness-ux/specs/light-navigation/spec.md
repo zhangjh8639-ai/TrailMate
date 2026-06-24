@@ -87,17 +87,17 @@ The light-navigation screen SHALL disclose whether the current map is a local GP
 - **AND** the legend distinguishes `计划路线`, `路线提示点`, `实走轨迹`, `当前位置`, and `底图`
 - **AND** unavailable route geometry blocks route-dependent layer status instead of implying the map is ready
 
-#### Scenario: Field status summary appears after the route map
+#### Scenario: Location and recording summary appears after the route map
 
-- **GIVEN** the user opens `轻导航`
+- **GIVEN** the user opens `路线辅助`
 - **WHEN** the route map is displayed
-- **THEN** the app shows a `现场状态` summary directly after the map surface
+- **THEN** the app shows a `定位与记录` summary directly after the map surface
 - **AND** the summary combines GPS reliability, track recording point count, base map readiness, and lock-screen notification support
-- **AND** the summary uses short Chinese labels such as `准备轻导航`, `正在记录实走轨迹`, `GPS`, `轨迹`, `底图`, and `通知`
+- **AND** the summary uses short Chinese labels such as `准备定位记录`, `正在记录实走轨迹`, `定位`, `轨迹`, `底图`, and `通知`
 
 #### Scenario: AMap launch diagnostics are visible without secrets
 
-- **GIVEN** the user opens `轻导航`
+- **GIVEN** the user opens `路线辅助`
 - **WHEN** the route map and readiness panels are displayed
 - **THEN** the app shows a `高德上线检查` summary
 - **AND** the summary includes non-secret checks for `Android Key`, `Package/SHA1`, SDK linkage, privacy authorization, online base map readiness, offline base map entry readiness, and GPS
@@ -106,7 +106,7 @@ The light-navigation screen SHALL disclose whether the current map is a local GP
 
 #### Scenario: AMap offline map entry follows provider gates
 
-- **GIVEN** the user opens `轻导航`
+- **GIVEN** the user opens `路线辅助`
 - **WHEN** the AMap key, SDK linkage, privacy authorization, and official offline map activity registration gates are ready
 - **THEN** the `高德上线检查` summary SHALL mark `离线底图` as `可打开`
 - **AND** the app SHALL expose an action to open the AMap offline map manager
@@ -140,11 +140,11 @@ The light-navigation screen SHALL disclose whether the current map is a local GP
 - **AND** the readiness state explains whether `高德 SDK 待接入` or `高德隐私授权待确认`
 - **AND** the map setup hint explains that AMap `MapView` is initialized only after consent
 
-#### Scenario: AMap privacy consent can be accepted from light navigation
+#### Scenario: AMap privacy consent can be accepted from route assistance
 
 - **GIVEN** an AMap API key exists
 - **AND** AMap privacy consent has not been accepted
-- **WHEN** the user opens `轻导航`
+- **WHEN** the user opens `路线辅助`
 - **THEN** the app shows a `高德地图授权` action
 - **WHEN** the user accepts the authorization
 - **THEN** the accepted consent is persisted locally with an acceptance timestamp and policy version
@@ -182,7 +182,7 @@ The light-navigation screen SHALL disclose whether the current map is a local GP
 - **GIVEN** the user has saved the route pack
 - **AND** foreground GPS is enabled
 - **WHEN** the route map is displayed
-- **THEN** the readiness state shows `实走轻导航`
+- **THEN** the readiness state shows `定位与记录`
 - **AND** the caption says the offline route pack and foreground GPS are active
 
 #### Scenario: Saved route pack survives app restart
@@ -196,16 +196,16 @@ The light-navigation screen SHALL disclose whether the current map is a local GP
 
 The light-navigation tab SHALL prioritize the map surface and map mode over secondary session-management panels.
 
-#### Scenario: User opens light navigation
+#### Scenario: User opens route assistance
 
 - **GIVEN** the user has opened a target route
-- **WHEN** the user selects `轻导航`
+- **WHEN** the user selects `路线辅助`
 - **THEN** the visible viewport includes the map readiness title such as `本地路线预览`
 - **AND** session controls such as `开始徒步` remain available without replacing the map as the first content surface
 
 #### Scenario: Map location tool enables GPS
 
-- **GIVEN** the route map is visible in `轻导航`
+- **GIVEN** the route map is visible in `路线辅助`
 - **WHEN** the user focuses the floating `定位` map tool
 - **THEN** the tool is exposed as an actionable control rather than a decorative icon
 - **WHEN** the user activates the tool
@@ -213,20 +213,20 @@ The light-navigation tab SHALL prioritize the map surface and map mode over seco
 
 #### Scenario: Map tools are hidden until field behavior exists
 
-- **GIVEN** the route map is visible in `轻导航`
+- **GIVEN** the route map is visible in `路线辅助`
 - **WHEN** heading or bearing calibration is not available
 - **THEN** the app SHALL NOT expose a floating `校准方向` map tool
 - **AND** every visible floating map tool SHALL either perform a real action or be absent
 
-### Requirement: Light navigation shall surface pre-departure checks
+### Requirement: Route assistance shall surface pre-departure checks
 
-The light-navigation tab SHALL summarize route, offline route pack, GPS, and route-critical gear readiness before the user starts a hike.
+The route-assistance tab SHALL summarize route, offline route pack, GPS, and route-critical gear readiness before the user starts a hike.
 
 #### Scenario: Departure checks have missing items
 
 - **GIVEN** the target route has usable geometry
 - **AND** the offline route pack, GPS, or critical gear checks are not ready
-- **WHEN** the user opens `轻导航`
+- **WHEN** the user opens `路线辅助`
 - **THEN** the app shows `出发检查`
 - **AND** it summarizes how many readiness areas still need action
 - **AND** it exposes the next recommended action such as saving the route pack, enabling GPS, or completing gear
@@ -235,7 +235,7 @@ The light-navigation tab SHALL summarize route, offline route pack, GPS, and rou
 
 - **GIVEN** the target route has usable geometry
 - **AND** the offline route pack, GPS, and critical gear checks are ready
-- **WHEN** the user opens `轻导航`
+- **WHEN** the user opens `路线辅助`
 - **THEN** the app shows `出发检查完成`
 - **AND** it marks the route as ready to start
 

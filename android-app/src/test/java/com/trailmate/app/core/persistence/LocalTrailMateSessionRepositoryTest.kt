@@ -1,11 +1,12 @@
 package com.trailmate.app.core.persistence
 
+import com.trailmate.app.core.auth.TrailMateAuthProvider
+import com.trailmate.app.core.auth.TrailMateAuthSession
 import com.trailmate.app.core.gpx.GpxImportQueue
 import com.trailmate.app.core.gpx.GpxImportJobKind
 import com.trailmate.app.core.map.AmapOfflineBaseMapTileProof
 import com.trailmate.app.core.map.AmapPrivacyConsent
 import com.trailmate.app.core.model.BaselineProfile
-import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.HistoricalActivity
 import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.TrailMateSampleData
@@ -31,10 +32,19 @@ class LocalTrailMateSessionRepositoryTest {
     fun savesProfileAndHistoryThroughLocalStore() {
         val store = FakeTrailMateSessionStore()
         val repository = LocalTrailMateSessionRepository(store)
-        val inventory = GearInventory(TrailMateSampleData.gearItems)
+        val authSession = TrailMateAuthSession(
+            userId = "usr-1",
+            provider = TrailMateAuthProvider.PHONE,
+            accessToken = "access-token",
+            refreshToken = "refresh-token",
+            expiresAt = "2026-06-22T12:00:00Z",
+            phoneNumber = "+8613800138000",
+            wechatOpenId = null,
+            displayName = null
+        )
 
+        repository.saveAuthSession(authSession)
         repository.saveProfile(TrailMateSampleData.baselineProfile)
-        repository.saveInventory(inventory)
         repository.saveImportedRoute(TrailMateSampleData.importedTargetRoute)
         repository.saveHistoricalActivities(TrailMateSampleData.historicalActivities)
         val queue = GpxImportQueue().enqueue(
@@ -66,8 +76,8 @@ class LocalTrailMateSessionRepositoryTest {
         )
         repository.saveOfflineBaseMapTileProofs(offlineBaseMapTileProofs)
 
+        assertEquals(authSession, store.snapshot.authSession)
         assertEquals(TrailMateSampleData.baselineProfile, store.snapshot.profile)
-        assertEquals(inventory, store.snapshot.inventory)
         assertEquals(TrailMateSampleData.importedTargetRoute, store.snapshot.importedRoute)
         assertEquals(TrailMateSampleData.historicalActivities, store.snapshot.historicalActivities)
         assertEquals(queue, store.snapshot.gpxImportQueue)
@@ -82,7 +92,6 @@ class LocalTrailMateSessionRepositoryTest {
         val store = FakeTrailMateSessionStore(
             TrailMateSnapshot(
                 profile = TrailMateSampleData.baselineProfile,
-                inventory = GearInventory(TrailMateSampleData.gearItems),
                 importedRoute = TrailMateSampleData.importedTargetRoute,
                 historicalActivities = TrailMateSampleData.historicalActivities
             )
@@ -92,6 +101,35 @@ class LocalTrailMateSessionRepositoryTest {
         repository.clearLocalData()
 
         assertEquals(TrailMateSnapshot.empty(), store.snapshot)
+    }
+
+    @Test
+    fun clearAuthSessionPreservesLocalOutdoorData() {
+        val authSession = TrailMateAuthSession(
+            userId = "usr-1",
+            provider = TrailMateAuthProvider.WECHAT,
+            accessToken = "access-token",
+            refreshToken = "refresh-token",
+            expiresAt = "2026-06-22T12:00:00Z",
+            phoneNumber = null,
+            wechatOpenId = "openid",
+            displayName = "张三"
+        )
+        val startingSnapshot = TrailMateSnapshot(
+            authSession = authSession,
+            profile = TrailMateSampleData.baselineProfile,
+            importedRoute = TrailMateSampleData.importedTargetRoute,
+            historicalActivities = TrailMateSampleData.historicalActivities
+        )
+        val store = FakeTrailMateSessionStore(startingSnapshot)
+        val repository = LocalTrailMateSessionRepository(store)
+
+        repository.clearAuthSession()
+
+        assertEquals(
+            startingSnapshot.copy(authSession = null),
+            store.snapshot
+        )
     }
 }
 
@@ -103,12 +141,16 @@ private class FakeTrailMateSessionStore(
 
     override fun load(): TrailMateSnapshot = snapshot
 
-    override fun saveProfile(profile: BaselineProfile) {
-        snapshot = snapshot.copy(profile = profile)
+    override fun saveAuthSession(session: TrailMateAuthSession) {
+        snapshot = snapshot.copy(authSession = session)
     }
 
-    override fun saveInventory(inventory: GearInventory) {
-        snapshot = snapshot.copy(inventory = inventory)
+    override fun clearAuthSession() {
+        snapshot = snapshot.copy(authSession = null)
+    }
+
+    override fun saveProfile(profile: BaselineProfile) {
+        snapshot = snapshot.copy(profile = profile)
     }
 
     override fun saveImportedRoute(route: ImportedRoute) {

@@ -21,12 +21,6 @@ object TrailMateSampleData {
         commonPackWeightKg = 5
     )
 
-    val gearItems = listOf(
-        GearItem("shoes-1", "徒步鞋", "Salomon", "X Ultra 4 GTX", 760, true),
-        GearItem("shell-1", "雨衣", "Patagonia", "Torrentshell", 400, true),
-        GearItem("headlamp-1", "头灯", "Black Diamond", "Spot 400", 86, true)
-    )
-
     val importedTargetRoute = ImportedRoute(
         routeName = "龙井山脊",
         fileName = "longjing-ridge-target.gpx",
@@ -90,13 +84,13 @@ object TrailMateSampleData {
             category = "雨衣",
             status = GearStatus.COVERED,
             rationale = "现有雨衣可以覆盖山脊风和小雨。",
-            matchedGearItemId = "shell-1"
+            matchedGearItemId = "cat_rain_arcteryx_beta_lt"
         ),
         GearRecommendation(
             category = "头灯",
             status = GearStatus.CHECK,
             rationale = "预计收队可能偏晚，出发前检查电量。",
-            matchedGearItemId = "headlamp-1"
+            matchedGearItemId = "cat_headlamp_bd_spot_400"
         ),
         GearRecommendation(
             category = "登山杖",

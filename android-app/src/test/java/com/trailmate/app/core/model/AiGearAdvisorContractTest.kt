@@ -11,30 +11,26 @@ class AiGearAdvisorContractTest {
         profile = TrailMateSampleData.baselineProfile,
         route = TrailMateSampleData.importedTargetRoute
     )
-    private val inventory = GearInventory(TrailMateSampleData.gearItems)
-    private val fallback = inventory.applyTo(
-        RouteGearAdvisorEngine.recommend(
-            route = TrailMateSampleData.importedTargetRoute,
-            assessment = assessment
-        )
+    private val fallback = RouteGearAdvisorEngine.recommend(
+        route = TrailMateSampleData.importedTargetRoute,
+        assessment = assessment
     )
 
     @Test
-    fun requestIncludesRouteProfileInventoryFallbackAndAssessmentGuardrail() {
+    fun requestIncludesRouteProfileFallbackAndAssessmentGuardrail() {
         val request = AiGearAdvisorContract.buildRequest(
             route = TrailMateSampleData.importedTargetRoute,
             profile = TrailMateSampleData.baselineProfile,
             assessment = assessment,
-            inventory = inventory,
             fallbackRecommendations = fallback
         )
 
         assertEquals("龙井山脊", request.route.routeName)
         assertEquals(assessment.matchLevel, request.assessment.matchLevel)
         assertEquals(TrailMateSampleData.baselineProfile.commonPackWeightKg, request.profile.commonPackWeightKg)
-        assertEquals(TrailMateSampleData.gearItems.size, request.ownedGear.size)
         assertEquals(fallback.size, request.fallbackRecommendations.size)
         assertTrue(request.guardrails.any { it.contains("不要改写路线评估") })
+        assertTrue(request.guardrails.any { it.contains("服务端品牌库") })
         assertTrue(request.assessmentFingerprint.isNotBlank())
     }
 
@@ -44,7 +40,6 @@ class AiGearAdvisorContractTest {
             route = TrailMateSampleData.importedTargetRoute,
             profile = TrailMateSampleData.baselineProfile,
             assessment = assessment,
-            inventory = inventory,
             fallbackRecommendations = fallback
         )
         val response = AiGearAdvisorResponse(
@@ -63,7 +58,6 @@ class AiGearAdvisorContractTest {
             route = TrailMateSampleData.importedTargetRoute,
             profile = TrailMateSampleData.baselineProfile,
             assessment = assessment,
-            inventory = inventory,
             fallbackRecommendations = fallback
         )
         val response = AiGearAdvisorResponse(
@@ -88,7 +82,6 @@ class AiGearAdvisorContractTest {
             route = TrailMateSampleData.importedTargetRoute,
             profile = TrailMateSampleData.baselineProfile,
             assessment = assessment,
-            inventory = inventory,
             fallbackRecommendations = fallback
         )
         val response = AiGearAdvisorResponse(
@@ -109,7 +102,6 @@ class AiGearAdvisorContractTest {
             route = TrailMateSampleData.importedTargetRoute,
             profile = TrailMateSampleData.baselineProfile,
             assessment = assessment,
-            inventory = inventory,
             fallbackRecommendations = fallback
         )
         val aiRecommendation = fallback.first().copy(
@@ -132,25 +124,12 @@ class AiGearAdvisorContractTest {
     }
 
     @Test
-    fun presentationAppliesCurrentInventoryToValidatedAiRecommendations() {
-        val inventoryWithPoles = inventory.addBrandGear(
-            category = "登山杖",
-            brand = "Leki",
-            model = "Makalu Lite",
-            weightGrams = 480
-        )
-        val fallbackWithPoles = inventoryWithPoles.applyTo(
-            RouteGearAdvisorEngine.recommend(
-                route = TrailMateSampleData.importedTargetRoute,
-                assessment = assessment
-            )
-        )
+    fun presentationDoesNotInventOwnedGearForValidatedAiRecommendations() {
         val request = AiGearAdvisorContract.buildRequest(
             route = TrailMateSampleData.importedTargetRoute,
             profile = TrailMateSampleData.baselineProfile,
             assessment = assessment,
-            inventory = inventoryWithPoles,
-            fallbackRecommendations = fallbackWithPoles
+            fallbackRecommendations = fallback
         )
         val response = AiGearAdvisorResponse(
             assessmentFingerprint = request.assessmentFingerprint,
@@ -158,7 +137,7 @@ class AiGearAdvisorContractTest {
                 GearRecommendation(
                     category = "登山杖",
                     status = GearStatus.MISSING,
-                    rationale = "AI route rationale before inventory refresh."
+                    rationale = "AI route rationale before catalog matching."
                 )
             )
         )
@@ -170,8 +149,9 @@ class AiGearAdvisorContractTest {
 
         val poles = presentation.recommendations.single()
         assertEquals("AI 清单就绪", presentation.statusLabel)
-        assertEquals(GearStatus.COVERED, poles.status)
-        assertTrue(poles.matchedGearItemId.orEmpty().contains("leki-makalu-lite"))
+        assertEquals(GearStatus.MISSING, poles.status)
+        assertTrue(poles.matchedGearItemId.isNullOrBlank())
+        assertTrue(presentation.caption.contains("服务端品牌库"))
     }
 
     @Test
@@ -180,7 +160,6 @@ class AiGearAdvisorContractTest {
             route = TrailMateSampleData.importedTargetRoute,
             profile = TrailMateSampleData.baselineProfile,
             assessment = assessment,
-            inventory = inventory,
             fallbackRecommendations = fallback
         )
         val staleResponse = AiGearAdvisorResponse(
@@ -213,7 +192,6 @@ class AiGearAdvisorContractTest {
             route = TrailMateSampleData.importedTargetRoute,
             profile = TrailMateSampleData.baselineProfile,
             assessment = assessment,
-            inventory = inventory,
             fallbackRecommendations = fallback
         )
         val incompleteResponse = AiGearAdvisorResponse(
@@ -226,7 +204,7 @@ class AiGearAdvisorContractTest {
             response = incompleteResponse
         )
 
-        assertEquals("本地清单启用", presentation.statusLabel)
+        assertEquals("规则清单就绪", presentation.statusLabel)
         assertTrue(presentation.isFallbackActive)
         assertFalse(presentation.isStaleResponse)
         assertEquals(fallback, presentation.recommendations)

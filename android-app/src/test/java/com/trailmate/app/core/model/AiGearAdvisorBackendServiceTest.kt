@@ -11,50 +11,28 @@ class AiGearAdvisorBackendServiceTest {
         profile = TrailMateSampleData.baselineProfile,
         route = TrailMateSampleData.importedTargetRoute
     )
-    private val inventory = GearInventory(TrailMateSampleData.gearItems)
-    private val fallback = inventory.applyTo(
-        RouteGearAdvisorEngine.recommend(
-            route = TrailMateSampleData.importedTargetRoute,
-            assessment = assessment
-        )
+    private val fallback = RouteGearAdvisorEngine.recommend(
+        route = TrailMateSampleData.importedTargetRoute,
+        assessment = assessment
     )
     private val request = AiGearAdvisorContract.buildRequest(
         route = TrailMateSampleData.importedTargetRoute,
         profile = TrailMateSampleData.baselineProfile,
         assessment = assessment,
-        inventory = inventory,
         fallbackRecommendations = fallback
     )
 
     @Test
-    fun successfulBackendResponseReturnsValidatedInventoryRefreshedPresentation() {
-        val inventoryWithPoles = inventory.addBrandGear(
-            category = "登山杖",
-            brand = "Leki",
-            model = "Makalu Lite",
-            weightGrams = 480
-        )
-        val requestWithPoles = AiGearAdvisorContract.buildRequest(
-            route = TrailMateSampleData.importedTargetRoute,
-            profile = TrailMateSampleData.baselineProfile,
-            assessment = assessment,
-            inventory = inventoryWithPoles,
-            fallbackRecommendations = inventoryWithPoles.applyTo(
-                RouteGearAdvisorEngine.recommend(
-                    route = TrailMateSampleData.importedTargetRoute,
-                    assessment = assessment
-                )
-            )
-        )
+    fun successfulBackendResponseReturnsValidatedCatalogReadyPresentation() {
         val backendClient = FakeBackendClient(
             result = AiGearAdvisorBackendResult.Success(
                 AiGearAdvisorResponse(
-                    assessmentFingerprint = requestWithPoles.assessmentFingerprint,
+                    assessmentFingerprint = request.assessmentFingerprint,
                     recommendations = listOf(
                         GearRecommendation(
                             category = "登山杖",
                             status = GearStatus.MISSING,
-                            rationale = "AI route rationale before inventory refresh."
+                            rationale = "AI route rationale before catalog matching."
                         )
                     )
                 )
@@ -62,15 +40,16 @@ class AiGearAdvisorBackendServiceTest {
         )
         val service = AiGearAdvisorBackendService(client = backendClient)
 
-        val result = service.advise(requestWithPoles)
+        val result = service.advise(request)
 
         val poles = result.presentation.recommendations.single()
-        assertEquals(listOf(requestWithPoles), backendClient.requests)
+        assertEquals(listOf(request), backendClient.requests)
         assertEquals(AiGearAdvisorBackendStatus.SUCCESS, result.backendStatus)
         assertEquals("AI 清单就绪", result.presentation.statusLabel)
         assertFalse(result.presentation.isFallbackActive)
-        assertEquals(GearStatus.COVERED, poles.status)
-        assertTrue(poles.matchedGearItemId.orEmpty().contains("leki-makalu-lite"))
+        assertEquals(GearStatus.MISSING, poles.status)
+        assertTrue(poles.matchedGearItemId.isNullOrBlank())
+        assertTrue(result.presentation.caption.contains("服务端品牌库"))
     }
 
     @Test
@@ -83,7 +62,7 @@ class AiGearAdvisorBackendServiceTest {
 
         assertEquals(AiGearAdvisorBackendStatus.RETRY_AVAILABLE, result.backendStatus)
         assertEquals(AiGearAdvisorBackendFailureReason.TIMEOUT, result.backendReason)
-        assertEquals("本地清单启用", result.presentation.statusLabel)
+        assertEquals("规则清单就绪", result.presentation.statusLabel)
         assertTrue(result.presentation.isFallbackActive)
         assertFalse(result.presentation.isStaleResponse)
         assertEquals(fallback, result.presentation.recommendations)

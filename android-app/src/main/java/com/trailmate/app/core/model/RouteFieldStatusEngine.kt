@@ -29,9 +29,9 @@ object RouteFieldStatusEngine {
             TrackRecordingStatus.FINISHED -> if (trackRecording.pointCount > 0) {
                 "轨迹已保存"
             } else {
-                "准备轻导航"
+                "准备定位记录"
             }
-            TrackRecordingStatus.IDLE -> "准备轻导航"
+            TrackRecordingStatus.IDLE -> "准备定位记录"
         }
         val statusLabel = when (trackRecording.status) {
             TrackRecordingStatus.RECORDING -> if (locationReliability.level == LocationReliabilityLevel.GOOD) {
@@ -62,10 +62,10 @@ object RouteFieldStatusEngine {
             TrackRecordingStatus.FINISHED -> if (trackRecording.pointCount > 0) {
                 "轨迹已保存在本机，可到数据页复盘本次路线表现。"
             } else {
-                "先授权定位；出发前建议保存路线包并允许轨迹通知。"
+                "先授权定位；出发前建议保存离线路线并允许轨迹通知。"
             }
             TrackRecordingStatus.IDLE ->
-                "先授权定位；出发前建议保存路线包并允许轨迹通知。"
+                "先授权定位；出发前建议保存离线路线并允许轨迹通知。"
         }
 
         return RouteFieldStatusSummary(

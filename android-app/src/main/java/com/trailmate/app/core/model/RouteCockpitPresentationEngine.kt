@@ -125,7 +125,11 @@ object RouteCockpitPresentationEngine {
         wasRecentlyOffRoute: Boolean,
         nowEpochMillis: Long
     ): RouteCockpitPrimaryAction {
-        if (session.status == HikeSessionStatus.READY && departureReadiness.primaryActionLabel != "开始徒步") {
+        if (
+            session.status == HikeSessionStatus.READY &&
+            !departureReadiness.primaryActionLabel.isStartHikeAction() &&
+            !departureReadiness.primaryActionLabel.isOfflineBaseMapRepairAction()
+        ) {
             return departureReadiness.primaryRepairAction()
         }
 
@@ -140,6 +144,24 @@ object RouteCockpitPresentationEngine {
             )
         }
 
+        when (trackRecording.status) {
+            TrackRecordingStatus.RECORDING -> return RouteCockpitPrimaryAction(
+                label = "暂停",
+                kind = RouteCockpitPrimaryActionKind.PAUSE_RECORDING
+            )
+            TrackRecordingStatus.PAUSED -> return RouteCockpitPrimaryAction(
+                label = "继续",
+                kind = RouteCockpitPrimaryActionKind.RESUME_RECORDING
+            )
+            TrackRecordingStatus.FINISHED -> if (trackRecording.pointCount > 0) {
+                return RouteCockpitPrimaryAction(
+                    label = "查看轨迹回顾",
+                    kind = RouteCockpitPrimaryActionKind.REVIEW_TRACK
+                )
+            }
+            TrackRecordingStatus.IDLE -> Unit
+        }
+
         if (locationGuidanceStatus == LocationBackedHikeStatus.CHECK_ROUTE || wasRecentlyOffRoute) {
             return RouteCockpitPrimaryAction(
                 label = "查看恢复建议",
@@ -148,20 +170,7 @@ object RouteCockpitPresentationEngine {
         }
 
         return when (trackRecording.status) {
-            TrackRecordingStatus.RECORDING -> RouteCockpitPrimaryAction(
-                label = "暂停",
-                kind = RouteCockpitPrimaryActionKind.PAUSE_RECORDING
-            )
-            TrackRecordingStatus.PAUSED -> RouteCockpitPrimaryAction(
-                label = "继续",
-                kind = RouteCockpitPrimaryActionKind.RESUME_RECORDING
-            )
-            TrackRecordingStatus.FINISHED -> if (trackRecording.pointCount > 0) {
-                RouteCockpitPrimaryAction(
-                    label = "查看轨迹回顾",
-                    kind = RouteCockpitPrimaryActionKind.REVIEW_TRACK
-                )
-            } else {
+            TrackRecordingStatus.FINISHED -> {
                 session.primarySessionAction()
             }
             TrackRecordingStatus.IDLE -> if (session.status == HikeSessionStatus.ACTIVE) {
@@ -172,16 +181,18 @@ object RouteCockpitPresentationEngine {
             } else {
                 session.primarySessionAction()
             }
+            TrackRecordingStatus.RECORDING,
+            TrackRecordingStatus.PAUSED -> session.primarySessionAction()
         }
     }
 
     private fun DepartureReadinessSummary.primaryRepairAction(): RouteCockpitPrimaryAction =
         when {
-            primaryActionLabel == "保存路线包" -> RouteCockpitPrimaryAction(
+            primaryActionLabel.isSaveRouteAction() -> RouteCockpitPrimaryAction(
                 label = primaryActionLabel,
                 kind = RouteCockpitPrimaryActionKind.SAVE_OFFLINE_ROUTE_PACK
             )
-            primaryActionLabel.contains("离线底图") || primaryActionLabel == "飞行模式验证底图" -> RouteCockpitPrimaryAction(
+            primaryActionLabel.isOfflineBaseMapRepairAction() -> RouteCockpitPrimaryAction(
                 label = primaryActionLabel,
                 kind = RouteCockpitPrimaryActionKind.OPEN_OFFLINE_BASE_MAP
             )
@@ -208,10 +219,25 @@ object RouteCockpitPresentationEngine {
             )
         }
 
+    private fun String.isOfflineBaseMapRepairAction(): Boolean =
+        this == "导入离线地图包" ||
+            this == "导入底图" ||
+            this == "导入离线底图" ||
+            this == "下载底图" ||
+            contains("离线地图包") ||
+            contains("离线底图") ||
+            this == "飞行模式验证底图"
+
+    private fun String.isSaveRouteAction(): Boolean =
+        this == "保存离线路线" || this == "保存 GPX 路线" || this == "保存路线包"
+
+    private fun String.isStartHikeAction(): Boolean =
+        this == START_HIKE_WITH_TRACK_LABEL
+
     private fun HikeSessionState.primarySessionAction(): RouteCockpitPrimaryAction =
         when (status) {
             HikeSessionStatus.READY -> RouteCockpitPrimaryAction(
-                label = "开始徒步",
+                label = START_HIKE_WITH_TRACK_LABEL,
                 kind = RouteCockpitPrimaryActionKind.START_HIKE
             )
             HikeSessionStatus.ACTIVE -> RouteCockpitPrimaryAction(
@@ -238,15 +264,15 @@ object RouteCockpitPresentationEngine {
             gpsReadiness(locationSnapshot),
             recordingReadiness(trackRecording),
             departureReadiness.stepReadiness(
-                sourceLabel = "路线包",
-                displayLabel = "路线包",
+                sourceLabel = "离线路线",
+                displayLabel = "离线路线",
                 fallbackValue = mapReadiness.setupHint.statusLabel,
                 attentionActionKind = RouteCockpitReadinessActionKind.SAVE_OFFLINE_ROUTE_PACK,
                 blockedActionKind = RouteCockpitReadinessActionKind.SAVE_OFFLINE_ROUTE_PACK
             ),
             departureReadiness.stepReadiness(
-                sourceLabel = "离线底图",
-                displayLabel = "底图",
+                sourceLabel = "离线地图包",
+                displayLabel = "离线地图包",
                 fallbackValue = mapReadiness.setupHint.statusLabel,
                 attentionActionKind = RouteCockpitReadinessActionKind.OPEN_OFFLINE_BASE_MAP,
                 blockedActionKind = RouteCockpitReadinessActionKind.OPEN_OFFLINE_BASE_MAP
@@ -406,4 +432,5 @@ object RouteCockpitPresentationEngine {
         if (this == 0.0) "0km" else "${String.format(Locale.US, "%.1f", this)}km"
 
     private const val MAX_DEPARTURE_ACCURACY_METERS = 50.0
+    private const val START_HIKE_WITH_TRACK_LABEL = "开始徒步并记录轨迹"
 }

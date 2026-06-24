@@ -6,7 +6,7 @@ import java.util.Locale
 data class TrailMateDataControlSummary(
     val profileLine: String,
     val routeLine: String,
-    val inventoryLine: String,
+    val gearMatchLine: String,
     val trackLine: String,
     val hasRecordedTrack: Boolean,
     val exportPreview: String
@@ -18,21 +18,17 @@ object TrailMateDataControlEngine {
         val routeLine = snapshot.importedRoute?.let { route ->
             "${route.routeName} / ${String.format(Locale.US, "%.1f km", route.distanceKm)} / +${route.ascentMeters} m"
         } ?: "尚未导入路线"
-        val inventoryCount = snapshot.inventory.items.size
-        val readyCount = snapshot.inventory.items.count { item -> item.available }
         val historyCount = snapshot.historicalActivities.size
         val trackLine = snapshot.latestTrackRecording.reviewLine()
 
         return TrailMateDataControlSummary(
             profileLine = profileLine,
             routeLine = routeLine,
-            inventoryLine = "$inventoryCount 件装备 / $readyCount 件可用",
+            gearMatchLine = "装备匹配缓存来自服务端品牌库",
             trackLine = trackLine,
             hasRecordedTrack = snapshot.latestTrackRecording.pointCount > 0,
             exportPreview = buildExportPreview(
                 snapshot = snapshot,
-                inventoryCount = inventoryCount,
-                readyCount = readyCount,
                 historyCount = historyCount
             )
         )
@@ -40,8 +36,6 @@ object TrailMateDataControlEngine {
 
     private fun buildExportPreview(
         snapshot: TrailMateSnapshot,
-        inventoryCount: Int,
-        readyCount: Int,
         historyCount: Int
     ): String {
         val profilePreview = if (snapshot.profile != null) {
@@ -60,7 +54,7 @@ object TrailMateDataControlEngine {
             profilePreview,
             routePreview,
             "历史：$historyCount 条 GPX",
-            "装备：$inventoryCount 件，$readyCount 件可用",
+            "装备匹配：服务端品牌库候选缓存",
             trackPreview
         ).joinToString("; ")
     }

@@ -1,6 +1,5 @@
 package com.trailmate.app.core.persistence
 
-import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.RecordedTrackPoint
 import com.trailmate.app.core.model.TrailMateSampleData
 import com.trailmate.app.core.model.TrackRecordingEngine
@@ -12,7 +11,6 @@ class TrailMateDataControlEngineTest {
     fun summarizesSavedProfileRouteAndGearForExportPreview() {
         val snapshot = TrailMateSnapshot(
             profile = TrailMateSampleData.baselineProfile,
-            inventory = GearInventory(TrailMateSampleData.gearItems),
             importedRoute = TrailMateSampleData.importedTargetRoute,
             historicalActivities = TrailMateSampleData.historicalActivities
         )
@@ -21,9 +19,9 @@ class TrailMateDataControlEngineTest {
 
         assertEquals("资料已保存", summary.profileLine)
         assertEquals("龙井山脊 / 15.2 km / +860 m", summary.routeLine)
-        assertEquals("3 件装备 / 3 件可用", summary.inventoryLine)
+        assertEquals("装备匹配缓存来自服务端品牌库", summary.gearMatchLine)
         assertEquals(
-            "资料：已保存; 路线：龙井山脊，15.2 km，+860 m; 历史：3 条 GPX; 装备：3 件，3 件可用",
+            "资料：已保存; 路线：龙井山脊，15.2 km，+860 m; 历史：3 条 GPX; 装备匹配：服务端品牌库候选缓存",
             summary.exportPreview
         )
     }
@@ -34,9 +32,9 @@ class TrailMateDataControlEngineTest {
 
         assertEquals("未保存资料", summary.profileLine)
         assertEquals("尚未导入路线", summary.routeLine)
-        assertEquals("0 件装备 / 0 件可用", summary.inventoryLine)
+        assertEquals("装备匹配缓存来自服务端品牌库", summary.gearMatchLine)
         assertEquals(
-            "资料：未保存; 路线：无; 历史：0 条 GPX; 装备：0 件，0 件可用",
+            "资料：未保存; 路线：无; 历史：0 条 GPX; 装备匹配：服务端品牌库候选缓存",
             summary.exportPreview
         )
     }
@@ -52,7 +50,7 @@ class TrailMateDataControlEngineTest {
 
         assertEquals("龙井山脊 / 已记录 1.1 km / 2 个点", summary.trackLine)
         assertEquals(
-            "资料：已保存; 路线：无; 历史：0 条 GPX; 装备：3 件，3 件可用; 轨迹：龙井山脊，1.1 km，2 个点",
+            "资料：已保存; 路线：无; 历史：0 条 GPX; 装备匹配：服务端品牌库候选缓存; 轨迹：龙井山脊，1.1 km，2 个点",
             summary.exportPreview
         )
     }

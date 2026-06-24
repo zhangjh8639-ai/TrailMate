@@ -66,10 +66,10 @@ If there is no real weather provider, the UI should not label weather as stable.
 
 The gear tab should look like a route checklist, not a generic panel list:
 
-- route checklist / my gear / detail sections;
+- route needs / brand candidates / detail sections;
 - must-have, check, missing, and optional groups;
 - matched brand/model displayed inline;
-- add existing gear through a bottom sheet.
+- catalog candidates opened through a read-only details panel.
 
 The AI recommendation label should be a small Beta support signal rather than the main page identity.
 

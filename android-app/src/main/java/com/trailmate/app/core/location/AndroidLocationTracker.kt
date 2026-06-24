@@ -103,8 +103,8 @@ class AndroidLocationTracker(context: Context) {
         runCatching {
             locationManager.requestLocationUpdates(
                 provider,
-                MIN_TIME_MILLIS,
-                MIN_DISTANCE_METERS,
+                TrailMateLocationTrackingRequestPolicy.MIN_TIME_MILLIS,
+                TrailMateLocationTrackingRequestPolicy.MIN_DISTANCE_METERS,
                 listener,
                 Looper.getMainLooper()
             )
@@ -152,8 +152,6 @@ class AndroidLocationTracker(context: Context) {
     }
 
     private companion object {
-        const val MIN_TIME_MILLIS = 3_000L
-        const val MIN_DISTANCE_METERS = 5f
         const val LOW_ACCURACY_METERS = 50.0
     }
 }

@@ -13,7 +13,7 @@ TrailMate SHALL organize route detail tabs around distinct user jobs: route suit
 
 #### Scenario: Each tab avoids duplicated primary content
 
-- **GIVEN** the route has assessment, plan, map, and gear data
+- **GIVEN** the route has assessment, plan, map, and gear checklist data
 - **WHEN** the user switches between the four tabs
 - **THEN** `评估` focuses on suitability, `路线` focuses on field navigation, `计划` focuses on supply/rest/risk timing, and `装备` focuses on route equipment readiness
 - **AND** the same large map or diagnostic panel is not reused as the primary content across multiple tabs
@@ -59,7 +59,24 @@ TrailMate SHALL present the `路线` tab as a map-first field cockpit with user-
 
 - **GIVEN** location, hike session, track recording, and route-match state are available
 - **WHEN** the state changes between not-authorized, located-ready, recording, paused, off-route, and completed
-- **THEN** the primary action changes respectively to starting the hike, using current location, pausing, resuming, viewing recovery advice, or reviewing the recorded track
+- **THEN** the primary action changes respectively to `开始徒步并记录轨迹`, using current location, pausing, resuming, viewing recovery advice, or reviewing the recorded track
+
+#### Scenario: Route file and base map preparation are separate from the map cockpit
+
+- **GIVEN** the user views the default `路线` cockpit before starting the hike
+- **WHEN** the route file or offline base map needs attention
+- **THEN** TrailMate presents route-file saving as `保存离线路线`
+- **AND** presents PMTiles/OSM base-map preparation as `导入离线地图包`
+- **AND** the UI makes clear that the saved route contains GPX-derived line/checkpoint data while the imported map package contains the surrounding map context
+- **AND** offline base-map import/download/verification does not replace the field primary action such as `开始徒步并记录轨迹`, location repair, recording control, or route recovery
+- **AND** it does not place a separate route-file shortcut inside the map preview
+
+#### Scenario: Fullscreen navigation is an in-field mode
+
+- **GIVEN** the route is ready but the hike has not started
+- **WHEN** the user views the default `路线` cockpit
+- **THEN** TrailMate shows `开始徒步并记录轨迹` as the primary action and does not show a persistent `全屏导航` shortcut
+- **AND** after the user starts the hike or enters a recording state, TrailMate may show `全屏导航` as a secondary in-field action
 
 ### Requirement: Plan Tab Presents Trip Rhythm
 
@@ -80,14 +97,22 @@ TrailMate SHALL present the `计划` tab as a supply, rest, and risk timeline.
 
 ### Requirement: Gear Tab Presents A Route Checklist
 
-TrailMate SHALL present the `装备` tab as a route-specific checklist with personal gear matching.
+TrailMate SHALL present the `装备` tab as a route-specific checklist matched against server-owned gear catalog items.
 
 #### Scenario: Gear recommendations are grouped by readiness
 
-- **GIVEN** TrailMate has route gear recommendations and the user's inventory
+- **GIVEN** TrailMate has route gear recommendations and server catalog candidates
 - **WHEN** the user views the `装备` tab
 - **THEN** required, check, missing, optional, and matched items are visually distinguishable
-- **AND** each item can show the matched brand/model or an add-existing-gear action
+- **AND** each item can show the matched brand, model, and thumbnail when the server catalog has a candidate
+- **AND** the tab does not expose a personal inventory tab, add-existing-gear action, or save-to-inventory flow
+
+#### Scenario: Gear page identity is the server catalog, not route risk
+
+- **GIVEN** the user opens the `装备` tab or bottom-nav gear screen
+- **WHEN** TrailMate has connected to the server gear catalog
+- **THEN** the page header shows a server-owned catalog status such as `服务端品牌库`
+- **AND** it does not use route risk, difficulty, or suitability labels as the gear page header status
 
 #### Scenario: AI support is visible but not dominant
 

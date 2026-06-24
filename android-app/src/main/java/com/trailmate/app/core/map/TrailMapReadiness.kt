@@ -2,6 +2,7 @@ package com.trailmate.app.core.map
 
 enum class TrailMapProvider {
     LOCAL_GPX_PREVIEW,
+    MAPLIBRE_PMTILES,
     AMAP_SDK
 }
 
@@ -31,7 +32,7 @@ data class TrailMapReadiness(
     val actionLabel: String,
     val isProductionMapReady: Boolean,
     val setupHint: TrailMapSetupHint = TrailMapSetupHint(
-        title = "地图状态待确认",
+        title = "地图准备待确认",
         caption = "请复核路线、离线包、定位和底图配置。",
         statusLabel = "待确认"
     ),
@@ -85,21 +86,27 @@ object TrailMapReadinessEngine {
         hasAmapKey: Boolean,
         amapSdkAvailable: Boolean = false,
         amapPrivacyConsentAccepted: Boolean = false,
+        mapLibreRuntimeAvailable: Boolean = false,
+        pmTilesBasemapPackReady: Boolean = false,
         offlineRoutePackReady: Boolean,
         gpsEnabled: Boolean,
         locationReadyForFieldUse: Boolean = gpsEnabled,
         routePointCount: Int
     ): TrailMapReadiness {
         val hasRouteGeometry = routePointCount >= 2
+        val pmTilesReady = mapLibreRuntimeAvailable && pmTilesBasemapPackReady
         val amapReady = hasAmapKey && amapSdkAvailable && amapPrivacyConsentAccepted
         val setupSteps = buildSetupSteps(
             hasAmapKey = hasAmapKey,
             amapSdkAvailable = amapSdkAvailable,
             amapPrivacyConsentAccepted = amapPrivacyConsentAccepted,
+            mapLibreRuntimeAvailable = mapLibreRuntimeAvailable,
+            pmTilesBasemapPackReady = pmTilesBasemapPackReady,
             offlineRoutePackReady = offlineRoutePackReady,
             gpsEnabled = gpsEnabled,
             locationReadyForFieldUse = locationReadyForFieldUse,
             routePointCount = routePointCount,
+            pmTilesReady = pmTilesReady,
             amapReady = amapReady
         )
         val routeGeometryChip = if (routePointCount > 0) {
@@ -126,64 +133,50 @@ object TrailMapReadinessEngine {
             )
         }
 
-        if (amapReady) {
+        if (pmTilesReady) {
             return TrailMapReadiness(
-                provider = TrailMapProvider.AMAP_SDK,
-                title = if (locationReadyForFieldUse) "在线轻导航" else "在线底图",
-                caption = if (offlineRoutePackReady) {
-                    "在线底图可用，离线路线包已保存。"
-                } else {
-                    "在线底图可用，建议出发前保存路线包。"
-                },
-                layerChips = baseLayers + "在线底图",
-                actionLabel = if (offlineRoutePackReady) "继续轻导航" else "保存路线包",
-                isProductionMapReady = false,
+                provider = TrailMapProvider.MAPLIBRE_PMTILES,
+                title = "离线地图包",
+                caption = "PMTiles 本地离线地图包已就绪，可结合 GPX 路线、检查点、定位与实走轨迹使用。",
+                layerChips = baseLayers + "PMTiles 底图",
+                actionLabel = "查看路线辅助",
+                isProductionMapReady = true,
                 setupHint = TrailMapSetupHint(
-                    title = "在线底图已就绪",
-                    caption = if (offlineRoutePackReady) {
-                        "在线底图、地图服务同意和本地路线包已就绪；出发前仍需确认目标区域离线底图。"
-                    } else {
-                        "在线底图和地图服务同意已就绪；出发前建议保存本地路线包，并确认目标区域离线底图。"
-                    },
-                    statusLabel = "在线可用"
+                    title = "离线地图包已就绪",
+                    caption = "MapLibre 渲染器和 PMTiles 本地离线地图包已可用；出发前仍需确认 OSM 数据署名、目标区域覆盖和定位状态。",
+                    statusLabel = "离线可用"
                 ),
                 setupSteps = setupSteps
             )
         }
 
         val fieldReady = offlineRoutePackReady && locationReadyForFieldUse
-        val amapSetupCaption = when {
+        val pmTilesSetupCaption = when {
+            !mapLibreRuntimeAvailable -> "MapLibre 渲染器待接入，当前使用本地 GPX 路线预览。"
+            mapLibreRuntimeAvailable && !pmTilesBasemapPackReady -> "PMTiles 离线地图包待导入，当前使用本地 GPX 路线预览。"
             gpsEnabled -> "定位正在校准，当前位置尚不能作为实走证据；当前使用本地 GPX 路线预览。"
-            !hasAmapKey -> "在线底图暂不可用，当前使用本地 GPX 路线预览。"
-            !amapPrivacyConsentAccepted -> "在线底图未在首次设置中启用，当前使用本地 GPX 路线预览。"
-            !amapSdkAvailable -> "在线底图暂不可用，当前使用本地 GPX 路线预览。"
-            else -> "在线底图暂不可用，当前使用本地 GPX 路线预览。"
+            else -> "PMTiles 离线地图包待导入，当前使用本地 GPX 路线预览。"
         }
         return TrailMapReadiness(
             provider = TrailMapProvider.LOCAL_GPX_PREVIEW,
             title = when {
-                fieldReady -> "实走轻导航"
-                hasAmapKey -> "本地路线预览"
+                fieldReady -> "定位与记录"
                 else -> "本地路线预览"
             },
-            caption = if (fieldReady) {
-                "离线路线包已保存，当前位置可用于检查点推进；当前使用本地路线。"
-            } else {
-                amapSetupCaption
+            caption = when {
+                fieldReady -> "离线路线已保存，当前位置可用于检查点推进；当前使用本地路线。"
+                else -> pmTilesSetupCaption
             },
             layerChips = baseLayers,
             actionLabel = when {
-                fieldReady -> "继续轻导航"
-                !hasAmapKey -> "使用本地路线"
-                !amapPrivacyConsentAccepted -> "使用本地路线"
-                !amapSdkAvailable -> "使用本地路线"
+                mapLibreRuntimeAvailable && !pmTilesBasemapPackReady -> "导入离线地图包"
+                fieldReady -> "查看路线辅助"
                 else -> "使用本地路线"
             },
             isProductionMapReady = false,
             setupHint = buildSetupHint(
-                hasAmapKey = hasAmapKey,
-                amapSdkAvailable = amapSdkAvailable,
-                amapPrivacyConsentAccepted = amapPrivacyConsentAccepted,
+                mapLibreRuntimeAvailable = mapLibreRuntimeAvailable,
+                pmTilesBasemapPackReady = pmTilesBasemapPackReady,
                 fieldReady = fieldReady
             ),
             setupSteps = setupSteps
@@ -191,34 +184,28 @@ object TrailMapReadinessEngine {
     }
 
     private fun buildSetupHint(
-        hasAmapKey: Boolean,
-        amapSdkAvailable: Boolean,
-        amapPrivacyConsentAccepted: Boolean,
+        mapLibreRuntimeAvailable: Boolean,
+        pmTilesBasemapPackReady: Boolean,
         fieldReady: Boolean
     ): TrailMapSetupHint =
         when {
+            !mapLibreRuntimeAvailable -> TrailMapSetupHint(
+                title = "当前使用本地路线",
+                caption = "MapLibre 渲染器未就绪，路线页继续使用本地 GPX 预览。",
+                statusLabel = "本地预览"
+            )
+            !pmTilesBasemapPackReady -> TrailMapSetupHint(
+                title = "PMTiles 地图包待导入",
+                caption = "路线页先显示本地 GPX 折线；导入目标区域 PMTiles 后启用 MapLibre 离线地图上下文。",
+                statusLabel = "本地预览"
+            )
             fieldReady -> TrailMapSetupHint(
                 title = "离线与定位已可用",
-                caption = "当前可用本地 GPX 预览和实走轨迹记录；在线底图可用后会获得更完整地图体验。",
+                caption = "当前可用本地 GPX 预览和实走轨迹记录；PMTiles 地图包导入后会获得完整离线地图上下文。",
                 statusLabel = "实走可用"
             )
-            !hasAmapKey -> TrailMapSetupHint(
-                title = "当前使用本地路线",
-                caption = "可继续查看 GPX、检查点和记录轨迹；在线底图暂不可用。",
-                statusLabel = "本地预览"
-            )
-            !amapPrivacyConsentAccepted -> TrailMapSetupHint(
-                title = "当前使用本地路线",
-                caption = "在线底图授权未在首次设置中启用；路线页继续使用本地 GPX 预览，避免实走中被授权流程打断。",
-                statusLabel = "本地预览"
-            )
-            !amapSdkAvailable -> TrailMapSetupHint(
-                title = "在线底图暂不可用",
-                caption = "当前继续使用本地 GPX 预览和检查点；不影响路线评估与轨迹记录。",
-                statusLabel = "本地预览"
-            )
             else -> TrailMapSetupHint(
-                title = "在线底图待确认",
+                title = "PMTiles 地图包待确认",
                 caption = "当前继续使用本地 GPX 预览，路线评估和轨迹记录不受影响。",
                 statusLabel = "待确认"
             )
@@ -228,10 +215,13 @@ object TrailMapReadinessEngine {
         hasAmapKey: Boolean,
         amapSdkAvailable: Boolean,
         amapPrivacyConsentAccepted: Boolean,
+        mapLibreRuntimeAvailable: Boolean,
+        pmTilesBasemapPackReady: Boolean,
         offlineRoutePackReady: Boolean,
         gpsEnabled: Boolean,
         locationReadyForFieldUse: Boolean,
         routePointCount: Int,
+        pmTilesReady: Boolean,
         amapReady: Boolean
     ): List<TrailMapReadinessStep> =
         listOf(
@@ -245,7 +235,7 @@ object TrailMapReadinessEngine {
                 }
             ),
             TrailMapReadinessStep(
-                label = "离线",
+                label = "离线路线",
                 value = if (offlineRoutePackReady) "已保存" else "待保存",
                 status = if (offlineRoutePackReady) {
                     TrailMapReadinessStepStatus.READY
@@ -254,7 +244,7 @@ object TrailMapReadinessEngine {
                 }
             ),
             TrailMapReadinessStep(
-                label = "定位",
+                label = "GPS",
                 value = when {
                     locationReadyForFieldUse -> "已可靠"
                     gpsEnabled -> "校准中"
@@ -267,15 +257,14 @@ object TrailMapReadinessEngine {
                 }
             ),
             TrailMapReadinessStep(
-                label = "底图",
+                label = "离线地图包",
                 value = when {
-                    amapReady -> "在线可用"
-                    !hasAmapKey -> "待配置"
-                    !amapPrivacyConsentAccepted -> "待启用"
-                    !amapSdkAvailable -> "待接入"
+                    pmTilesReady -> "已导入"
+                    !mapLibreRuntimeAvailable -> "待接入"
+                    !pmTilesBasemapPackReady -> "待导入"
                     else -> "待配置"
                 },
-                status = if (amapReady) {
+                status = if (pmTilesReady) {
                     TrailMapReadinessStepStatus.READY
                 } else {
                     TrailMapReadinessStepStatus.NEEDS_ACTION

@@ -48,7 +48,7 @@ The Route tab shows compact Chinese status:
 - Track recording controls backed by the foreground service.
 - Track notification permission state and a clear "allow notifications" action when required.
 - Recorded distance and point count.
-- Safety copy: "仅提供轻导航，不替代路标与离线地图".
+- Safety copy: "仅提供路线辅助，不替代路标与离线地图".
 
 ## Privacy And Safety
 

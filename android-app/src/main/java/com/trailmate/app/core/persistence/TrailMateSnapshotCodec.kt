@@ -1,5 +1,7 @@
 package com.trailmate.app.core.persistence
 
+import com.trailmate.app.core.auth.TrailMateAuthProvider
+import com.trailmate.app.core.auth.TrailMateAuthSession
 import com.trailmate.app.core.gpx.GpxImportJob
 import com.trailmate.app.core.gpx.GpxImportJobKind
 import com.trailmate.app.core.gpx.GpxImportJobStatus
@@ -10,8 +12,6 @@ import com.trailmate.app.core.model.AscentExperience
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.ExerciseFrequency
 import com.trailmate.app.core.model.ExperienceLevel
-import com.trailmate.app.core.model.GearInventory
-import com.trailmate.app.core.model.GearItem
 import com.trailmate.app.core.model.HistoricalActivity
 import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.RecordedTrackPoint
@@ -29,6 +29,18 @@ object TrailMateSnapshotCodec {
         val properties = Properties()
 
         properties["version"] = "1"
+        snapshot.authSession?.let { session ->
+            properties["auth.present"] = "true"
+            properties["auth.userId"] = session.userId
+            properties["auth.provider"] = session.provider.name
+            properties["auth.accessToken"] = session.accessToken
+            properties["auth.refreshToken"] = session.refreshToken
+            properties["auth.expiresAt"] = session.expiresAt
+            properties["auth.phoneNumber"] = session.phoneNumber.orEmpty()
+            properties["auth.wechatOpenId"] = session.wechatOpenId.orEmpty()
+            properties["auth.displayName"] = session.displayName.orEmpty()
+        }
+
         snapshot.profile?.let { profile ->
             properties["profile.present"] = "true"
             properties["profile.exerciseFrequency"] = profile.exerciseFrequency.name
@@ -38,17 +50,6 @@ object TrailMateSnapshotCodec {
             properties["profile.heightCm"] = profile.heightCm?.toString().orEmpty()
             properties["profile.weightKg"] = profile.weightKg?.toString().orEmpty()
             properties["profile.commonPackWeightKg"] = profile.commonPackWeightKg?.toString().orEmpty()
-        }
-
-        properties["inventory.count"] = snapshot.inventory.items.size.toString()
-        snapshot.inventory.items.forEachIndexed { index, item ->
-            val prefix = "inventory.$index"
-            properties["$prefix.id"] = item.id
-            properties["$prefix.category"] = item.category
-            properties["$prefix.brand"] = item.brand.orEmpty()
-            properties["$prefix.model"] = item.model.orEmpty()
-            properties["$prefix.weightGrams"] = item.weightGrams?.toString().orEmpty()
-            properties["$prefix.available"] = item.available.toString()
         }
 
         snapshot.importedRoute?.let { route ->
@@ -154,8 +155,8 @@ object TrailMateSnapshotCodec {
             }
 
             TrailMateSnapshot(
+                authSession = properties.decodeAuthSession(),
                 profile = properties.decodeProfile(),
-                inventory = properties.decodeInventory(),
                 importedRoute = properties.decodeImportedRoute(),
                 historicalActivities = properties.decodeHistoricalActivities(),
                 gpxImportQueue = properties.decodeGpxImportQueue(),
@@ -165,6 +166,29 @@ object TrailMateSnapshotCodec {
                 amapPrivacyConsent = properties.decodeAmapPrivacyConsent()
             )
         }.getOrDefault(TrailMateSnapshot())
+    }
+
+    private fun Properties.decodeAuthSession(): TrailMateAuthSession? {
+        if (getProperty("auth.present") != "true") {
+            return null
+        }
+
+        val userId = getProperty("auth.userId")?.takeIf { it.isNotBlank() } ?: return null
+        val provider = enumValue<TrailMateAuthProvider>("auth.provider") ?: return null
+        val accessToken = getProperty("auth.accessToken")?.takeIf { it.isNotBlank() } ?: return null
+        val refreshToken = getProperty("auth.refreshToken")?.takeIf { it.isNotBlank() } ?: return null
+        val expiresAt = getProperty("auth.expiresAt")?.takeIf { it.isNotBlank() } ?: return null
+
+        return TrailMateAuthSession(
+            userId = userId,
+            provider = provider,
+            accessToken = accessToken,
+            refreshToken = refreshToken,
+            expiresAt = expiresAt,
+            phoneNumber = getProperty("auth.phoneNumber").orEmpty().ifBlank { null },
+            wechatOpenId = getProperty("auth.wechatOpenId").orEmpty().ifBlank { null },
+            displayName = getProperty("auth.displayName").orEmpty().ifBlank { null }
+        )
     }
 
     private fun Properties.decodeProfile(): BaselineProfile? {
@@ -186,27 +210,6 @@ object TrailMateSnapshotCodec {
             weightKg = nullableInt("profile.weightKg"),
             commonPackWeightKg = nullableInt("profile.commonPackWeightKg")
         )
-    }
-
-    private fun Properties.decodeInventory(): GearInventory {
-        val count = getProperty("inventory.count")?.toIntOrNull()
-            ?: return TrailMateSnapshot().inventory
-        val items = (0 until count).mapNotNull { index ->
-            val prefix = "inventory.$index"
-            val id = getProperty("$prefix.id")?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-            val category = getProperty("$prefix.category")?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-
-            GearItem(
-                id = id,
-                category = category,
-                brand = getProperty("$prefix.brand").orEmpty().ifBlank { null },
-                model = getProperty("$prefix.model").orEmpty().ifBlank { null },
-                weightGrams = nullableInt("$prefix.weightGrams"),
-                available = getProperty("$prefix.available")?.toBooleanStrictOrNull() ?: true
-            )
-        }
-
-        return GearInventory(items = items)
     }
 
     private fun Properties.decodeImportedRoute(): ImportedRoute? {

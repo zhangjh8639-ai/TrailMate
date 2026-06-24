@@ -6,6 +6,20 @@
 
 After registration or first login, the app SHALL offer a short baseline profile questionnaire before prompting for historical GPX import.
 
+#### Scenario: First-run flow uses product language instead of evidence language
+
+- **GIVEN** a user opens TrailMate for the first time
+- **WHEN** WeChat login is available
+- **THEN** the account step is labeled `账号 1/3`
+- **AND** the primary account copy presents WeChat as the preferred login or registration path
+- **WHEN** the authenticated user reaches baseline profile intake
+- **THEN** the profile step is labeled `能力基础 2/3`
+- **AND** body, exercise, and outdoor experience copy explains that the information is only used for route assessment and is not shown on the home page
+- **AND** the visible onboarding copy avoids backend terms such as "证据"
+- **WHEN** the user reaches map preparation
+- **THEN** the map step is labeled `地图准备 3/3`
+- **AND** the visible map preparation copy explains offline map packages, location permission, and track recording without presenting AMap as the user's foreground map model
+
 #### Scenario: User completes baseline profile
 
 - GIVEN a newly authenticated user
@@ -22,7 +36,7 @@ After registration or first login, the app SHALL offer a short baseline profile 
 
 ### Requirement: Production auth shall bind profile data to the authenticated account
 
-The production app SHALL treat baseline profile, capability evidence, gear inventory, imported routes, and data controls as account-bound data after login.
+The production app SHALL treat baseline profile, capability evidence, imported routes, gear checklist artifacts, and data controls as account-bound data after login. Server-owned gear catalog records are shared catalog data, not user-owned inventory.
 
 #### Scenario: First login has a completed local profile draft
 
@@ -49,15 +63,15 @@ The production app SHALL treat baseline profile, capability evidence, gear inven
 
 #### Scenario: User switches accounts on the same device
 
-- GIVEN account-bound local profile or gear data exists for one user
+- GIVEN account-bound local profile, route, history, or gear checklist data exists for one user
 - WHEN a different authenticated user signs in
-- THEN the app must not show the previous user's profile, routes, history, or gear inventory
+- THEN the app must not show the previous user's profile, routes, history, or gear checklist artifacts
 - AND the app starts from the new user's synced profile or a fresh profile intake state
 
-#### Scenario: Account-bound activity, route, gear, checklist, and data-control records are synced
+#### Scenario: Account-bound activity, route, checklist, and data-control records are synced
 
 - GIVEN a user is authenticated
-- WHEN historical GPX evidence, target routes, gear inventory, gear checklist artifacts, export jobs, or delete jobs are created or synced
+- WHEN historical GPX evidence, target routes, gear checklist artifacts, export jobs, or delete jobs are created or synced
 - THEN each record is associated with the authenticated user id
 - AND local queries for those records are scoped to the active authenticated user
 - AND server APIs reject cross-user access to those records

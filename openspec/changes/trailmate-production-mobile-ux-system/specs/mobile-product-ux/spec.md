@@ -61,7 +61,7 @@ TrailMate SHALL separate route detail work into assessment, route cockpit, plan,
 
 - **GIVEN** route gear recommendations exist
 - **WHEN** the gear tab is selected
-- **THEN** the page shows route-critical gear readiness, matched user-owned gear, and missing gear actions
+- **THEN** the page shows route-critical gear needs, matched server catalog candidates, and missing-category guidance
 - **AND** it does not show marketplace, affiliate, or unsupported brand recommendations
 
 ### Requirement: Evidence And AI Inputs Stay Backgrounded
@@ -70,7 +70,7 @@ TrailMate SHALL use user evidence and AI inputs to improve outputs without turni
 
 #### Scenario: Evidence informs results without cluttering screens
 
-- **GIVEN** TrailMate has baseline profile, body metrics, historical GPX, route data, and gear inventory
+- **GIVEN** TrailMate has baseline profile, body metrics, historical GPX, route data, and gear checklist/catalog context
 - **WHEN** the user views Home, Route, Route Detail, Gear, Data, or Me
 - **THEN** those inputs may affect assessments, readiness, plan, and gear outputs
 - **AND** the app does not display raw evidence bundles, full body metrics, or AI prompt payloads as main content

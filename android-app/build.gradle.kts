@@ -15,11 +15,27 @@ android {
         }
     }
     val localAmapApiKey = localProperties.getProperty("TRAILMATE_AMAP_API_KEY").orEmpty()
+    val localTrailMateServerBaseUrl = localProperties.getProperty("TRAILMATE_SERVER_BASE_URL").orEmpty()
+    val localWechatAppId = localProperties.getProperty("TRAILMATE_WECHAT_APP_ID").orEmpty()
     val amapApiKey = providers.gradleProperty("TRAILMATE_AMAP_API_KEY")
         .orElse(providers.environmentVariable("TRAILMATE_AMAP_API_KEY"))
         .orElse(localAmapApiKey)
         .get()
+    val trailMateServerBaseUrl = providers.gradleProperty("TRAILMATE_SERVER_BASE_URL")
+        .orElse(providers.environmentVariable("TRAILMATE_SERVER_BASE_URL"))
+        .orElse(localTrailMateServerBaseUrl)
+        .get()
+    val wechatAppId = providers.gradleProperty("TRAILMATE_WECHAT_APP_ID")
+        .orElse(providers.environmentVariable("TRAILMATE_WECHAT_APP_ID"))
+        .orElse(localWechatAppId)
+        .get()
     val escapedAmapApiKey = amapApiKey
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+    val escapedTrailMateServerBaseUrl = trailMateServerBaseUrl
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+    val escapedWechatAppId = wechatAppId
         .replace("\\", "\\\\")
         .replace("\"", "\\\"")
 
@@ -33,6 +49,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["AMAP_API_KEY"] = amapApiKey
         buildConfigField("String", "TRAILMATE_AMAP_API_KEY", "\"$escapedAmapApiKey\"")
+        buildConfigField("String", "TRAILMATE_SERVER_BASE_URL", "\"$escapedTrailMateServerBaseUrl\"")
+        buildConfigField("String", "TRAILMATE_WECHAT_APP_ID", "\"$escapedWechatAppId\"")
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a")
         }
@@ -65,7 +83,10 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.amap.map.bundle)
+    implementation(libs.maplibre.android.sdk)
+    implementation(libs.wechat.sdk.android)
 
+    testImplementation(libs.json.java)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.espresso.core)

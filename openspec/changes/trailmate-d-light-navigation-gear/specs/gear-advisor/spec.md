@@ -2,36 +2,47 @@
 
 ## ADDED Requirements
 
-### Requirement: Users shall be able to manage a private gear inventory
+### Requirement: Gear catalog shall be server-owned and read-only on mobile
 
-The app SHALL allow users to add, edit, delete, and mark personal gear items as available or unavailable.
+The app SHALL source brand equipment options from a server-managed gear catalog and SHALL NOT expose personal gear inventory creation, editing, deletion, or "save to my gear" flows in the mobile Gear tab.
 
-#### Scenario: User adds branded gear
+#### Scenario: User opens server catalog matches
 
-- GIVEN a user opens the My Gear tab
-- WHEN the user enters category, brand, model, and optional weight or tags
-- THEN the app stores the gear item as private user data
-- AND future gear recommendations can match the item by category and availability
+- GIVEN a target route has route gear recommendations
+- WHEN the user opens the Gear tab
+- THEN the app shows route needs, brand candidates, and read-only equipment details
+- AND brand candidates come from the server-managed catalog with category, brand, model, tags, and thumbnail metadata
+- AND the app does not show "My Gear", add-owned-gear, inventory edit, inventory delete, or save-to-my-gear actions
 
-#### Scenario: User deletes gear
+#### Scenario: Catalog has no matching item
 
-- GIVEN a user has saved gear items
-- WHEN the user deletes one item
-- THEN the item is no longer used for future gear recommendations
-- AND exported user data no longer includes that deleted item
+- GIVEN the server-managed gear catalog has no item for a route need
+- WHEN the user views brand candidates
+- THEN the app explains that the model is not yet in the backend catalog
+- AND the app offers a clear path back to route needs so the user can review another category
+- AND the mobile app does not offer custom gear creation as a fallback
+
+#### Scenario: Server catalog sync fails on mobile
+
+- GIVEN the mobile app cannot load the server-managed gear catalog
+- WHEN the user opens the Gear tab
+- THEN the app labels the catalog source as a local cache fallback
+- AND the app offers retry for syncing the server-managed catalog
+- AND the app continues to show route needs and read-only brand candidate matches from cached catalog data
+- AND the app does not expose personal gear creation, add-owned-gear, or save-to-my-gear actions as a fallback
 
 ### Requirement: Gear advisor shall generate route preparation checklist after route assessment
 
-After a target route assessment exists, the Gear tab SHALL provide an equipment checklist based on route facts, plan context, terrain tags, risk factors, and the user's gear inventory.
+After a target route assessment exists, the Gear tab SHALL provide an equipment checklist based on route facts, plan context, terrain tags, risk factors, and the server-managed gear catalog.
 
 #### Scenario: User opens Gear tab for assessed route
 
 - GIVEN a target route has a saved assessment
 - WHEN the user opens the Gear tab
-- THEN the app can request an AI-generated gear checklist using only structured route, plan, risk, and gear data
+- THEN the app can request an AI-generated gear checklist using only structured route, plan, risk, catalog, and checklist data
 - AND the checklist labels items as covered, check, missing, or optional
 - AND each item includes a route-based rationale
-- AND current gear inventory availability is applied before the checklist is displayed
+- AND server catalog candidate matches are applied before the checklist is displayed
 
 ### Requirement: AI gear advisor shall not affect deterministic route assessment
 
@@ -73,7 +84,7 @@ Gear advice SHALL use preparation language and avoid medical, safety guarantee, 
 - GIVEN the AI advisor marks an item as missing
 - WHEN the user views the checklist
 - THEN the app explains why the category may help for this route
-- AND the app may let the user add owned gear with brand and model
+- AND the app may show read-only server catalog candidates for that category
 - AND the app does not require buying a specific brand or claim the route becomes safe
 
 ### Requirement: AI gear advisor backend service SHALL be connected behind a validation boundary
@@ -85,7 +96,7 @@ The app SHALL call the production AI gear advisor through a backend service boun
 - GIVEN a target route has a deterministic assessment and fallback checklist
 - WHEN the backend returns a checklist with the current assessment fingerprint
 - THEN the app validates the response through the gear advisor contract
-- AND refreshes covered or missing status against the current gear inventory
+- AND refreshes covered or missing status against server catalog candidate matches
 - AND displays the checklist as AI-ready without changing route assessment values
 
 #### Scenario: Backend fails or times out

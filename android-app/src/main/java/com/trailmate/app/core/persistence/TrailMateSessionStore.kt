@@ -1,10 +1,10 @@
 package com.trailmate.app.core.persistence
 
+import com.trailmate.app.core.auth.TrailMateAuthSession
 import com.trailmate.app.core.gpx.GpxImportQueue
 import com.trailmate.app.core.map.AmapOfflineBaseMapTileProof
 import com.trailmate.app.core.map.AmapPrivacyConsent
 import com.trailmate.app.core.model.BaselineProfile
-import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.HistoricalActivity
 import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.TrackRecordingState
@@ -12,9 +12,11 @@ import com.trailmate.app.core.model.TrackRecordingState
 interface TrailMateSessionStore {
     fun load(): TrailMateSnapshot
 
-    fun saveProfile(profile: BaselineProfile)
+    fun saveAuthSession(session: TrailMateAuthSession)
 
-    fun saveInventory(inventory: GearInventory)
+    fun clearAuthSession()
+
+    fun saveProfile(profile: BaselineProfile)
 
     fun saveImportedRoute(route: ImportedRoute)
 

@@ -41,9 +41,9 @@ class TrailMapLayerLegendEngineTest {
             readiness = TrailMapReadiness(
                 provider = TrailMapProvider.AMAP_SDK,
                 title = "在线底图",
-                caption = "在线底图可用，离线路线包已保存。",
+                caption = "在线底图可用，离线路线已保存。",
                 layerChips = listOf("GPX 折线", "检查点", "7 点", "在线底图"),
-                actionLabel = "继续轻导航",
+                actionLabel = "查看路线辅助",
                 isProductionMapReady = false
             ),
             routePointCount = 7,

@@ -39,10 +39,13 @@ import com.trailmate.app.feature.home.DataControlClearUiState
 fun ProfileSettingsScreen(
     profile: BaselineProfile,
     onClearLocalData: () -> Unit,
+    onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var isConfirmingClear by rememberSaveable { mutableStateOf(false) }
+    var isConfirmingLogout by rememberSaveable { mutableStateOf(false) }
     val clearUiState = DataControlClearUiState(isConfirmingClear = isConfirmingClear)
+    val logoutUiState = AccountLogoutUiState(isConfirmingLogout = isConfirmingLogout)
 
     TrailMatePageScaffold(
         title = "我的",
@@ -81,6 +84,20 @@ fun ProfileSettingsScreen(
             )
         }
 
+        TrailMateSectionHeader(title = "账号")
+        AccountControls(
+            logoutUiState = logoutUiState,
+            onRequestLogout = {
+                isConfirmingLogout = logoutUiState.requestLogout().isConfirmingLogout
+            },
+            onConfirmLogout = {
+                isConfirmingLogout = logoutUiState.confirmLogout(onLogout).isConfirmingLogout
+            },
+            onCancelLogout = {
+                isConfirmingLogout = logoutUiState.cancelLogout().isConfirmingLogout
+            }
+        )
+
         TrailMateSectionHeader(title = "数据与隐私")
         LocalDataControls(
             clearUiState = clearUiState,
@@ -94,6 +111,63 @@ fun ProfileSettingsScreen(
                 isConfirmingClear = clearUiState.cancelClear().isConfirmingClear
             }
         )
+    }
+}
+
+@Composable
+private fun AccountControls(
+    logoutUiState: AccountLogoutUiState,
+    onRequestLogout: () -> Unit,
+    onConfirmLogout: () -> Unit,
+    onCancelLogout: () -> Unit
+) {
+    SettingsGroupCard {
+        SettingStatusRow(
+            glyph = TrailMateGlyph.Profile,
+            title = "账号登录",
+            value = "已登录",
+            caption = "退出后保留本机路线、活动和装备匹配缓存。"
+        )
+        SettingsDivider()
+        if (logoutUiState.isConfirmingLogout) {
+            Column(
+                modifier = Modifier.padding(horizontal = 15.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "退出当前账号？",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "这只会退出账号，不会清除本机 GPX、路线、历史记录和装备匹配缓存。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Button(
+                    onClick = onConfirmLogout,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("确认退出")
+                }
+                OutlinedButton(
+                    onClick = onCancelLogout,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("取消")
+                }
+            }
+        } else {
+            OutlinedButton(
+                onClick = onRequestLogout,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 15.dp, vertical = 12.dp)
+            ) {
+                Text("退出登录")
+            }
+        }
     }
 }
 
@@ -245,7 +319,7 @@ private fun LocalDataControls(
             glyph = TrailMateGlyph.Folder,
             title = "本机数据",
             value = "仅本机",
-            caption = "基础档案、路线、装备和活动资料保存在这台设备上。"
+            caption = "基础档案、路线、活动资料和装备匹配缓存保存在这台设备上。"
         )
         SettingsDivider()
         if (clearUiState.isConfirmingClear) {
@@ -260,7 +334,7 @@ private fun LocalDataControls(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "这会从本设备移除档案、路线、历史和装备数据。",
+                    text = "这会从本设备移除档案、路线、历史和装备匹配缓存。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

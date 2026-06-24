@@ -19,7 +19,7 @@ The default route tab should not show every field status at once, and it should 
 - lightweight status chips for location, recording, and offline route state;
 - one short safety disclaimer.
 
-The visible default page must not include `开始徒步`, pause/resume, mark-checkpoint, or a `地图状态与轻导航` block. Readiness details, track diagnostics, map layers, and route setup details can remain behind secondary detail surfaces, but those surfaces must be framed around user tasks such as checkpoints, supply, rest, and route details rather than authorization or map diagnostics. They must not contain authorization actions.
+The visible default page must not include `开始徒步`, pause/resume, mark-checkpoint, or a mixed map-diagnostics block. Readiness details, track diagnostics, map layers, and route setup details can remain behind secondary detail surfaces, but those surfaces must be framed around user tasks such as checkpoints, supply, rest, and route details rather than authorization or map diagnostics. They must not contain authorization actions.
 
 ## Authorization Placement
 

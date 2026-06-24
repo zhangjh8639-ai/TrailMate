@@ -4,7 +4,6 @@ data class AiGearAdvisorRequest(
     val route: ImportedRoute,
     val profile: BaselineProfile,
     val assessment: RouteAssessmentSummary,
-    val ownedGear: List<GearItem>,
     val fallbackRecommendations: List<GearRecommendation>,
     val assessmentFingerprint: String,
     val guardrails: List<String>
@@ -28,7 +27,6 @@ object AiGearAdvisorContract {
         route: ImportedRoute,
         profile: BaselineProfile,
         assessment: RouteAssessmentSummary,
-        inventory: GearInventory,
         fallbackRecommendations: List<GearRecommendation>
     ): AiGearAdvisorRequest {
         require(route.readyForAssessment()) { "Route must be parsed before requesting AI gear advice." }
@@ -37,13 +35,12 @@ object AiGearAdvisorContract {
             route = route,
             profile = profile,
             assessment = assessment,
-            ownedGear = inventory.items,
             fallbackRecommendations = fallbackRecommendations,
             assessmentFingerprint = assessment.fingerprint(),
             guardrails = listOf(
                 "不要改写路线评估、匹配等级、置信度、距离、爬升或风险。",
                 "只返回装备类别、状态和理由。",
-                "用户已有装备只能用于解释覆盖关系，缺失项必须继续可见。"
+        "不要要求用户新增私有装备；缺口由服务端品牌库候选匹配。"
             )
         )
     }
@@ -73,7 +70,7 @@ object AiGearAdvisorContract {
         if (response == null) {
             return fallbackPresentation(
                 request = request,
-                statusLabel = "本地清单启用",
+                statusLabel = "规则清单就绪",
                 caption = fallbackCaption(request),
                 isStaleResponse = false
             )
@@ -83,18 +80,16 @@ object AiGearAdvisorContract {
             return fallbackPresentation(
                 request = request,
                 statusLabel = "响应已过期",
-                caption = "AI 清单属于另一条路线，当前展示本地兜底清单。路线评估仍锁定为${request.assessment.matchLevel.displayLabel()}。",
+                caption = "AI 清单属于另一条路线，当前展示路线规则清单，候选由服务端品牌库匹配。路线评估仍锁定为${request.assessment.matchLevel.displayLabel()}。",
                 isStaleResponse = true
             )
         }
 
         return try {
-            val recommendations = GearInventory(request.ownedGear).applyTo(
-                validateResponse(request = request, response = response)
-            )
+            val recommendations = validateResponse(request = request, response = response)
             AiGearAdvisorPresentation(
                 statusLabel = "AI 清单就绪",
-                caption = "${recommendations.size} 条 AI 装备检查已按${request.assessment.matchLevel.displayLabel()}评估校验。",
+            caption = "${recommendations.size} 条 AI 装备检查已按${request.assessment.matchLevel.displayLabel()}评估校验，候选由服务端品牌库匹配。",
                 recommendations = recommendations,
                 isFallbackActive = false,
                 isStaleResponse = false
@@ -102,8 +97,8 @@ object AiGearAdvisorContract {
         } catch (_: IllegalArgumentException) {
             fallbackPresentation(
                 request = request,
-                statusLabel = "本地清单启用",
-                caption = "AI 清单不完整，当前展示本地兜底清单。" +
+                statusLabel = "规则清单就绪",
+                caption = "AI 清单不完整，当前展示路线规则清单。" +
                     fallbackCaption(request),
                 isStaleResponse = false
             )

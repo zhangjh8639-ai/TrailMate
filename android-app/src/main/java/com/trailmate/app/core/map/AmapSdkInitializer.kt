@@ -1,6 +1,7 @@
 package com.trailmate.app.core.map
 
 import android.content.Context
+import com.trailmate.app.BuildConfig
 import com.amap.api.maps.MapsInitializer
 import java.io.File
 
@@ -22,6 +23,7 @@ object AmapSdkInitializer {
             filesDirPath = appContext.filesDir.path
         )
         File(storageDirectory).mkdirs()
+        MapsInitializer.setApiKey(BuildConfig.TRAILMATE_AMAP_API_KEY)
         MapsInitializer.sdcardDir = storageDirectory
         MapsInitializer.updatePrivacyShow(appContext, true, true)
         MapsInitializer.updatePrivacyAgree(appContext, true)

@@ -23,7 +23,6 @@ enum class CloudDataControlAvailability {
 
 enum class CloudDataControlDataSet {
     Profile,
-    Gear,
     GearChecklistArtifact,
     AuditRecord,
     ImportedTargetRoute,
@@ -33,10 +32,8 @@ enum class CloudDataControlDataSet {
 
 enum class CloudDataControlDeletionTarget {
     CloudProfile,
-    CloudGear,
     CloudGearChecklistArtifact,
     LocalProfileCache,
-    LocalGearCache,
     AuditTombstoneConfirmation,
     RouteLibrary,
     HistoricalGpxActivity,
@@ -70,7 +67,6 @@ data class CloudProfileGearDeletionPlan(
 object CloudDataControlPolicy {
     private val profileGearExportData = setOf(
         CloudDataControlDataSet.Profile,
-        CloudDataControlDataSet.Gear,
         CloudDataControlDataSet.GearChecklistArtifact,
         CloudDataControlDataSet.AuditRecord
     )
@@ -83,10 +79,8 @@ object CloudDataControlPolicy {
 
     private val profileGearDeletionTargets = setOf(
         CloudDataControlDeletionTarget.CloudProfile,
-        CloudDataControlDeletionTarget.CloudGear,
         CloudDataControlDeletionTarget.CloudGearChecklistArtifact,
         CloudDataControlDeletionTarget.LocalProfileCache,
-        CloudDataControlDeletionTarget.LocalGearCache,
         CloudDataControlDeletionTarget.AuditTombstoneConfirmation
     )
 
@@ -103,8 +97,8 @@ object CloudDataControlPolicy {
                 includedData = emptySet(),
                 excludedData = profileGearExportExclusions,
                 auditRecord = null,
-                message = "Cloud profile and gear export is unavailable.",
-                blockedReason = "Please sign in to export cloud profile and gear data."
+                message = "Cloud profile and gear-advisor export is unavailable.",
+                blockedReason = "Please sign in to export cloud profile and gear-advisor data."
             )
         }
 
@@ -114,9 +108,9 @@ object CloudDataControlPolicy {
             excludedData = profileGearExportExclusions,
             auditRecord = CloudDataControlAuditRecord(
                 operation = "profile_gear_export",
-                detail = "Prepared export snapshot for profile and ${context.snapshot.inventory.items.size} gear items."
+                detail = "Prepared export snapshot for profile and gear-advisor artifacts."
             ),
-            message = "Your profile and gear export package is ready.",
+            message = "Your profile and gear-advisor export package is ready.",
             warning = if (context.syncState == CloudDataControlSyncState.PendingOrConflicted) {
                 "Pending sync or conflicts may make this export snapshot stale."
             } else {
@@ -132,8 +126,8 @@ object CloudDataControlPolicy {
                 targets = emptySet(),
                 excludedTargets = profileGearDeletionExclusions,
                 auditRecord = null,
-                message = "Cloud profile and gear deletion is unavailable.",
-                blockedReason = "Please sign in to delete cloud profile and gear data."
+                message = "Cloud profile and gear-advisor deletion is unavailable.",
+                blockedReason = "Please sign in to delete cloud profile and gear-advisor data."
             )
         }
 
@@ -143,8 +137,8 @@ object CloudDataControlPolicy {
                 targets = emptySet(),
                 excludedTargets = profileGearDeletionExclusions,
                 auditRecord = null,
-                message = "Cloud profile and gear deletion is blocked.",
-                blockedReason = "Resolve pending sync or conflicts before deleting cloud profile and gear data."
+                message = "Cloud profile and gear-advisor deletion is blocked.",
+                blockedReason = "Resolve pending sync or conflicts before deleting cloud profile and gear-advisor data."
             )
         }
 
@@ -154,9 +148,9 @@ object CloudDataControlPolicy {
             excludedTargets = profileGearDeletionExclusions,
             auditRecord = CloudDataControlAuditRecord(
                 operation = "profile_gear_delete",
-                detail = "Prepared deletion tombstone for profile and ${context.snapshot.inventory.items.size} gear items."
+                detail = "Prepared deletion tombstone for profile and gear-advisor artifacts."
             ),
-            message = "Cloud profile and gear deletion plan is ready."
+            message = "Cloud profile and gear-advisor deletion plan is ready."
         )
     }
 }

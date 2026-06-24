@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
@@ -84,22 +85,27 @@ import com.trailmate.app.core.map.AmapOfflineBaseMapTileProof
 import com.trailmate.app.core.map.AmapPrivacyConsent
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.CapabilityProfileSummary
-import com.trailmate.app.core.model.GearInventory
-import com.trailmate.app.core.model.GearItem
+import com.trailmate.app.core.model.GearCatalogItem
 import com.trailmate.app.core.model.HistoricalActivity
 import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.MatchLevel
 import com.trailmate.app.core.model.RouteImportStatus
 import com.trailmate.app.core.model.RouteAssessmentEngine
 import com.trailmate.app.core.model.RouteAssessmentSummary
-import com.trailmate.app.core.model.RouteGearAdvisorEngine
+import com.trailmate.app.core.model.RouteGearCatalogReadinessEngine
 import com.trailmate.app.core.model.RoutePoint
+import com.trailmate.app.core.model.TrailMateGearCatalogPreviewData
 import com.trailmate.app.core.model.TrailMateSampleData
 import com.trailmate.app.core.model.TrackRecordingState
 import com.trailmate.app.core.model.offlineRoutePackKey
 import com.trailmate.app.core.model.summaryLabel
+import com.trailmate.app.core.network.TrailMateApiResult
+import com.trailmate.app.core.network.TrailMateGearCatalogApi
+import com.trailmate.app.core.network.TrailMateGearCatalogItemDto
+import com.trailmate.app.core.network.TrailMateOfflineBasemapCatalogApi
 import com.trailmate.app.feature.data.DataScreen
-import com.trailmate.app.feature.gear.MyGearScreen
+import com.trailmate.app.feature.gear.GearCatalogSourceUiState
+import com.trailmate.app.feature.gear.GearMatchScreen
 import com.trailmate.app.feature.profile.ProfileSettingsScreen
 import com.trailmate.app.feature.route.RouteDetailScreen
 import com.trailmate.app.feature.route.RouteWorkspaceScreen
@@ -111,7 +117,6 @@ import kotlinx.coroutines.withContext
 @Composable
 fun HomeScreen(
     profile: BaselineProfile = TrailMateSampleData.baselineProfile,
-    initialInventory: GearInventory = GearInventory(TrailMateSampleData.gearItems),
     initialImportedRoute: ImportedRoute? = null,
     initialHistoricalActivities: List<HistoricalActivity> = emptyList(),
     initialGpxImportQueue: GpxImportQueue = GpxImportQueue(),
@@ -119,14 +124,16 @@ fun HomeScreen(
     initialAmapPrivacyConsent: AmapPrivacyConsent = AmapPrivacyConsent(),
     initialOfflineRoutePackKeys: Set<String> = emptySet(),
     initialOfflineBaseMapTileProofs: List<AmapOfflineBaseMapTileProof> = emptyList(),
+    gearCatalogApi: TrailMateGearCatalogApi? = null,
+    offlineBasemapCatalogApi: TrailMateOfflineBasemapCatalogApi? = null,
     showSampleRouteAction: Boolean = false,
-    onInventoryChanged: (GearInventory) -> Unit = {},
     onRouteImported: (ImportedRoute) -> Unit = {},
     onHistoricalActivitiesChanged: (List<HistoricalActivity>) -> Unit = {},
     onGpxImportQueueChanged: (GpxImportQueue) -> Unit = {},
     onTrackRecordingChanged: (TrackRecordingState) -> Unit = {},
     onOfflineRoutePackKeysChanged: (Set<String>) -> Unit = {},
     onOfflineBaseMapTileProofsChanged: (List<AmapOfflineBaseMapTileProof>) -> Unit = {},
+    onLogout: () -> Unit = {},
     onClearLocalData: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -134,8 +141,12 @@ fun HomeScreen(
     var selectedTab by rememberSaveable { mutableStateOf(HomeTab.Home) }
     var isRouteDetailOpen by rememberSaveable { mutableStateOf(false) }
     var routeDetailStartsInCockpit by rememberSaveable { mutableStateOf(false) }
+    var routeDetailInitialDiagnosticsExpanded by rememberSaveable { mutableStateOf(false) }
     var routeNavigationFullscreen by rememberSaveable { mutableStateOf(false) }
     var requestedGearCategory by rememberSaveable { mutableStateOf("") }
+    var gearCatalogItems by remember { mutableStateOf(TrailMateGearCatalogPreviewData.items) }
+    var gearCatalogSourceState by remember { mutableStateOf(GearCatalogSourceUiState.localPreview()) }
+    var gearCatalogReloadToken by rememberSaveable { mutableStateOf(0) }
     var historyImportUiState by remember { mutableStateOf(HistoricalActivityImportUiState()) }
     var gpxImportQueue by remember { mutableStateOf(initialGpxImportQueue) }
     var routeImportQueue by rememberSaveable(stateSaver = TargetRouteImportQueueStateSaver) {
@@ -143,9 +154,6 @@ fun HomeScreen(
     }
     var historicalActivities by rememberSaveable(stateSaver = HistoricalActivitiesStateSaver) {
         mutableStateOf(initialHistoricalActivities)
-    }
-    var inventory by rememberSaveable(stateSaver = GearInventoryStateSaver) {
-        mutableStateOf(initialInventory)
     }
     var amapPrivacyConsent by rememberSaveable(stateSaver = AmapPrivacyConsentStateSaver) {
         mutableStateOf(initialAmapPrivacyConsent)
@@ -166,6 +174,31 @@ fun HomeScreen(
         onOfflineBaseMapTileProofsChanged(proofs)
     }
     val importedRoute = routeImportQueue.lastImportedRoute
+    LaunchedEffect(gearCatalogApi, gearCatalogReloadToken) {
+        val api = gearCatalogApi
+        if (api == null) {
+            gearCatalogItems = TrailMateGearCatalogPreviewData.items
+            gearCatalogSourceState = GearCatalogSourceUiState.localPreview()
+            return@LaunchedEffect
+        }
+
+        gearCatalogSourceState = GearCatalogSourceUiState.loading()
+        when (val result = withContext(Dispatchers.IO) { api.searchGearCatalog(category = "", query = "") }) {
+            is TrailMateApiResult.Success -> {
+                gearCatalogItems = result.value.map { it.toGearCatalogItem() }
+                gearCatalogSourceState = GearCatalogSourceUiState.serverSynced(result.value.size)
+                Log.i("TrailMateGear", "Loaded ${result.value.size} catalog items from server.")
+            }
+            is TrailMateApiResult.Failure -> {
+                gearCatalogItems = TrailMateGearCatalogPreviewData.items
+                gearCatalogSourceState = GearCatalogSourceUiState.fallbackCache()
+                Log.w(
+                    "TrailMateGear",
+                    "Fell back to local gear catalog: ${result.error.code} ${result.error.message}"
+                )
+            }
+        }
+    }
     val routeAssessment = importedRoute?.takeIf { it.readyForAssessment() }?.let { route ->
         RouteAssessmentEngine.assess(
             profile = profile,
@@ -174,11 +207,10 @@ fun HomeScreen(
         )
     }
     val routeGearRecommendations = if (importedRoute?.readyForAssessment() == true && routeAssessment != null) {
-        inventory.applyTo(
-            RouteGearAdvisorEngine.recommend(
-                route = importedRoute,
-                assessment = routeAssessment
-            )
+        RouteGearCatalogReadinessEngine.resolve(
+            route = importedRoute,
+            assessment = routeAssessment,
+            catalogItems = gearCatalogItems
         )
     } else {
         emptyList()
@@ -416,29 +448,9 @@ fun HomeScreen(
     val pickRouteFile: () -> Unit = {
         isRouteDetailOpen = false
         routeDetailStartsInCockpit = false
+        routeDetailInitialDiagnosticsExpanded = false
         routePicker.launch(GPX_MIME_TYPES)
     }
-    val addBrandGear: (String, String?, String?, Int?) -> Unit = { category, brand, model, weightGrams ->
-        val updatedInventory = inventory.addBrandGear(
-            category = category,
-            brand = brand,
-            model = model,
-            weightGrams = weightGrams
-        )
-        inventory = updatedInventory
-        onInventoryChanged(updatedInventory)
-    }
-    val setGearAvailability: (String, Boolean) -> Unit = { itemId, available ->
-        val updatedInventory = inventory.setAvailability(itemId = itemId, available = available)
-        inventory = updatedInventory
-        onInventoryChanged(updatedInventory)
-    }
-    val deleteGear: (String) -> Unit = { itemId ->
-        val updatedInventory = inventory.remove(itemId)
-        inventory = updatedInventory
-        onInventoryChanged(updatedInventory)
-    }
-
     Scaffold(
         bottomBar = {
             if (!routeNavigationFullscreen) {
@@ -476,11 +488,13 @@ fun HomeScreen(
                     onImportRoute = pickRouteFile,
                     onOpenRouteAssessment = {
                         routeDetailStartsInCockpit = false
+                        routeDetailInitialDiagnosticsExpanded = false
                         isRouteDetailOpen = importedRoute?.readyForAssessment() == true && routeAssessment != null
                         selectedTab = HomeTab.Route
                     },
                     onStartLightNavigation = {
                         routeDetailStartsInCockpit = true
+                        routeDetailInitialDiagnosticsExpanded = false
                         isRouteDetailOpen = importedRoute?.readyForAssessment() == true && routeAssessment != null
                         selectedTab = HomeTab.Route
                     },
@@ -495,13 +509,16 @@ fun HomeScreen(
                         RouteDetailScreen(
                             route = route,
                             profile = profile,
-                            inventory = inventory,
+                            catalogItems = gearCatalogItems,
+                            catalogStatusLabel = gearCatalogSourceState.label,
+                            offlineBasemapCatalogApi = offlineBasemapCatalogApi,
                             routeAssessment = assessment,
                             gearRecommendations = routeGearRecommendations,
                             initialTrackRecording = initialTrackRecording,
                             initialOfflineRoutePackReady = offlineRoutePackKey in savedOfflineRoutePackKeys,
                             initialOfflineBaseMapTileProofs = offlineBaseMapTileProofs,
                             initiallyShowRouteCockpit = routeDetailStartsInCockpit,
+                            initiallyExpandRouteDiagnostics = routeDetailInitialDiagnosticsExpanded,
                             amapPrivacyConsent = amapPrivacyConsent,
                             routeNavigationFullscreen = routeNavigationFullscreen,
                             onTrackRecordingChanged = onTrackRecordingChanged,
@@ -518,7 +535,7 @@ fun HomeScreen(
                                 routeNavigationFullscreen = fullscreen
                             },
                             onOpenTrackDataRequested = { selectedTab = HomeTab.Data },
-                            onAddGearRequested = { category ->
+                    onViewGearMatchesRequested = { category ->
                                 requestedGearCategory = category
                                 selectedTab = HomeTab.Gear
                             },
@@ -526,6 +543,7 @@ fun HomeScreen(
                                 routeNavigationFullscreen = false
                                 isRouteDetailOpen = false
                                 routeDetailStartsInCockpit = false
+                                routeDetailInitialDiagnosticsExpanded = false
                             }
                         )
                     } else {
@@ -534,24 +552,48 @@ fun HomeScreen(
                             importSummary = routeImportQueue.summary(),
                             isImporting = routeImportQueue.isImporting,
                             canRetry = routeImportQueue.canRetry,
+                            offlineRoutePackReady = importedRoute
+                                ?.offlineRoutePackKey()
+                                ?.let { key -> key in savedOfflineRoutePackKeys } == true,
+                            offlineBaseMapReady = importedRoute?.let { route ->
+                                offlineBaseMapTileProofs.any { proof ->
+                                    proof.routeKey == route.offlineRoutePackKey() && proof.tileVisible
+                                }
+                            } == true,
                             showSampleRouteAction = showSampleRouteAction,
                             onPickRouteFile = pickRouteFile,
                             onImportSampleRoute = importSampleRoute,
+                            onSaveOfflineRoute = {
+                                importedRoute?.let { routeToSave ->
+                                    updateOfflineRoutePackKeys(savedOfflineRoutePackKeys + routeToSave.offlineRoutePackKey())
+                                }
+                            },
                             onOpenRouteDetail = {
                                 routeDetailStartsInCockpit = false
+                                routeDetailInitialDiagnosticsExpanded = false
                                 isRouteDetailOpen = true
+                            },
+                            onOpenBasemapPreparation = {
+                                routeDetailStartsInCockpit = true
+                                routeDetailInitialDiagnosticsExpanded = true
+                                isRouteDetailOpen = importedRoute?.readyForAssessment() == true && routeAssessment != null
                             }
                         )
                     }
                 }
 
-                HomeTab.Gear -> MyGearScreen(
-                    inventory = inventory,
+                HomeTab.Gear -> GearMatchScreen(
                     routeGearRecommendations = routeGearRecommendations,
                     requestedCategory = requestedGearCategory,
-                    onAddBrandGear = addBrandGear,
-                    onSetAvailability = setGearAvailability,
-                    onDeleteGear = deleteGear
+                    catalogItems = gearCatalogItems,
+                    catalogStatusLabel = gearCatalogSourceState.label,
+                    catalogStatusCaption = gearCatalogSourceState.caption,
+                    catalogIsLoading = gearCatalogSourceState.isLoading,
+                    onRetryCatalogLoad = if (gearCatalogSourceState.canRetry && gearCatalogApi != null) {
+                        { gearCatalogReloadToken += 1 }
+                    } else {
+                        null
+                    }
                 )
 
                 HomeTab.Data -> DataScreen(
@@ -564,6 +606,7 @@ fun HomeScreen(
 
                 HomeTab.Profile -> ProfileSettingsScreen(
                     profile = profile,
+                    onLogout = onLogout,
                     onClearLocalData = onClearLocalData
                 )
             }
@@ -656,11 +699,6 @@ private fun HomeDashboard(
         onNavigation = onOpenRoute,
         onGear = onOpenGear
     )
-    TrailMateSectionHeader(
-        title = "今日概览",
-        action = "更多数据"
-    )
-    TodayOverviewCard()
 }
 
 @Composable
@@ -933,8 +971,8 @@ private fun QuickStartGrid(
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         QuickStartCard(TrailMateGlyph.Mountain, "路线评估", "评估风险与难度", onRoute, Modifier.weight(1f))
-        QuickStartCard(TrailMateGlyph.Compass, "轻导航", "指引你前进", onNavigation, Modifier.weight(1f))
-        QuickStartCard(TrailMateGlyph.Gear, "装备清单", "检查装备状态", onGear, Modifier.weight(1f))
+        QuickStartCard(TrailMateGlyph.Compass, "路线辅助", "定位与记录", onNavigation, Modifier.weight(1f))
+        QuickStartCard(TrailMateGlyph.Gear, "装备匹配", "品牌装备候选", onGear, Modifier.weight(1f))
     }
 }
 
@@ -975,27 +1013,6 @@ private fun QuickStartCard(
                 textAlign = TextAlign.Center
             )
         }
-    }
-}
-
-@Composable
-private fun TodayOverviewCard() {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 3.dp,
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-    ) {
-        TrailMateMetricRow(
-            modifier = Modifier.padding(6.dp),
-            items = listOf(
-                "今日步数" to "0",
-                "消耗热量" to "0 kcal",
-                "累计爬升" to "0 m",
-                "户外时长" to "0 h"
-            )
-        )
     }
 }
 
@@ -1082,6 +1099,20 @@ private fun MatchLevel.effortLabel(): String =
         MatchLevel.NOT_RECOMMENDED -> "很高"
     }
 
+private fun TrailMateGearCatalogItemDto.toGearCatalogItem(): GearCatalogItem =
+    GearCatalogItem(
+        catalogItemId = catalogItemId,
+        category = category,
+        brand = brand,
+        model = model,
+        displayName = displayName,
+        weightGrams = weightGrams,
+        tags = tags,
+        imageUrl = imageUrl,
+        imageAttribution = imageAttribution,
+        source = source
+    )
+
 @Suppress("UNCHECKED_CAST")
 private val AmapPrivacyConsentStateSaver = mapSaver(
     save = { consent ->
@@ -1096,41 +1127,6 @@ private val AmapPrivacyConsentStateSaver = mapSaver(
             accepted = saved["accepted"] as Boolean,
             acceptedAtEpochMillis = (saved["acceptedAtEpochMillis"] as Long).takeIf { it >= 0L },
             policyVersion = saved["policyVersion"] as String
-        )
-    }
-)
-
-@Suppress("UNCHECKED_CAST")
-private val GearInventoryStateSaver = mapSaver(
-    save = { inventory ->
-        mapOf(
-            "ids" to inventory.items.map { it.id },
-            "categories" to inventory.items.map { it.category },
-            "brands" to inventory.items.map { it.brand.orEmpty() },
-            "models" to inventory.items.map { it.model.orEmpty() },
-            "weights" to inventory.items.map { it.weightGrams ?: -1 },
-            "availability" to inventory.items.map { it.available }
-        )
-    },
-    restore = { saved ->
-        val ids = saved["ids"] as List<String>
-        val categories = saved["categories"] as List<String>
-        val brands = saved["brands"] as List<String>
-        val models = saved["models"] as List<String>
-        val weights = saved["weights"] as List<Int>
-        val availability = saved["availability"] as List<Boolean>
-
-        GearInventory(
-            items = ids.indices.map { index ->
-                GearItem(
-                    id = ids[index],
-                    category = categories[index],
-                    brand = brands[index].ifBlank { null },
-                    model = models[index].ifBlank { null },
-                    weightGrams = weights[index].takeIf { it >= 0 },
-                    available = availability[index]
-                )
-            }
         )
     }
 )

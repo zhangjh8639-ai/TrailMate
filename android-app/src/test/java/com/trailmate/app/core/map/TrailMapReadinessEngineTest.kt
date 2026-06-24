@@ -7,6 +7,72 @@ import org.junit.Test
 
 class TrailMapReadinessEngineTest {
     @Test
+    fun prefersMapLibrePmtilesWhenOfflineBasemapPackIsReady() {
+        val readiness = TrailMapReadinessEngine.resolve(
+            hasAmapKey = true,
+            amapSdkAvailable = true,
+            amapPrivacyConsentAccepted = true,
+            mapLibreRuntimeAvailable = true,
+            pmTilesBasemapPackReady = true,
+            offlineRoutePackReady = true,
+            gpsEnabled = true,
+            locationReadyForFieldUse = true,
+            routePointCount = 1858
+        )
+
+        assertEquals(TrailMapProvider.MAPLIBRE_PMTILES, readiness.provider)
+        assertEquals("离线地图包", readiness.title)
+        assertEquals("查看路线辅助", readiness.actionLabel)
+        assertTrue(readiness.caption.contains("PMTiles"))
+        assertTrue(readiness.caption.contains("本地离线地图包"))
+        assertTrue(readiness.layerChips.contains("PMTiles 底图"))
+        assertEquals("离线地图包已就绪", readiness.setupHint.title)
+        assertEquals("离线可用", readiness.setupHint.statusLabel)
+        assertEquals("已导入", readiness.setupSteps.first { it.label == "离线地图包" }.value)
+        assertTrue(readiness.isProductionMapReady)
+    }
+
+    @Test
+    fun fallsBackToLocalPreviewWhenPmtilesPackIsMissing() {
+        val readiness = TrailMapReadinessEngine.resolve(
+            hasAmapKey = false,
+            mapLibreRuntimeAvailable = true,
+            pmTilesBasemapPackReady = false,
+            offlineRoutePackReady = true,
+            gpsEnabled = true,
+            locationReadyForFieldUse = true,
+            routePointCount = 1858
+        )
+
+        assertEquals(TrailMapProvider.LOCAL_GPX_PREVIEW, readiness.provider)
+        assertEquals("定位与记录", readiness.title)
+        assertTrue(readiness.caption.contains("离线路线已保存"))
+        assertEquals("导入离线地图包", readiness.actionLabel)
+        assertEquals("PMTiles 地图包待导入", readiness.setupHint.title)
+        assertEquals("待导入", readiness.setupSteps.first { it.label == "离线地图包" }.value)
+        assertFalse(readiness.isProductionMapReady)
+    }
+
+    @Test
+    fun fallsBackToLocalPreviewWhenMapLibreRuntimeIsMissing() {
+        val readiness = TrailMapReadinessEngine.resolve(
+            hasAmapKey = false,
+            mapLibreRuntimeAvailable = false,
+            pmTilesBasemapPackReady = true,
+            offlineRoutePackReady = true,
+            gpsEnabled = true,
+            locationReadyForFieldUse = true,
+            routePointCount = 1858
+        )
+
+        assertEquals(TrailMapProvider.LOCAL_GPX_PREVIEW, readiness.provider)
+        assertTrue(readiness.caption.contains("离线路线已保存"))
+        assertTrue(readiness.setupHint.caption.contains("MapLibre 渲染器未就绪"))
+        assertEquals("待接入", readiness.setupSteps.first { it.label == "离线地图包" }.value)
+        assertFalse(readiness.isProductionMapReady)
+    }
+
+    @Test
     fun presentsAmapLoadingBeforeFirstTileCallback() {
         val presentation = TrailMapLoadingPresentationEngine.present(
             provider = TrailMapProvider.AMAP_SDK,
@@ -62,7 +128,7 @@ class TrailMapReadinessEngineTest {
         assertEquals(TrailMapProvider.LOCAL_GPX_PREVIEW, readiness.provider)
         assertEquals("本地路线预览", readiness.title)
         assertEquals("使用本地路线", readiness.actionLabel)
-        assertTrue(readiness.caption.contains("在线底图暂不可用"))
+        assertTrue(readiness.caption.contains("MapLibre 渲染器待接入"))
         assertEquals("当前使用本地路线", readiness.setupHint.title)
         assertEquals("本地预览", readiness.setupHint.statusLabel)
         assertFalse(readiness.setupHint.caption.contains("Package/SHA1"))
@@ -70,7 +136,7 @@ class TrailMapReadinessEngineTest {
         assertTrue(readiness.layerChips.contains("GPX 折线"))
         assertTrue(readiness.layerChips.contains("检查点"))
         assertEquals(
-            listOf("路线", "离线", "定位", "底图"),
+            listOf("路线", "离线路线", "GPS", "离线地图包"),
             readiness.setupSteps.map { it.label }
         )
         assertEquals(TrailMapReadinessStepStatus.READY, readiness.setupSteps[0].status)
@@ -78,6 +144,25 @@ class TrailMapReadinessEngineTest {
         assertEquals(TrailMapReadinessStepStatus.NEEDS_ACTION, readiness.setupSteps[2].status)
         assertEquals(TrailMapReadinessStepStatus.NEEDS_ACTION, readiness.setupSteps[3].status)
         assertFalse(readiness.isProductionMapReady)
+    }
+
+    @Test
+    fun usesExplicitOfflineRouteAndBasemapStepLabels() {
+        val readiness = TrailMapReadinessEngine.resolve(
+            hasAmapKey = false,
+            mapLibreRuntimeAvailable = true,
+            pmTilesBasemapPackReady = false,
+            offlineRoutePackReady = false,
+            gpsEnabled = false,
+            routePointCount = 128
+        )
+
+        assertEquals(
+            listOf("路线", "离线路线", "GPS", "离线地图包"),
+            readiness.setupSteps.map { it.label }
+        )
+        assertEquals("待保存", readiness.setupSteps.first { it.label == "离线路线" }.value)
+        assertEquals("待导入", readiness.setupSteps.first { it.label == "离线地图包" }.value)
     }
 
     @Test
@@ -110,9 +195,9 @@ class TrailMapReadinessEngineTest {
             routePointCount = 1858
         )
 
-        assertEquals("实走轻导航", readiness.title)
-        assertEquals("继续轻导航", readiness.actionLabel)
-        assertTrue(readiness.caption.contains("离线路线包"))
+        assertEquals("定位与记录", readiness.title)
+        assertEquals("查看路线辅助", readiness.actionLabel)
+        assertTrue(readiness.caption.contains("离线路线"))
         assertTrue(readiness.caption.contains("当前位置"))
         assertTrue(readiness.layerChips.contains("1858 点"))
         assertFalse(readiness.isProductionMapReady)
@@ -130,11 +215,11 @@ class TrailMapReadinessEngineTest {
 
         assertEquals("本地路线预览", readiness.title)
         assertEquals("使用本地路线", readiness.actionLabel)
-        assertTrue(readiness.caption.contains("定位正在校准"))
-        assertEquals("校准中", readiness.setupSteps.first { it.label == "定位" }.value)
+        assertTrue(readiness.caption.contains("MapLibre 渲染器待接入"))
+        assertEquals("校准中", readiness.setupSteps.first { it.label == "GPS" }.value)
         assertEquals(
             TrailMapReadinessStepStatus.NEEDS_ACTION,
-            readiness.setupSteps.first { it.label == "定位" }.status
+            readiness.setupSteps.first { it.label == "GPS" }.status
         )
         assertFalse(readiness.isProductionMapReady)
     }
@@ -153,9 +238,9 @@ class TrailMapReadinessEngineTest {
         assertEquals(TrailMapProvider.LOCAL_GPX_PREVIEW, readiness.provider)
         assertEquals("本地路线预览", readiness.title)
         assertEquals("使用本地路线", readiness.actionLabel)
-        assertTrue(readiness.caption.contains("在线底图未在首次设置中启用"))
+        assertTrue(readiness.caption.contains("MapLibre 渲染器待接入"))
         assertEquals("当前使用本地路线", readiness.setupHint.title)
-        assertTrue(readiness.setupHint.caption.contains("避免实走中被授权流程打断"))
+        assertTrue(readiness.setupHint.caption.contains("MapLibre 渲染器未就绪"))
         assertFalse(readiness.isProductionMapReady)
     }
 
@@ -172,13 +257,13 @@ class TrailMapReadinessEngineTest {
 
         assertEquals(TrailMapProvider.LOCAL_GPX_PREVIEW, readiness.provider)
         assertEquals("本地路线预览", readiness.title)
-        assertTrue(readiness.caption.contains("在线底图暂不可用"))
-        assertEquals("在线底图暂不可用", readiness.setupHint.title)
+        assertTrue(readiness.caption.contains("MapLibre 渲染器待接入"))
+        assertEquals("当前使用本地路线", readiness.setupHint.title)
         assertFalse(readiness.isProductionMapReady)
     }
 
     @Test
-    fun enablesAmapProviderWithoutClaimingOutdoorProductionReadiness() {
+    fun keepsLocalPreviewEvenWhenAmapIsAvailableBecausePmtilesIsRequiredForBasemap() {
         val readiness = TrailMapReadinessEngine.resolve(
             hasAmapKey = true,
             amapSdkAvailable = true,
@@ -188,18 +273,18 @@ class TrailMapReadinessEngineTest {
             routePointCount = 128
         )
 
-        assertEquals(TrailMapProvider.AMAP_SDK, readiness.provider)
-        assertEquals("在线底图", readiness.title)
-        assertTrue(readiness.caption.contains("在线底图可用"))
-        assertEquals("在线底图已就绪", readiness.setupHint.title)
-        assertEquals("在线可用", readiness.setupHint.statusLabel)
+        assertEquals(TrailMapProvider.LOCAL_GPX_PREVIEW, readiness.provider)
+        assertEquals("本地路线预览", readiness.title)
+        assertTrue(readiness.caption.contains("MapLibre 渲染器待接入"))
+        assertEquals("当前使用本地路线", readiness.setupHint.title)
+        assertEquals("本地预览", readiness.setupHint.statusLabel)
         assertFalse(readiness.setupHint.caption.contains("生产"))
-        assertTrue(readiness.setupHint.caption.contains("目标区域离线底图"))
-        assertTrue(readiness.layerChips.contains("在线底图"))
+        assertTrue(readiness.setupHint.caption.contains("MapLibre"))
+        assertFalse(readiness.layerChips.contains("在线底图"))
         assertEquals(TrailMapReadinessStepStatus.READY, readiness.setupSteps[0].status)
         assertEquals(TrailMapReadinessStepStatus.READY, readiness.setupSteps[1].status)
         assertEquals(TrailMapReadinessStepStatus.NEEDS_ACTION, readiness.setupSteps[2].status)
-        assertEquals(TrailMapReadinessStepStatus.READY, readiness.setupSteps[3].status)
+        assertEquals(TrailMapReadinessStepStatus.NEEDS_ACTION, readiness.setupSteps[3].status)
         assertFalse(readiness.isProductionMapReady)
     }
 }

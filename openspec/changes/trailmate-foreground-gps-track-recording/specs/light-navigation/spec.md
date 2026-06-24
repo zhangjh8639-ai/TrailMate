@@ -189,6 +189,23 @@ The app SHALL let the user start, pause, resume, and finish a local track record
 - AND the Route tab displays recorded distance and point count
 - AND the latest recording is restored after app restart
 
+#### Scenario: User starts hiking from the cockpit
+
+- GIVEN the user has a reliable foreground location fix
+- AND track recording is not active
+- WHEN the Route tab cockpit renders the ready-to-start primary action
+- THEN the primary action is labeled `开始徒步并记录轨迹`
+- AND tapping it starts the hike session and requests local foreground-service track recording
+
+#### Scenario: Foreground service confirmation drives active recording state
+
+- GIVEN a user has granted foreground location permission
+- AND track recording is not active
+- WHEN the user starts or resumes track recording
+- THEN the Route tab requests the foreground-service recording action
+- AND the Route tab does not display an active recording state until the foreground service publishes a recording update
+- AND pause and finish actions remain immediately reflected because they are user-controlled stop actions
+
 #### Scenario: Stale last-known location is ignored
 
 - GIVEN a user starts a new local track recording

@@ -26,5 +26,6 @@
 - [x] Reject stale last-known fixes that predate the current recording start.
 - [x] Reject out-of-order fixes and implausible GPS jump speeds while recording.
 - [x] Keep app-level track recording state synced from foreground-service broadcasts.
+- [x] Keep active recording UI state gated by foreground-service confirmation.
 - [x] Preserve start-recording intent across foreground location and notification permission grants.
 - [x] Run unit tests and Android smoke tests.

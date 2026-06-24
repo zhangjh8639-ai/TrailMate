@@ -222,14 +222,17 @@ object AmapOfflineDownloadQaDiagnosticEngine {
                     )
                 )
 
-            blockers.any { it.contains("未返回离线下载回调") } ->
+            blockers.any { it.contains("未返回离线下载回调") || it.contains("检查更新状态") } &&
+                snapshot.networkValidated &&
+                snapshot.amapStorageWritable ->
                 RecoveryPlan(
-                    action = AmapOfflineDownloadRecoveryAction.RETRY_TARGET_CITY_DOWNLOAD,
-                    nextActionLabel = "打开高德离线管理器确认任务",
+                    action = AmapOfflineDownloadRecoveryAction.VERIFY_AMAP_KEY_BINDING,
+                    nextActionLabel = "核对高德 Key 权限",
                     steps = listOf(
-                        "保持 TrailMate 在前台，重新打开高德离线底图管理并选择 ${snapshot.resolvedCityName.ifBlank { snapshot.targetCityName }}。",
-                        "确认系统没有限制 TrailMate 的网络、省电或后台弹窗；如果任务没有出现，重新点选目标城市下载。",
-                        "下载完成后返回路线页复制诊断报告，确认 downloadedState 或 downloadedRegionCount 已变化。"
+                        "在高德控制台确认 Android Key 绑定包名 ${snapshot.runtimePackageName.ifBlank { "com.trailmate.app" }}。",
+                        "确认 SHA1 为 ${snapshot.runtimePackageSha1?.takeIf { it.isNotBlank() } ?: "诊断报告中的 Package/SHA1"}。",
+                        "确认该 Key 具备 Android SDK 离线地图或城市离线包接口权限；如果接口返回 infocode=10012 / INSUFFICIENT_PRIVILEGES，需要在高德控制台调整 Key 权限或重新申请正确类型 Key。",
+                        "权限更新后重试离线底图；如果仍停留在 ${snapshot.lastStatusLabel} 且无回调，再切换网络并保留诊断报告联系高德排查离线下载服务。"
                     )
                 )
 

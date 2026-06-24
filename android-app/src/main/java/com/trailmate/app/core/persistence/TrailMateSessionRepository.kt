@@ -1,10 +1,10 @@
 package com.trailmate.app.core.persistence
 
+import com.trailmate.app.core.auth.TrailMateAuthSession
 import com.trailmate.app.core.gpx.GpxImportQueue
 import com.trailmate.app.core.map.AmapOfflineBaseMapTileProof
 import com.trailmate.app.core.map.AmapPrivacyConsent
 import com.trailmate.app.core.model.BaselineProfile
-import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.HistoricalActivity
 import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.TrackRecordingState
@@ -12,9 +12,11 @@ import com.trailmate.app.core.model.TrackRecordingState
 interface TrailMateSessionRepository {
     fun loadSnapshot(): TrailMateSnapshot
 
-    fun saveProfile(profile: BaselineProfile)
+    fun saveAuthSession(session: TrailMateAuthSession)
 
-    fun saveInventory(inventory: GearInventory)
+    fun clearAuthSession()
+
+    fun saveProfile(profile: BaselineProfile)
 
     fun saveImportedRoute(route: ImportedRoute)
 
@@ -39,12 +41,16 @@ class LocalTrailMateSessionRepository(
     override fun loadSnapshot(): TrailMateSnapshot =
         store.load()
 
-    override fun saveProfile(profile: BaselineProfile) {
-        store.saveProfile(profile)
+    override fun saveAuthSession(session: TrailMateAuthSession) {
+        store.saveAuthSession(session)
     }
 
-    override fun saveInventory(inventory: GearInventory) {
-        store.saveInventory(inventory)
+    override fun clearAuthSession() {
+        store.clearAuthSession()
+    }
+
+    override fun saveProfile(profile: BaselineProfile) {
+        store.saveProfile(profile)
     }
 
     override fun saveImportedRoute(route: ImportedRoute) {

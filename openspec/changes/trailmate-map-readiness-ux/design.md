@@ -31,7 +31,7 @@ These project-owned production inputs are still required before claiming real on
 The route screen should tell users what map mode they are in:
 
 - `本地路线预览`: GPX geometry and checkpoints are drawn locally.
-- `实走轻导航`: offline route pack and foreground GPS are both active.
+- `定位与记录`: offline route pack and foreground GPS are both active.
 - `高德地图`: future provider state after SDK/key configuration.
 
 ### Checkpoint Details

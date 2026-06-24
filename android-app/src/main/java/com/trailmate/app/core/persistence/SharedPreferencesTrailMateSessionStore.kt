@@ -1,11 +1,11 @@
 package com.trailmate.app.core.persistence
 
 import android.content.Context
+import com.trailmate.app.core.auth.TrailMateAuthSession
 import com.trailmate.app.core.gpx.GpxImportQueue
 import com.trailmate.app.core.map.AmapOfflineBaseMapTileProof
 import com.trailmate.app.core.map.AmapPrivacyConsent
 import com.trailmate.app.core.model.BaselineProfile
-import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.HistoricalActivity
 import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.TrackRecordingState
@@ -21,12 +21,16 @@ class SharedPreferencesTrailMateSessionStore(context: Context) : TrailMateSessio
             ?.let(TrailMateSnapshotCodec::decode)
             ?: TrailMateSnapshot()
 
-    override fun saveProfile(profile: BaselineProfile) {
-        update { snapshot -> snapshot.copy(profile = profile) }
+    override fun saveAuthSession(session: TrailMateAuthSession) {
+        update { snapshot -> snapshot.copy(authSession = session) }
     }
 
-    override fun saveInventory(inventory: GearInventory) {
-        update { snapshot -> snapshot.copy(inventory = inventory) }
+    override fun clearAuthSession() {
+        update { snapshot -> snapshot.copy(authSession = null) }
+    }
+
+    override fun saveProfile(profile: BaselineProfile) {
+        update { snapshot -> snapshot.copy(profile = profile) }
     }
 
     override fun saveImportedRoute(route: ImportedRoute) {

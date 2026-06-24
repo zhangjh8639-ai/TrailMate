@@ -1,6 +1,9 @@
 package com.trailmate.app.feature.route.detail
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,54 +19,66 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.trailmate.app.core.design.TrailMateGlyph
 import com.trailmate.app.core.design.TrailMateLineIcon
 import com.trailmate.app.core.design.TrailMateStatusPill
 import com.trailmate.app.core.model.AiGearAdvisorPresentation
-import com.trailmate.app.core.model.GearInventory
-import com.trailmate.app.core.model.GearItem
+import com.trailmate.app.core.model.GearCatalogItem
+import com.trailmate.app.core.model.GearCatalogRouteMatchTone
+import com.trailmate.app.core.model.GearCatalogSelectionEngine
+import com.trailmate.app.core.model.GearCatalogThumbnailPolicy
 import com.trailmate.app.core.model.GearRecommendation
 import com.trailmate.app.core.model.GearStatus
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.net.URL
 
 @Composable
 internal fun RouteGearTab(
     recommendations: List<GearRecommendation>,
-    inventory: GearInventory,
+    catalogItems: List<GearCatalogItem>,
+    catalogStatusLabel: String,
     aiGearAdvisorPresentation: AiGearAdvisorPresentation,
-    onAddGearRequested: (String) -> Unit
+    onViewGearMatches: (String) -> Unit
 ) {
     val routeChecklist = recommendations.sortedWith(
         compareBy<GearRecommendation> { it.status.routeGearSortOrder() }
             .thenBy { it.category }
     )
     val requiredItems = routeChecklist.filterNot { it.status == GearStatus.OPTIONAL }
-    val readyCount = requiredItems.count { it.status == GearStatus.COVERED }
-    val missingCount = routeChecklist.count { it.status == GearStatus.MISSING }
+    val matchedCatalogCount = requiredItems.count { recommendation ->
+        GearCatalogSelectionEngine.matchCatalogItems(catalogItems, recommendation.category, "").isNotEmpty()
+    }
+    val unmatchedCount = requiredItems.size - matchedCatalogCount
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         GearAdvisorCard(
             presentation = aiGearAdvisorPresentation,
-            inventoryCount = inventory.items.size
+            catalogStatusLabel = catalogStatusLabel
         )
         GearChecklistHeader(
-            readyCount = readyCount,
+            matchedCount = matchedCatalogCount,
             requiredCount = requiredItems.size,
-            missingCount = missingCount
+            unmatchedCount = unmatchedCount
         )
         routeChecklist.forEach { item ->
-            val matchedItem = item.matchedGearItemId?.let { matchedId ->
-                inventory.items.firstOrNull { it.id == matchedId }
-            }
+            val matchedCatalogItem = GearCatalogSelectionEngine
+                .matchCatalogItems(catalogItems, item.category, "")
+                .firstOrNull()
             GearChecklistRow(
                 recommendation = item,
-                matchedItem = matchedItem,
-                onAddGearRequested = onAddGearRequested
+                matchedCatalogItem = matchedCatalogItem,
+                onViewGearMatches = onViewGearMatches
             )
         }
     }
@@ -72,7 +87,7 @@ internal fun RouteGearTab(
 @Composable
 private fun GearAdvisorCard(
     presentation: AiGearAdvisorPresentation,
-    inventoryCount: Int
+    catalogStatusLabel: String
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -109,7 +124,7 @@ private fun GearAdvisorCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "AI 装备建议",
+                        text = "AI 装备需求",
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold
@@ -134,7 +149,7 @@ private fun GearAdvisorCard(
         }
     }
     Text(
-        text = "我的装备库：$inventoryCount 件，可用于本路线匹配。",
+        text = "$catalogStatusLabel：手机端只展示本次路线匹配结果，品牌、型号和图片由服务端品牌库维护。",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = 4.dp)
@@ -143,9 +158,9 @@ private fun GearAdvisorCard(
 
 @Composable
 private fun GearChecklistHeader(
-    readyCount: Int,
+    matchedCount: Int,
     requiredCount: Int,
-    missingCount: Int
+    unmatchedCount: Int
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -154,25 +169,25 @@ private fun GearChecklistHeader(
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(
-                text = "路线清单",
+                text = "路线装备需求",
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "必备装备 $readyCount/$requiredCount · 缺失 $missingCount 项",
+                text = "服务端匹配 $matchedCount/$requiredCount · 待匹配 $unmatchedCount 项",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         TrailMateStatusPill(
-            text = if (missingCount == 0) "可出发" else "待补齐",
-            containerColor = if (missingCount == 0) {
+            text = if (unmatchedCount == 0) "候选齐全" else "待匹配",
+            containerColor = if (unmatchedCount == 0) {
                 MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
             } else {
                 Color(0xFFFFE6E2)
             },
-            contentColor = if (missingCount == 0) {
+            contentColor = if (unmatchedCount == 0) {
                 MaterialTheme.colorScheme.primary
             } else {
                 Color(0xFFB3261E)
@@ -184,10 +199,21 @@ private fun GearChecklistHeader(
 @Composable
 private fun GearChecklistRow(
     recommendation: GearRecommendation,
-    matchedItem: GearItem?,
-    onAddGearRequested: (String) -> Unit
+    matchedCatalogItem: GearCatalogItem?,
+    onViewGearMatches: (String) -> Unit
 ) {
-    val statusColor = recommendation.status.statusColor()
+    val needsMatchedItemCheck = matchedCatalogItem != null &&
+        recommendation.status == GearStatus.CHECK &&
+        recommendation.category.contains("头灯")
+    val visualStatus = when {
+        matchedCatalogItem != null && !needsMatchedItemCheck -> GearStatus.COVERED
+        else -> recommendation.status
+    }
+    val statusColor = visualStatus.statusColor()
+    val matchPresentation = GearCatalogSelectionEngine.presentRouteMatch(
+        recommendation = recommendation,
+        matchedCatalogItem = matchedCatalogItem
+    )
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
@@ -207,72 +233,76 @@ private fun GearChecklistRow(
                 contentAlignment = Alignment.Center
             ) {
                 TrailMateLineIcon(
-                    glyph = recommendation.status.statusGlyph(),
+                    glyph = visualStatus.statusGlyph(),
                     contentDescription = null,
                     modifier = Modifier.size(21.dp),
                     tint = statusColor
                 )
             }
+            CatalogGearThumbnail(
+                item = matchedCatalogItem,
+                fallbackCategory = recommendation.category
+            )
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = recommendation.category,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Bold
-                    )
-                    TrailMateStatusPill(
-                        text = recommendation.status.routeGearDisplayLabel(),
-                        containerColor = statusColor.copy(alpha = 0.12f),
-                        contentColor = statusColor
-                    )
-                }
                 Text(
-                    text = gearRecommendationCaption(recommendation, matchedItem),
+                    text = recommendation.category,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = matchPresentation.statusLine,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = matchPresentation.tone.routeMatchColor()
                 )
             }
-            if (recommendation.status == GearStatus.MISSING) {
-                OutlinedButton(onClick = { onAddGearRequested(recommendation.category) }) {
-                    Text("添加已有装备")
-                }
-            } else {
-                TrailMateStatusPill(
-                    text = matchedItem?.let { "已匹配" } ?: "查看匹配",
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            OutlinedButton(onClick = { onViewGearMatches(recommendation.category) }) {
+                Text("查看候选")
             }
         }
     }
 }
 
-private fun gearRecommendationCaption(
-    recommendation: GearRecommendation,
-    matchedItem: GearItem?
-): String {
-    val matchedText = matchedItem?.let { item ->
-        val name = listOfNotNull(item.brand, item.model).joinToString(" ")
-        " 已匹配 ${name.ifBlank { item.category }}。"
-    }.orEmpty()
-
-    return recommendation.rationale + matchedText
-}
-
-private fun GearStatus.routeGearDisplayLabel(): String =
-    when (this) {
-        GearStatus.COVERED -> "已匹配"
-        GearStatus.CHECK -> "需检查"
-        GearStatus.MISSING -> "未添加"
-        GearStatus.OPTIONAL -> "可选"
+@Composable
+private fun CatalogGearThumbnail(
+    item: GearCatalogItem?,
+    fallbackCategory: String
+) {
+    val imageUrl = item?.takeIf { GearCatalogThumbnailPolicy.shouldLoadServerThumbnail(it) }?.imageUrl
+    val bitmap by produceState<Bitmap?>(initialValue = null, key1 = imageUrl) {
+        value = imageUrl?.let { loadGearThumbnailBitmap(it) }
     }
+
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap!!.asImageBitmap(),
+            contentDescription = item?.displayName,
+            modifier = Modifier
+                .size(54.dp)
+                .clip(RoundedCornerShape(12.dp)),
+            contentScale = ContentScale.Crop
+        )
+        return
+    }
+
+    Box(
+        modifier = Modifier
+            .size(54.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
+        contentAlignment = Alignment.Center
+    ) {
+        TrailMateLineIcon(
+            glyph = fallbackCategory.thumbnailGlyph(),
+            contentDescription = null,
+            modifier = Modifier.size(26.dp),
+            tint = MaterialTheme.colorScheme.primary
+        )
+    }
+}
 
 private fun GearStatus.statusGlyph(): TrailMateGlyph =
     when (this) {
@@ -312,4 +342,35 @@ private fun AiGearAdvisorPresentation.statusContentColor(): Color =
         isStaleResponse -> Color(0xFFB3261E)
         isFallbackActive -> Color(0xFF8B5A00)
         else -> MaterialTheme.colorScheme.primary
+    }
+
+@Composable
+private fun GearCatalogRouteMatchTone.routeMatchColor(): Color =
+    when (this) {
+        GearCatalogRouteMatchTone.MATCHED -> MaterialTheme.colorScheme.primary
+        GearCatalogRouteMatchTone.CHECK -> Color(0xFFC97800)
+        GearCatalogRouteMatchTone.MISSING -> Color(0xFFE0463F)
+        GearCatalogRouteMatchTone.NEUTRAL -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+private suspend fun loadGearThumbnailBitmap(imageUrl: String): Bitmap? =
+    withContext(Dispatchers.IO) {
+        runCatching {
+            val connection = URL(imageUrl).openConnection()
+            connection.connectTimeout = 1_200
+            connection.readTimeout = 1_200
+            connection.getInputStream().use { input ->
+                BitmapFactory.decodeStream(input)
+            }
+        }.getOrNull()
+    }
+
+private fun String.thumbnailGlyph(): TrailMateGlyph =
+    when {
+        contains("头灯") -> TrailMateGlyph.Compass
+        contains("登山杖") -> TrailMateGlyph.Route
+        contains("备用水") -> TrailMateGlyph.Weather
+        contains("雨衣") || contains("防水") -> TrailMateGlyph.Weather
+        contains("保暖") || contains("保温") -> TrailMateGlyph.Gear
+        else -> TrailMateGlyph.Gear
     }

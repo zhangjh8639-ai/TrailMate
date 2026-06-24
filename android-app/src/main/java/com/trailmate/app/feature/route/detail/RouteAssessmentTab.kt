@@ -293,7 +293,7 @@ private fun NextPlanCard(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                        text = next?.note ?: "先确认定位、离线和装备状态，再开始轻导航。",
+                        text = next?.note ?: "先确认定位、离线和装备状态，再进入路线辅助。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

@@ -374,8 +374,8 @@ private fun QuickStartActions(
         )
         QuickStartAction(
             glyph = TrailMateGlyph.Compass,
-            title = "轻导航",
-            caption = "沿线提醒",
+            title = "路线辅助",
+            caption = "定位与记录",
             onClick = onLightNavigation,
             modifier = Modifier.weight(1f)
         )

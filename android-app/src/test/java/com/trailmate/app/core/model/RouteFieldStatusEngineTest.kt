@@ -15,10 +15,10 @@ class RouteFieldStatusEngineTest {
         val status = RouteFieldStatusEngine.build(
             mapReadiness = TrailMapReadiness(
                 provider = TrailMapProvider.LOCAL_GPX_PREVIEW,
-                title = "实走轻导航",
-                caption = "离线路线包已保存，当前位置可用于检查点推进。",
+                title = "定位与记录",
+                caption = "离线路线已保存，当前位置可用于检查点推进。",
                 layerChips = listOf("GPX 折线"),
-                actionLabel = "继续轻导航",
+                actionLabel = "查看路线辅助",
                 isProductionMapReady = false,
                 setupHint = TrailMapSetupHint(
                     title = "离线与定位已可用",
@@ -51,10 +51,10 @@ class RouteFieldStatusEngineTest {
         val status = RouteFieldStatusEngine.build(
             mapReadiness = TrailMapReadiness(
                 provider = TrailMapProvider.LOCAL_GPX_PREVIEW,
-                title = "实走轻导航",
-                caption = "离线路线包已保存，当前位置可用于检查点推进。",
+                title = "定位与记录",
+                caption = "离线路线已保存，当前位置可用于检查点推进。",
                 layerChips = listOf("GPX 折线"),
-                actionLabel = "继续轻导航",
+                actionLabel = "查看路线辅助",
                 isProductionMapReady = false,
                 setupHint = TrailMapSetupHint(
                     title = "离线与定位已可用",
@@ -106,9 +106,9 @@ class RouteFieldStatusEngineTest {
             notificationPermissionGranted = false
         )
 
-        assertEquals("准备轻导航", status.title)
+        assertEquals("准备定位记录", status.title)
         assertEquals("待定位", status.statusLabel)
-        assertEquals("先授权定位；出发前建议保存路线包并允许轨迹通知。", status.caption)
+        assertEquals("先授权定位；出发前建议保存离线路线并允许轨迹通知。", status.caption)
         assertEquals("未启用", status.items.first { item -> item.label == "定位" }.value)
         assertEquals("0 点", status.items.first { item -> item.label == "轨迹" }.value)
         assertEquals("待允许", status.items.first { item -> item.label == "通知" }.value)

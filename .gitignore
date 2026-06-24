@@ -6,4 +6,13 @@
 .tooling-downloads/
 local.properties
 outputs/
+offline-basemaps/pmtiles/*.pmtiles
+
+# Local adb/UI verification artifacts
+tm-*.xml
+tm-*.png
+tm-*.txt
+trailmate-*.png
+trailmate-*.xml
+tmp-trailmate-*.png
 **/build/

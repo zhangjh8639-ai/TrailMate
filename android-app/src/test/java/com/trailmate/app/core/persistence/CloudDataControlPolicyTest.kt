@@ -2,7 +2,6 @@ package com.trailmate.app.core.persistence
 
 import com.trailmate.app.core.gpx.GpxImportJobKind
 import com.trailmate.app.core.gpx.GpxImportQueue
-import com.trailmate.app.core.model.GearInventory
 import com.trailmate.app.core.model.TrailMateSampleData
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -12,10 +11,9 @@ import org.junit.Test
 
 class CloudDataControlPolicyTest {
     @Test
-    fun signedInProfileGearExportIncludesOnlyProfileGearAuditAndMessage() {
+    fun signedInProfileGearAdvisorExportExcludesPersonalGearData() {
         val snapshot = TrailMateSnapshot(
             profile = TrailMateSampleData.baselineProfile,
-            inventory = GearInventory(TrailMateSampleData.gearItems),
             importedRoute = TrailMateSampleData.importedTargetRoute,
             historicalActivities = TrailMateSampleData.historicalActivities,
             gpxImportQueue = GpxImportQueue().enqueue(
@@ -38,7 +36,6 @@ class CloudDataControlPolicyTest {
         assertEquals(
             setOf(
                 CloudDataControlDataSet.Profile,
-                CloudDataControlDataSet.Gear,
                 CloudDataControlDataSet.GearChecklistArtifact,
                 CloudDataControlDataSet.AuditRecord
             ),
@@ -48,19 +45,20 @@ class CloudDataControlPolicyTest {
         assertTrue(exportPackage.excludedData.contains(CloudDataControlDataSet.HistoricalGpxActivity))
         assertTrue(exportPackage.excludedData.contains(CloudDataControlDataSet.GpxImportQueueArtifact))
         assertNotNull(exportPackage.auditRecord)
-        assertTrue(exportPackage.message.contains("profile and gear"))
+        assertTrue(exportPackage.message.contains("profile and gear-advisor"))
         assertFalse(exportPackage.message.contains("route"))
         assertFalse(exportPackage.message.contains("GPX"))
+        assertTrue(exportPackage.auditRecord?.detail.orEmpty().contains("gear-advisor artifacts"))
+        assertFalse(exportPackage.auditRecord?.detail.orEmpty().contains("gear items"))
     }
 
     @Test
-    fun signedInProfileGearDeletionPlanDoesNotDeleteRoutesOrHistoricalGpx() {
+    fun signedInProfileGearAdvisorDeletionPlanDoesNotDeleteCatalogRoutesOrHistoricalGpx() {
         val deletionPlan = CloudDataControlPolicy.planProfileAndGearDeletion(
             CloudDataControlContext(
                 accountState = CloudAccountState.SignedIn,
                 snapshot = TrailMateSnapshot(
                     profile = TrailMateSampleData.baselineProfile,
-                    inventory = GearInventory(TrailMateSampleData.gearItems),
                     importedRoute = TrailMateSampleData.importedTargetRoute,
                     historicalActivities = TrailMateSampleData.historicalActivities,
                     gpxImportQueue = GpxImportQueue().enqueue(
@@ -78,10 +76,8 @@ class CloudDataControlPolicyTest {
         assertEquals(
             setOf(
                 CloudDataControlDeletionTarget.CloudProfile,
-                CloudDataControlDeletionTarget.CloudGear,
                 CloudDataControlDeletionTarget.CloudGearChecklistArtifact,
                 CloudDataControlDeletionTarget.LocalProfileCache,
-                CloudDataControlDeletionTarget.LocalGearCache,
                 CloudDataControlDeletionTarget.AuditTombstoneConfirmation
             ),
             deletionPlan.targets
@@ -90,6 +86,8 @@ class CloudDataControlPolicyTest {
         assertTrue(deletionPlan.excludedTargets.contains(CloudDataControlDeletionTarget.HistoricalGpxActivity))
         assertTrue(deletionPlan.excludedTargets.contains(CloudDataControlDeletionTarget.GpxImportQueueArtifact))
         assertNotNull(deletionPlan.auditRecord)
+        assertTrue(deletionPlan.auditRecord?.detail.orEmpty().contains("gear-advisor artifacts"))
+        assertFalse(deletionPlan.auditRecord?.detail.orEmpty().contains("gear items"))
     }
 
     @Test
@@ -115,10 +113,7 @@ class CloudDataControlPolicyTest {
     fun pendingSyncBlocksDeletionButAllowsExportSnapshotWithStaleWarning() {
         val context = CloudDataControlContext(
             accountState = CloudAccountState.SignedIn,
-            snapshot = TrailMateSnapshot(
-                profile = TrailMateSampleData.baselineProfile,
-                inventory = GearInventory(TrailMateSampleData.gearItems)
-            ),
+            snapshot = TrailMateSnapshot(profile = TrailMateSampleData.baselineProfile),
             syncState = CloudDataControlSyncState.PendingOrConflicted
         )
 
@@ -130,7 +125,6 @@ class CloudDataControlPolicyTest {
         assertEquals(
             setOf(
                 CloudDataControlDataSet.Profile,
-                CloudDataControlDataSet.Gear,
                 CloudDataControlDataSet.GearChecklistArtifact,
                 CloudDataControlDataSet.AuditRecord
             ),

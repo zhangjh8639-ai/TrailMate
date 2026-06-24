@@ -2,14 +2,14 @@ package com.trailmate.app.core.map
 
 enum class TrailMapSurfaceMode {
     LOCAL_CANVAS,
-    AMAP_MAP_VIEW
+    MAPLIBRE_PMTILES
 }
 
 object TrailMapSurfaceSelector {
     fun select(readiness: TrailMapReadiness): TrailMapSurfaceMode =
-        if (readiness.provider == TrailMapProvider.AMAP_SDK) {
-            TrailMapSurfaceMode.AMAP_MAP_VIEW
-        } else {
-            TrailMapSurfaceMode.LOCAL_CANVAS
+        when (readiness.provider) {
+            TrailMapProvider.MAPLIBRE_PMTILES -> TrailMapSurfaceMode.MAPLIBRE_PMTILES
+            TrailMapProvider.AMAP_SDK,
+            TrailMapProvider.LOCAL_GPX_PREVIEW -> TrailMapSurfaceMode.LOCAL_CANVAS
         }
 }

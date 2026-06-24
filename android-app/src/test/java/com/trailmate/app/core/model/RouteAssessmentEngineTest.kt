@@ -187,9 +187,10 @@ class RouteAssessmentEngineTest {
             route = TrailMateSampleData.importedTargetRoute
         )
 
-        GearInventory(TrailMateSampleData.gearItems)
-            .addBrandGear("登山杖", "Leki", "Makalu Lite", 510)
-            .applyTo(TrailMateSampleData.gearRecommendations)
+        RouteGearAdvisorEngine.recommend(
+            route = TrailMateSampleData.importedTargetRoute,
+            assessment = assessment
+        )
 
         assertEquals(MatchLevel.CAUTION, assessment.matchLevel)
         assertEquals(ConfidenceLevel.LOW, assessment.confidenceLevel)

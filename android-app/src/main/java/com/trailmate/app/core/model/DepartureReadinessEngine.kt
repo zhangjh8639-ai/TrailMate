@@ -43,7 +43,9 @@ object DepartureReadinessEngine {
         val offlineBaseMapRegionReady = offlineBaseMapRegionCount != null &&
             offlineBaseMapRegionCount > 0 &&
             offlineBaseMapCoversTargetRoute
-        val offlineBaseMapReady = offlineBaseMapRegionReady && offlineBaseMapTilesVerifiedWithoutNetwork
+        val pmTilesOfflineBaseMapReady = mapReadiness.isProductionMapReady
+        val offlineBaseMapReady = pmTilesOfflineBaseMapReady ||
+            (offlineBaseMapRegionReady && offlineBaseMapTilesVerifiedWithoutNetwork)
         val targetRegionLabel = targetOfflineBaseMapRegionLabel?.trim()?.takeIf { it.isNotEmpty() }
         val offlineBaseMapBlocksDeparture =
             offlineBaseMapRequirement == OfflineBaseMapRequirement.REQUIRED && !offlineBaseMapReady
@@ -54,13 +56,14 @@ object DepartureReadinessEngine {
                 ready = routeReady
             ),
             DepartureReadinessStep(
-                label = "路线包",
+                label = "离线路线",
                 value = if (offlineRoutePackReady) "已保存" else "待保存",
                 ready = offlineRoutePackReady
             ),
             DepartureReadinessStep(
-                label = "离线底图",
+                label = "离线地图包",
                 value = when {
+                    pmTilesOfflineBaseMapReady -> "PMTiles 已导入"
                     offlineBaseMapRequirement == OfflineBaseMapRequirement.RECOMMENDED &&
                         !offlineBaseMapReady -> "建议下载"
                     offlineBaseMapRegionCount == null -> "待确认"
@@ -102,24 +105,23 @@ object DepartureReadinessEngine {
                 caption = if (offlineBaseMapRequirement == OfflineBaseMapRequirement.RECOMMENDED &&
                     !offlineBaseMapReady
                 ) {
-                    "路线、路线包、定位授权和关键装备已就绪；离线底图建议下载，但不阻断本次推荐路线。"
+                    "路线、离线路线、定位授权和关键装备已就绪；离线地图包建议下载，但不阻断本次推荐路线。"
                 } else {
-                    "路线、离线包、断网底图验证、定位授权和关键装备已就绪。"
+                    "离线路线、离线地图包、定位授权和关键装备已就绪。"
                 },
-                primaryActionLabel = "开始徒步",
+                primaryActionLabel = "开始徒步并记录轨迹",
                 steps = steps
             )
         }
 
         val actions = buildList {
-            if (!offlineRoutePackReady) add("保存路线包")
+            if (!offlineRoutePackReady) add("保存离线路线")
             if (offlineBaseMapBlocksDeparture) {
                 add(
                     offlineBaseMapRepairAction(
                     offlineBaseMapRegionCount = offlineBaseMapRegionCount,
                     offlineBaseMapCoversTargetRoute = offlineBaseMapCoversTargetRoute,
-                    offlineBaseMapTilesVerifiedWithoutNetwork = offlineBaseMapTilesVerifiedWithoutNetwork,
-                    targetRegionLabel = targetRegionLabel
+                    offlineBaseMapTilesVerifiedWithoutNetwork = offlineBaseMapTilesVerifiedWithoutNetwork
                     )
                 )
             }
@@ -128,7 +130,7 @@ object DepartureReadinessEngine {
         }
         val offlineBaseMapSafetyReason =
             if (offlineBaseMapBlocksDeparture) {
-                "路线包只保存轨迹；离线底图用于弱网时保留道路、地名、水系、岔路和撤退参照。"
+                "GPX 路线只保存折线和检查点；离线地图包用于弱网时保留道路、地名、水系、岔路和撤退参照。"
             } else {
                 ""
             }
@@ -145,8 +147,7 @@ object DepartureReadinessEngine {
     private fun offlineBaseMapRepairAction(
         offlineBaseMapRegionCount: Int?,
         offlineBaseMapCoversTargetRoute: Boolean,
-        offlineBaseMapTilesVerifiedWithoutNetwork: Boolean,
-        targetRegionLabel: String?
+        offlineBaseMapTilesVerifiedWithoutNetwork: Boolean
     ): String =
         if (offlineBaseMapRegionCount != null &&
             offlineBaseMapRegionCount > 0 &&
@@ -155,7 +156,7 @@ object DepartureReadinessEngine {
         ) {
             "飞行模式验证底图"
         } else {
-            targetRegionLabel?.let { "下载${it}离线底图" } ?: "下载离线底图"
+            "导入离线地图包"
         }
 
     private fun TrailMateLocationSnapshot?.locationRepairActionLabel(gpsEnabled: Boolean): String =

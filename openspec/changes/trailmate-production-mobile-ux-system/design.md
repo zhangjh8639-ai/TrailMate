@@ -7,7 +7,7 @@ TrailMate is a personal hiking coach for route preparation and light navigation.
 - Home starts today's route preparation.
 - Route manages imported routes and opens the active route.
 - Route Detail answers assessment, navigation, plan, and gear questions for one route.
-- Gear manages route-specific preparation and personal equipment.
+- Gear manages route-specific preparation and server catalog matches.
 - Data reviews recorded activities and ability trends.
 - Me manages account, profile, permissions, privacy, and map settings.
 
@@ -21,8 +21,8 @@ TrailMate is a personal hiking coach for route preparation and light navigation.
 | Route Detail - Assessment | Is this route suitable for me? | Go to cockpit or gear | Show summarized rationale only |
 | Route Detail - Route | What should I do in the field now? | GPS/start/pause/continue/recover | Hide diagnostics below fold |
 | Route Detail - Plan | When should I rest, eat, and check risk? | Review checkpoint timeline | No raw prompt/evidence |
-| Route Detail - Gear | Is my gear ready for this route? | Add/match gear | Show user-owned brand data only |
-| Gear | What gear do I own and what is missing? | Add/edit gear | Route-relevant only |
+| Route Detail - Gear | What does this route require? | Review needs / view catalog matches | Show route-critical needs and server brand candidates |
+| Gear | Which brand candidates match this route? | View candidates / details | Route-relevant catalog data only |
 | Data | What happened and what did I learn? | Review activity/track | Evidence summarized as activity history |
 | Me | How do I manage account and privacy? | Edit settings / export / clear | Evidence counts, not raw bundles |
 

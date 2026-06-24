@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -99,6 +100,7 @@ fun TrailMateSegmentedControl(
                     .weight(1f)
                     .heightIn(min = 42.dp)
                     .clip(RoundedCornerShape(12.dp))
+                    .testTag("segmented-control-$label")
                     .selectable(
                         selected = active,
                         onClick = { onSelected(label) },

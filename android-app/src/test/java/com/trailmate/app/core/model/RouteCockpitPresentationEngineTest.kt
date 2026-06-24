@@ -23,7 +23,7 @@ class RouteCockpitPresentationEngineTest {
         )
 
         assertEquals(RouteCockpitPrimaryActionKind.SAVE_OFFLINE_ROUTE_PACK, presentation.primaryAction.kind)
-        assertEquals("保存路线包", presentation.primaryAction.label)
+        assertEquals("保存离线路线", presentation.primaryAction.label)
         assertEquals("定位", presentation.readinessItems[0].label)
         assertEquals(RouteCockpitReadinessTone.BLOCKED, presentation.readinessItems[0].tone)
     }
@@ -113,8 +113,9 @@ class RouteCockpitPresentationEngineTest {
         )
         assertEquals(
             RouteCockpitReadinessActionKind.SAVE_OFFLINE_ROUTE_PACK,
-            presentation.readinessItems.first { it.label == "路线包" }.actionKind
+            presentation.readinessItems.first { it.label == "离线路线" }.actionKind
         )
+        assertEquals("待保存", presentation.readinessItems.first { it.label == "离线路线" }.value)
         assertEquals(
             RouteCockpitReadinessActionKind.SHOW_GEAR,
             presentation.readinessItems.first { it.label == "装备" }.actionKind
@@ -137,17 +138,18 @@ class RouteCockpitPresentationEngineTest {
             locationSnapshot = locatedSnapshot,
             locationGuidanceStatus = LocationBackedHikeStatus.ON_ROUTE,
             trackRecording = TrackRecordingState(status = TrackRecordingStatus.IDLE),
-            wasRecentlyOffRoute = false
+            wasRecentlyOffRoute = false,
+            nowEpochMillis = NOW_EPOCH_MILLIS
         )
 
-        val baseMapItem = presentation.readinessItems.first { it.label == "底图" }
+        val baseMapItem = presentation.readinessItems.first { it.label == "离线地图包" }
         assertEquals("未下载", baseMapItem.value)
         assertEquals(RouteCockpitReadinessTone.ATTENTION, baseMapItem.tone)
         assertEquals(RouteCockpitReadinessActionKind.OPEN_OFFLINE_BASE_MAP, baseMapItem.actionKind)
     }
 
     @Test
-    fun primaryActionRepairsOfflineBaseMapBeforeStartingHike() {
+    fun primaryActionKeepsOfflineBaseMapRepairInReadinessBeforeStartingHike() {
         val presentation = RouteCockpitPresentationEngine.build(
             route = sampleRoute,
             plan = samplePlan,
@@ -162,15 +164,18 @@ class RouteCockpitPresentationEngineTest {
             locationSnapshot = locatedSnapshot,
             locationGuidanceStatus = LocationBackedHikeStatus.ON_ROUTE,
             trackRecording = TrackRecordingState(status = TrackRecordingStatus.IDLE),
-            wasRecentlyOffRoute = false
+            wasRecentlyOffRoute = false,
+            nowEpochMillis = NOW_EPOCH_MILLIS
         )
 
-        assertEquals("下载离线底图", presentation.primaryAction.label)
-        assertEquals("OPEN_OFFLINE_BASE_MAP", presentation.primaryAction.kind.name)
+        assertEquals("开始徒步并记录轨迹", presentation.primaryAction.label)
+        assertEquals(RouteCockpitPrimaryActionKind.START_HIKE, presentation.primaryAction.kind)
+        val baseMapItem = presentation.readinessItems.first { it.label == "离线地图包" }
+        assertEquals(RouteCockpitReadinessActionKind.OPEN_OFFLINE_BASE_MAP, baseMapItem.actionKind)
     }
 
     @Test
-    fun primaryActionNamesTargetOfflineBaseMapRegionWhenAvailable() {
+    fun primaryActionKeepsTargetOfflineBaseMapRegionInReadinessBeforeStartingHike() {
         val presentation = RouteCockpitPresentationEngine.build(
             route = sampleRoute,
             plan = samplePlan,
@@ -186,15 +191,18 @@ class RouteCockpitPresentationEngineTest {
             locationSnapshot = locatedSnapshot,
             locationGuidanceStatus = LocationBackedHikeStatus.ON_ROUTE,
             trackRecording = TrackRecordingState(status = TrackRecordingStatus.IDLE),
-            wasRecentlyOffRoute = false
+            wasRecentlyOffRoute = false,
+            nowEpochMillis = NOW_EPOCH_MILLIS
         )
 
-        assertEquals("下载杭州市离线底图", presentation.primaryAction.label)
-        assertEquals("OPEN_OFFLINE_BASE_MAP", presentation.primaryAction.kind.name)
+        assertEquals("开始徒步并记录轨迹", presentation.primaryAction.label)
+        assertEquals(RouteCockpitPrimaryActionKind.START_HIKE, presentation.primaryAction.kind)
+        val baseMapItem = presentation.readinessItems.first { it.label == "离线地图包" }
+        assertEquals(RouteCockpitReadinessActionKind.OPEN_OFFLINE_BASE_MAP, baseMapItem.actionKind)
     }
 
     @Test
-    fun primaryActionVerifiesOfflineBaseMapTilesBeforeStartingHike() {
+    fun primaryActionKeepsOfflineBaseMapTileVerificationInReadinessBeforeStartingHike() {
         val presentation = RouteCockpitPresentationEngine.build(
             route = sampleRoute,
             plan = samplePlan,
@@ -211,11 +219,14 @@ class RouteCockpitPresentationEngineTest {
             locationSnapshot = locatedSnapshot,
             locationGuidanceStatus = LocationBackedHikeStatus.ON_ROUTE,
             trackRecording = TrackRecordingState(status = TrackRecordingStatus.IDLE),
-            wasRecentlyOffRoute = false
+            wasRecentlyOffRoute = false,
+            nowEpochMillis = NOW_EPOCH_MILLIS
         )
 
-        assertEquals("飞行模式验证底图", presentation.primaryAction.label)
-        assertEquals("OPEN_OFFLINE_BASE_MAP", presentation.primaryAction.kind.name)
+        assertEquals("开始徒步并记录轨迹", presentation.primaryAction.label)
+        assertEquals(RouteCockpitPrimaryActionKind.START_HIKE, presentation.primaryAction.kind)
+        val baseMapItem = presentation.readinessItems.first { it.label == "离线地图包" }
+        assertEquals(RouteCockpitReadinessActionKind.OPEN_OFFLINE_BASE_MAP, baseMapItem.actionKind)
     }
 
     @Test
@@ -305,7 +316,7 @@ class RouteCockpitPresentationEngineTest {
     }
 
     @Test
-    fun prioritizesRecoveryAdviceWhenOffRoute() {
+    fun keepsRecordingControlPrimaryWhenOffRoute() {
         val presentation = RouteCockpitPresentationEngine.build(
             route = sampleRoute,
             plan = samplePlan,
@@ -319,8 +330,8 @@ class RouteCockpitPresentationEngineTest {
             wasRecentlyOffRoute = false
         )
 
-        assertEquals(RouteCockpitPrimaryActionKind.VIEW_RECOVERY, presentation.primaryAction.kind)
-        assertEquals("查看恢复建议", presentation.primaryAction.label)
+        assertEquals(RouteCockpitPrimaryActionKind.PAUSE_RECORDING, presentation.primaryAction.kind)
+        assertEquals("暂停", presentation.primaryAction.label)
         assertEquals("需核对路线", presentation.routeMatchLabel)
     }
 
