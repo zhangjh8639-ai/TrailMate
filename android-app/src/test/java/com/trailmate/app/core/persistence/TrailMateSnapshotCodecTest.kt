@@ -79,7 +79,11 @@ class TrailMateSnapshotCodecTest {
                 )
             ),
             latestTrackRecording = TrackRecordingEngine.appendLocation(
-                state = TrackRecordingEngine.start(routeName = "West Ridge", nowEpochMillis = 1_000L),
+                state = TrackRecordingEngine.start(
+                    routeName = "West Ridge",
+                    routeKey = "west-ridge.gpx|West Ridge|8.4|540|64",
+                    nowEpochMillis = 1_000L
+                ),
                 point = RecordedTrackPoint(
                     latitude = 30.0,
                     longitude = 120.0,

@@ -210,6 +210,7 @@ import com.trailmate.app.core.model.RouteFieldStatusEngine
 import com.trailmate.app.core.model.RouteFieldStatusItem
 import com.trailmate.app.core.model.RouteFieldStatusSummary
 import com.trailmate.app.core.model.RouteDeviationAlertDecision
+import com.trailmate.app.core.model.RouteDeviationAlertDeliveryOwnerPolicy
 import com.trailmate.app.core.model.RouteDeviationAlertPolicy
 import com.trailmate.app.core.model.RouteDeviationAlertPresentation
 import com.trailmate.app.core.model.RouteDeviationAlertPresentationEngine
@@ -233,6 +234,7 @@ import com.trailmate.app.core.model.TrackRecordingActionGateStep
 import com.trailmate.app.core.model.TrackRecordingForegroundRecoveryPolicy
 import com.trailmate.app.core.model.TrackRecordingReviewEngine
 import com.trailmate.app.core.model.TrackRecordingReviewPresentation
+import com.trailmate.app.core.model.TrackRecordingRouteIdentityPolicy
 import com.trailmate.app.core.model.TrackRecordingServiceCommand
 import com.trailmate.app.core.model.TrackRecordingState
 import com.trailmate.app.core.model.TrackRecordingStatus
@@ -342,9 +344,16 @@ fun RouteDetailScreen(
     }
     val trackNotificationPermissionGranted =
         notificationPermissionGranted ?: runtimeNotificationPermissionGranted
+    val currentRouteKey = route.offlineRoutePackKey()
     var trackRecording by remember(routeSessionKey) {
         mutableStateOf(
-            if (initialTrackRecording.routeName == route.routeName) {
+            if (
+                TrackRecordingRouteIdentityPolicy.recordingBelongsToRoute(
+                    trackRecording = initialTrackRecording,
+                    routeName = route.routeName,
+                    routeKey = currentRouteKey
+                )
+            ) {
                 initialTrackRecording
             } else {
                 TrackRecordingState()
@@ -732,7 +741,11 @@ fun RouteDetailScreen(
         when (decision.serviceCommand) {
             TrackRecordingServiceCommand.START -> {
                 prepareLocationForActiveUse()
-                TrackRecordingForegroundService.startRecording(context, route.routeName)
+                TrackRecordingForegroundService.startRecording(
+                    context = context,
+                    routeName = route.routeName,
+                    routeKey = route.offlineRoutePackKey()
+                )
             }
             TrackRecordingServiceCommand.RESUME -> {
                 prepareLocationForActiveUse()
@@ -1112,7 +1125,14 @@ fun RouteDetailScreen(
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 val updated = TrackRecordingForegroundService.trackRecordingFrom(intent)
-                if (updated?.routeName == route.routeName) {
+                if (
+                    updated != null &&
+                    TrackRecordingRouteIdentityPolicy.recordingBelongsToRoute(
+                        trackRecording = updated,
+                        routeName = route.routeName,
+                        routeKey = currentRouteKey
+                    )
+                ) {
                     publishTrackRecording(updated)
                 }
             }
@@ -1127,11 +1147,18 @@ fun RouteDetailScreen(
             context.unregisterReceiver(receiver)
         }
     }
-    LaunchedEffect(routeSessionKey, trackRecording.status, trackRecording.routeName, trackServiceRestoreAttempted) {
+    LaunchedEffect(
+        routeSessionKey,
+        trackRecording.status,
+        trackRecording.routeName,
+        trackRecording.routeKey,
+        trackServiceRestoreAttempted
+    ) {
         if (
             TrackRecordingForegroundRecoveryPolicy.shouldResumeForegroundService(
                 current = trackRecording,
                 routeName = route.routeName,
+                routeKey = currentRouteKey,
                 alreadyAttempted = trackServiceRestoreAttempted
             )
         ) {
@@ -1175,11 +1202,13 @@ fun RouteDetailScreen(
                     state = routeDeviationAlertState,
                     nowEpochMillis = nowEpochMillis
                 )
-                RouteDeviationAlertAndroidDelivery.deliver(
-                    context = context,
-                    decision = alertDecision,
-                    notificationPermissionGranted = trackNotificationPermissionGranted
-                )
+                if (RouteDeviationAlertDeliveryOwnerPolicy.routeScreenMayDeliver(trackRecording.status)) {
+                    RouteDeviationAlertAndroidDelivery.deliver(
+                        context = context,
+                        decision = alertDecision,
+                        notificationPermissionGranted = trackNotificationPermissionGranted
+                    )
+                }
                 routeDeviationAlertState = alertDecision.nextState
                 latestRouteDeviationAlertDecision = RouteDeviationAlertPresentationEngine.displayDecision(
                     previous = latestRouteDeviationAlertDecision,

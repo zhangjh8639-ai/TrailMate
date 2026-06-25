@@ -100,6 +100,7 @@ object TrailMateSnapshotCodec {
             properties["track.present"] = "true"
             properties["track.status"] = track.status.name
             properties["track.routeName"] = track.routeName.orEmpty()
+            properties["track.routeKey"] = track.routeKey.orEmpty()
             properties["track.startedAtEpochMillis"] = track.startedAtEpochMillis?.toString().orEmpty()
             properties["track.pausedAtEpochMillis"] = track.pausedAtEpochMillis?.toString().orEmpty()
             properties["track.recordingActiveSinceEpochMillis"] =
@@ -339,7 +340,8 @@ object TrailMateSnapshotCodec {
             recordingActiveSinceEpochMillis = nullableLong("track.recordingActiveSinceEpochMillis"),
             finishedAtEpochMillis = nullableLong("track.finishedAtEpochMillis"),
             points = points,
-            totalDistanceKm = getProperty("track.totalDistanceKm")?.toDoubleOrNull() ?: 0.0
+            totalDistanceKm = getProperty("track.totalDistanceKm")?.toDoubleOrNull() ?: 0.0,
+            routeKey = getProperty("track.routeKey").orEmpty().ifBlank { null }
         )
     }
 

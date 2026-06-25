@@ -20,10 +20,15 @@ import android.os.Bundle
 import android.os.IBinder
 import android.os.Looper
 import com.trailmate.app.MainActivity
+import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.RecordedTrackPoint
+import com.trailmate.app.core.model.RouteDeviationAlertState
 import com.trailmate.app.core.model.TrackRecordingEngine
+import com.trailmate.app.core.model.TrackRecordingRouteIdentityPolicy
+import com.trailmate.app.core.model.TrackRecordingRouteMonitorEngine
 import com.trailmate.app.core.model.TrackRecordingState
 import com.trailmate.app.core.model.TrackRecordingStatus
+import com.trailmate.app.core.model.offlineRoutePackKey
 import com.trailmate.app.core.persistence.LocalTrailMateSessionRepository
 import com.trailmate.app.core.persistence.SharedPreferencesTrailMateSessionStore
 import java.util.Locale
@@ -36,6 +41,9 @@ class TrackRecordingForegroundService : Service() {
         getSystemService(Context.LOCATION_SERVICE) as LocationManager
     }
     private var activeListener: LocationListener? = null
+    private var routeDeviationAlertState = RouteDeviationAlertState()
+    private var monitoredRoute: ImportedRoute? = null
+    private var monitoredRouteKey: String? = null
 
     private data class LocationUpdatesStartResult(
         val provider: String?,
@@ -54,17 +62,22 @@ class TrackRecordingForegroundService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action ?: ACTION_START
-        val current = repository.loadSnapshot().latestTrackRecording
+        val snapshot = repository.loadSnapshot()
+        val current = snapshot.latestTrackRecording
         when (action) {
             ACTION_START -> startOrKeepRecording(
                 routeName = intent?.getStringExtra(EXTRA_ROUTE_NAME).orEmpty(),
+                routeKey = intent?.getStringExtra(EXTRA_ROUTE_KEY),
+                importedRoute = snapshot.importedRoute,
                 current = current
             )
             ACTION_PAUSE -> pauseRecording(current)
-            ACTION_RESUME -> resumeRecording(current)
+            ACTION_RESUME -> resumeRecording(current, snapshot.importedRoute)
             ACTION_FINISH -> finishRecording(current)
             else -> startOrKeepRecording(
                 routeName = current.routeName.orEmpty(),
+                routeKey = current.routeKey,
+                importedRoute = snapshot.importedRoute,
                 current = current
             )
         }
@@ -76,22 +89,30 @@ class TrackRecordingForegroundService : Service() {
         super.onDestroy()
     }
 
-    private fun startOrKeepRecording(routeName: String, current: TrackRecordingState) {
+    private fun startOrKeepRecording(
+        routeName: String,
+        routeKey: String?,
+        importedRoute: ImportedRoute?,
+        current: TrackRecordingState
+    ) {
         val decision = TrackRecordingServiceStartPolicy.resolve(
             requestedRouteName = routeName,
             current = current,
             hasPreciseLocationPermission = hasForegroundLocationPermission(),
             hasEnabledProvider = enabledProvider() != null,
-            nowEpochMillis = System.currentTimeMillis()
+            nowEpochMillis = System.currentTimeMillis(),
+            requestedRouteKey = routeKey
         )
 
         when (decision.action) {
             TrackRecordingServiceStartAction.STOP_SELF -> {
+                resetRouteDeviationMonitor()
                 stopSelf()
             }
 
             TrackRecordingServiceStartAction.PUBLISH_ONLY -> {
                 stopLocationUpdates()
+                resetRouteDeviationMonitor()
                 savePublishAndNotify(
                     trackRecording = decision.trackRecording,
                     caption = decision.notificationCaption,
@@ -123,6 +144,7 @@ class TrackRecordingForegroundService : Service() {
                     return
                 }
 
+                captureMonitoredRoute(importedRoute, decision.trackRecording)
                 repository.saveTrackRecording(decision.trackRecording)
                 publishRecording(decision.trackRecording)
                 appendLastKnownLocation(provider)
@@ -137,6 +159,7 @@ class TrackRecordingForegroundService : Service() {
             nowEpochMillis = System.currentTimeMillis()
         )
         stopLocationUpdates()
+        resetRouteDeviationMonitor()
         savePublishAndNotify(
             trackRecording = decision.trackRecording,
             caption = decision.notificationCaption,
@@ -154,6 +177,7 @@ class TrackRecordingForegroundService : Service() {
             nowEpochMillis = System.currentTimeMillis()
         )
         stopLocationUpdates()
+        resetRouteDeviationMonitor()
         savePublishAndNotify(
             trackRecording = updated,
             caption = "轨迹记录已暂停",
@@ -161,9 +185,11 @@ class TrackRecordingForegroundService : Service() {
         )
     }
 
-    private fun resumeRecording(current: TrackRecordingState) {
+    private fun resumeRecording(current: TrackRecordingState, importedRoute: ImportedRoute?) {
         startOrKeepRecording(
             routeName = current.routeName.orEmpty(),
+            routeKey = current.routeKey,
+            importedRoute = importedRoute,
             current = current
         )
     }
@@ -174,6 +200,7 @@ class TrackRecordingForegroundService : Service() {
             nowEpochMillis = System.currentTimeMillis()
         )
         stopLocationUpdates()
+        resetRouteDeviationMonitor()
         repository.saveTrackRecording(updated)
         publishRecording(updated)
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -249,14 +276,80 @@ class TrackRecordingForegroundService : Service() {
     }
 
     private fun appendLocation(location: Location) {
-        val current = repository.loadSnapshot().latestTrackRecording
+        val snapshot = repository.loadSnapshot()
+        val current = snapshot.latestTrackRecording
+        val point = location.toRecordedTrackPoint()
         val updated = TrackRecordingEngine.appendLocation(
             state = current,
-            point = location.toRecordedTrackPoint()
+            point = point
         )
         if (updated != current) {
+            deliverRouteDeviationAlertFromService(
+                route = monitoredRoute?.takeIf { route -> route.readyForMonitoring(updated) }
+                    ?: snapshot.importedRoute?.takeIf { route -> route.readyForMonitoring(updated) },
+                trackRecording = updated,
+                point = point
+            )
             savePublishAndNotify(updated, updated.notificationCaption())
         }
+    }
+
+    private fun deliverRouteDeviationAlertFromService(
+        route: ImportedRoute?,
+        trackRecording: TrackRecordingState,
+        point: RecordedTrackPoint
+    ) {
+        val nextRouteKey = route?.takeIf { candidate ->
+            candidate.readyForMonitoring(trackRecording)
+        }?.offlineRoutePackKey()
+        if (nextRouteKey != monitoredRouteKey) {
+            routeDeviationAlertState = RouteDeviationAlertState()
+            monitoredRouteKey = nextRouteKey
+        }
+
+        val decision = TrackRecordingRouteMonitorEngine.evaluate(
+            route = route,
+            recordingRouteName = trackRecording.routeName,
+            recordingRouteKey = trackRecording.routeKey,
+            point = point,
+            state = routeDeviationAlertState,
+            nowEpochMillis = System.currentTimeMillis()
+        )
+        routeDeviationAlertState = decision.nextState
+        RouteDeviationAlertAndroidDelivery.deliver(
+            context = this,
+            decision = decision,
+            notificationPermissionGranted = hasRouteAlertNotificationPermission()
+        )
+    }
+
+    private fun resetRouteDeviationMonitor() {
+        routeDeviationAlertState = RouteDeviationAlertState()
+        monitoredRoute = null
+        monitoredRouteKey = null
+    }
+
+    private fun captureMonitoredRoute(route: ImportedRoute?, trackRecording: TrackRecordingState) {
+        val nextRoute = monitoredRoute?.takeIf { currentRoute -> currentRoute.readyForMonitoring(trackRecording) }
+            ?: route?.takeIf { candidate -> candidate.readyForMonitoring(trackRecording) }
+        val nextRouteKey = nextRoute?.offlineRoutePackKey()
+        if (nextRouteKey != monitoredRouteKey) {
+            routeDeviationAlertState = RouteDeviationAlertState()
+        }
+        monitoredRoute = nextRoute
+        monitoredRouteKey = nextRouteKey
+    }
+
+    private fun ImportedRoute.readyForMonitoring(trackRecording: TrackRecordingState): Boolean {
+        if (routePoints.size < 2) {
+            return false
+        }
+
+        return TrackRecordingRouteIdentityPolicy.recordingBelongsToRoute(
+            trackRecording = trackRecording,
+            routeName = routeName,
+            routeKey = offlineRoutePackKey()
+        )
     }
 
     private fun savePublishAndNotify(
@@ -398,6 +491,10 @@ class TrackRecordingForegroundService : Service() {
     private fun hasForegroundLocationPermission(): Boolean =
         hasFineLocationPermission()
 
+    private fun hasRouteAlertNotificationPermission(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+
     private fun hasFineLocationPermission(): Boolean =
         checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
@@ -449,6 +546,7 @@ class TrackRecordingForegroundService : Service() {
         private const val ACTION_RESUME = "com.trailmate.app.action.RESUME_TRACK_RECORDING"
         private const val ACTION_FINISH = "com.trailmate.app.action.FINISH_TRACK_RECORDING"
         private const val EXTRA_ROUTE_NAME = "com.trailmate.app.extra.ROUTE_NAME"
+        private const val EXTRA_ROUTE_KEY = "com.trailmate.app.extra.ROUTE_KEY"
         private const val CHANNEL_ID = "trailmate_track_recording"
         private const val NOTIFICATION_ID = 1001
         private const val REQUEST_OPEN_APP = 2001
@@ -458,10 +556,13 @@ class TrackRecordingForegroundService : Service() {
         private const val MIN_TIME_MILLIS = 3_000L
         private const val MIN_DISTANCE_METERS = 5f
 
-        fun startRecording(context: Context, routeName: String) {
+        fun startRecording(context: Context, routeName: String, routeKey: String? = null) {
             val intent = Intent(context, TrackRecordingForegroundService::class.java)
                 .setAction(ACTION_START)
                 .putExtra(EXTRA_ROUTE_NAME, routeName)
+                .apply {
+                    routeKey?.takeIf { it.isNotBlank() }?.let { key -> putExtra(EXTRA_ROUTE_KEY, key) }
+                }
             when (context.trackRecordingServiceLaunchMode()) {
                 TrackRecordingServiceLaunchMode.FOREGROUND_LOCATION_SERVICE ->
                     context.startForegroundTrackService(intent)
