@@ -11,6 +11,7 @@ TrailMate's hiking core is offline trusted navigation: in weak-signal, fork-heav
 ## Scope
 
 - Add a deterministic mobile model for off-route alert decisions.
+- Surface the current alert decision in the route GPS panel before the detailed recovery panel.
 - Reuse existing `LocationBackedHikeStatus` and `HikeLocationFix` route-check outputs.
 - Keep all alert text Chinese and action-oriented.
 - Keep the first implementation local and deterministic; no cloud service, AI model, or map provider change.

@@ -15,6 +15,8 @@ Create `RouteDeviationAlertPolicy` as a pure Kotlin model in `android-app/src/ma
 
 It returns `RouteDeviationAlertDecision` with the alert kind, notification/vibration intent, localized copy, primary action label, and next state. This keeps field-alert decisions testable without Android framework dependencies. Android notification and vibration wiring can later consume `shouldNotify` and `shouldVibrate`.
 
+The route GPS panel should render a compact in-line alert banner from the latest `RouteDeviationAlertDecision`. The banner appears before the longer recovery panel so the first field message is direct: stop and check the route, wait for reliable positioning, or confirm that the user has rejoined. This UI consumption must not replay notification/vibration intent on every recomposition; the policy state is updated only when a projected GPS fix changes route-check status.
+
 ## State Model
 
 `RouteDeviationAlertState` stores only what the policy needs for episode control:

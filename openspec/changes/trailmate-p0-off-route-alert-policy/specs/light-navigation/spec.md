@@ -50,3 +50,29 @@ TrailMate SHALL convert reliable off-route route-check states into episode-based
 - WHEN the off-route alert policy evaluates the fix
 - THEN TrailMate does not request notification or vibration
 - AND the decision tells the user in Chinese to wait for reliable positioning before trusting route-check alerts
+
+### Requirement: Route GPS panel shall surface off-route alert decisions
+
+TrailMate SHALL show the latest off-route alert decision in the route GPS panel as a compact field alert before longer recovery guidance.
+
+#### Scenario: First off-route alert is visible before recovery details
+
+- GIVEN an active hike has a reliable off-route alert decision
+- WHEN the route GPS panel renders
+- THEN it shows a compact alert with the decision title, caption, and primary action label
+- AND it places the compact alert before the detailed off-route recovery panel
+- AND it does not claim rerouting, rescue, or guaranteed safety
+
+#### Scenario: Silent same-episode decisions keep guidance visible without repeated interruption
+
+- GIVEN the off-route alert policy suppresses repeated notification and vibration for the same episode
+- WHEN the route GPS panel renders the silent decision
+- THEN it shows a lower-priority recovery status in Chinese
+- AND it does not label the state as a new urgent alert
+
+#### Scenario: Rejoined decision can be acknowledged
+
+- GIVEN the off-route alert policy emits a rejoined-route decision
+- WHEN the route GPS panel renders the alert
+- THEN the primary action lets the user continue navigation
+- AND acknowledging the decision clears the existing rejoined-route confirmation path
