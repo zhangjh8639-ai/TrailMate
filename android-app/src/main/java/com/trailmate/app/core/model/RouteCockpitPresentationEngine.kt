@@ -127,8 +127,7 @@ object RouteCockpitPresentationEngine {
     ): RouteCockpitPrimaryAction {
         if (
             session.status == HikeSessionStatus.READY &&
-            !departureReadiness.primaryActionLabel.isStartHikeAction() &&
-            !departureReadiness.primaryActionLabel.isOfflineBaseMapRepairAction()
+            !departureReadiness.primaryActionLabel.isStartHikeAction()
         ) {
             return departureReadiness.primaryRepairAction()
         }

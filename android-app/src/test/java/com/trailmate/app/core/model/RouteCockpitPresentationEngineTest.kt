@@ -149,7 +149,7 @@ class RouteCockpitPresentationEngineTest {
     }
 
     @Test
-    fun primaryActionKeepsOfflineBaseMapRepairInReadinessBeforeStartingHike() {
+    fun primaryActionBlocksStartWhenRequiredOfflineBaseMapIsMissing() {
         val presentation = RouteCockpitPresentationEngine.build(
             route = sampleRoute,
             plan = samplePlan,
@@ -168,14 +168,14 @@ class RouteCockpitPresentationEngineTest {
             nowEpochMillis = NOW_EPOCH_MILLIS
         )
 
-        assertEquals("开始徒步并记录轨迹", presentation.primaryAction.label)
-        assertEquals(RouteCockpitPrimaryActionKind.START_HIKE, presentation.primaryAction.kind)
+        assertEquals("导入离线地图包", presentation.primaryAction.label)
+        assertEquals(RouteCockpitPrimaryActionKind.OPEN_OFFLINE_BASE_MAP, presentation.primaryAction.kind)
         val baseMapItem = presentation.readinessItems.first { it.label == "离线地图包" }
         assertEquals(RouteCockpitReadinessActionKind.OPEN_OFFLINE_BASE_MAP, baseMapItem.actionKind)
     }
 
     @Test
-    fun primaryActionKeepsTargetOfflineBaseMapRegionInReadinessBeforeStartingHike() {
+    fun primaryActionBlocksStartWhenTargetOfflineBaseMapRegionIsMissing() {
         val presentation = RouteCockpitPresentationEngine.build(
             route = sampleRoute,
             plan = samplePlan,
@@ -195,14 +195,13 @@ class RouteCockpitPresentationEngineTest {
             nowEpochMillis = NOW_EPOCH_MILLIS
         )
 
-        assertEquals("开始徒步并记录轨迹", presentation.primaryAction.label)
-        assertEquals(RouteCockpitPrimaryActionKind.START_HIKE, presentation.primaryAction.kind)
-        val baseMapItem = presentation.readinessItems.first { it.label == "离线地图包" }
-        assertEquals(RouteCockpitReadinessActionKind.OPEN_OFFLINE_BASE_MAP, baseMapItem.actionKind)
+        assertEquals("导入离线地图包", presentation.primaryAction.label)
+        assertEquals(RouteCockpitPrimaryActionKind.OPEN_OFFLINE_BASE_MAP, presentation.primaryAction.kind)
+        assertEquals("杭州市未下载", presentation.readinessItems.first { it.label == "离线地图包" }.value)
     }
 
     @Test
-    fun primaryActionKeepsOfflineBaseMapTileVerificationInReadinessBeforeStartingHike() {
+    fun primaryActionBlocksStartUntilOfflineBaseMapTilesAreVerified() {
         val presentation = RouteCockpitPresentationEngine.build(
             route = sampleRoute,
             plan = samplePlan,
@@ -223,8 +222,8 @@ class RouteCockpitPresentationEngineTest {
             nowEpochMillis = NOW_EPOCH_MILLIS
         )
 
-        assertEquals("开始徒步并记录轨迹", presentation.primaryAction.label)
-        assertEquals(RouteCockpitPrimaryActionKind.START_HIKE, presentation.primaryAction.kind)
+        assertEquals("飞行模式验证底图", presentation.primaryAction.label)
+        assertEquals(RouteCockpitPrimaryActionKind.OPEN_OFFLINE_BASE_MAP, presentation.primaryAction.kind)
         val baseMapItem = presentation.readinessItems.first { it.label == "离线地图包" }
         assertEquals(RouteCockpitReadinessActionKind.OPEN_OFFLINE_BASE_MAP, baseMapItem.actionKind)
     }

@@ -302,7 +302,7 @@ private fun CurrentRouteWorkspaceCard(
                         tint = MaterialTheme.colorScheme.onPrimary
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(if (importedRoute == null) "导入 GPX 文件" else "继续准备")
+                    Text(routeWorkspacePrimaryActionLabel(hasRoute = importedRoute != null))
                 }
             }
         }
@@ -662,6 +662,9 @@ private fun RouteMapPreview(hasRoute: Boolean) {
         }
     }
 }
+
+internal fun routeWorkspacePrimaryActionLabel(hasRoute: Boolean): String =
+    if (hasRoute) "查看路线与出发检查" else "导入 GPX 文件"
 
 @Composable
 private fun ImportStatusPanel(
