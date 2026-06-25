@@ -1,0 +1,264 @@
+package com.trailmate.app.core.gpx
+
+import com.trailmate.app.core.model.ImportedRoute
+import com.trailmate.app.core.model.RoutePoint
+import com.trailmate.app.core.model.RouteImportStatus
+import java.io.ByteArrayInputStream
+import java.nio.charset.StandardCharsets
+import java.time.Duration
+import java.time.Instant
+import javax.xml.XMLConstants
+import javax.xml.parsers.DocumentBuilderFactory
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.roundToInt
+import kotlin.math.sin
+import kotlin.math.sqrt
+import org.w3c.dom.Document
+import org.w3c.dom.Element
+import org.w3c.dom.Node
+
+object TargetRouteGpxParser {
+    fun parse(fileName: String, content: String): ImportedRoute {
+        val document = parseXml(content)
+        val source = readRouteSource(document)
+        val points = source.points
+        require(points.size >= MIN_ROUTE_POINTS) { "GPX route must contain at least two track or route points." }
+
+        val routePoints = buildRoutePoints(points)
+        val distanceMeters = source.distanceMeters ?: routePoints.last().distanceAlongRouteKm * 1000.0
+        val computedAscentMeters = points.zipWithNext().sumOf { (from, to) ->
+            val fromElevation = from.elevationMeters
+            val toElevation = to.elevationMeters
+            if (fromElevation != null && toElevation != null) {
+                (toElevation - fromElevation).takeIf { it > ELEVATION_GAIN_THRESHOLD_METERS } ?: 0.0
+            } else {
+                0.0
+            }
+        }.roundToInt()
+        val ascentMeters = source.ascentMeters?.roundToInt() ?: computedAscentMeters
+
+        return ImportedRoute(
+            routeName = source.name ?: fileName.substringBeforeLast('.').ifBlank { "Imported route" },
+            fileName = fileName,
+            distanceKm = (distanceMeters / 100.0).roundToInt() / 10.0,
+            ascentMeters = ascentMeters,
+            status = RouteImportStatus.PARSED,
+            pointCount = points.size,
+            durationMinutes = durationMinutes(points),
+            routePoints = routePoints
+        )
+    }
+
+    private fun parseXml(content: String): Document {
+        val factory = DocumentBuilderFactory.newInstance()
+        factory.isNamespaceAware = true
+        factory.isExpandEntityReferences = false
+        factory.disableXIncludeIfSupported()
+        factory.enableFeatureIfSupported(XMLConstants.FEATURE_SECURE_PROCESSING, true)
+        factory.enableFeatureIfSupported("http://apache.org/xml/features/disallow-doctype-decl", true)
+        factory.enableFeatureIfSupported("http://xml.org/sax/features/external-general-entities", false)
+        factory.enableFeatureIfSupported("http://xml.org/sax/features/external-parameter-entities", false)
+        factory.enableFeatureIfSupported("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+        runCatching { factory.setAttribute(ACCESS_EXTERNAL_DTD, "") }
+        runCatching { factory.setAttribute(ACCESS_EXTERNAL_SCHEMA, "") }
+
+        return factory.newDocumentBuilder()
+            .parse(ByteArrayInputStream(content.toByteArray(StandardCharsets.UTF_8)))
+            .also { it.documentElement.normalize() }
+    }
+
+    private fun readRouteSource(document: Document): RouteSource {
+        val trackElements = elementsByLocalName(document, "trk")
+        val routeElements = elementsByLocalName(document, "rte")
+        val exporterMetadata = readExporterExtensionMetadata(document)
+
+        return routeSourceFromContainers(trackElements, "trkpt", exporterMetadata)
+            ?: routeSourceFromContainers(routeElements, "rtept", exporterMetadata)
+            ?: RouteSource(
+                name = elementsByLocalName(document, "metadata").firstNotNullOfOrNull { metadata ->
+                    childText(metadata, "name")?.takeIf { it.isNotBlank() }
+                } ?: exporterMetadata.name,
+                points = emptyList(),
+                distanceMeters = exporterMetadata.distanceMeters,
+                ascentMeters = exporterMetadata.ascentMeters
+            )
+    }
+
+    private fun routeSourceFromContainers(
+        containers: List<Element>,
+        pointLocalName: String,
+        exporterMetadata: ExporterExtensionMetadata
+    ): RouteSource? {
+        containers.forEach { container ->
+            val points = descendantElementsByLocalName(container, pointLocalName).mapNotNull(::readPoint)
+            if (points.isNotEmpty()) {
+                return RouteSource(
+                    name = childText(container, "name")?.takeIf { it.isNotBlank() }
+                        ?: exporterMetadata.name,
+                    points = points,
+                    distanceMeters = exporterMetadata.distanceMeters,
+                    ascentMeters = exporterMetadata.ascentMeters
+                )
+            }
+        }
+
+        return null
+    }
+
+    private fun readExporterExtensionMetadata(document: Document): ExporterExtensionMetadata {
+        val extensions = childElementsByLocalName(document.documentElement, "extensions").firstOrNull()
+            ?: return ExporterExtensionMetadata()
+
+        return ExporterExtensionMetadata(
+            name = childText(extensions, "name")?.takeIf { it.isNotBlank() },
+            distanceMeters = childText(extensions, "Distance")
+                ?.toDoubleOrNull()
+                ?.takeIf { it.isFinite() && it > 0.0 },
+            ascentMeters = childText(extensions, "ElevationGain")
+                ?.toDoubleOrNull()
+                ?.takeIf { it.isFinite() && it >= 0.0 }
+        )
+    }
+
+    private fun readPoint(element: Element): GpxPoint? {
+        val latitude = element.getAttribute("lat").toDoubleOrNull()
+        val longitude = element.getAttribute("lon").toDoubleOrNull()
+        return if (latitude == null || longitude == null) {
+            null
+        } else {
+            GpxPoint(
+                latitude = latitude,
+                longitude = longitude,
+                elevationMeters = childText(element, "ele")?.toDoubleOrNull(),
+                time = childText(element, "time")?.let(::parseInstantOrNull)
+            )
+        }
+    }
+
+    private fun durationMinutes(points: List<GpxPoint>): Int? {
+        val times = points.mapNotNull { it.time }
+        val start = times.firstOrNull() ?: return null
+        val end = times.lastOrNull() ?: return null
+        val minutes = Duration.between(start, end).toMinutes()
+
+        return minutes.takeIf { it > 0 }?.coerceAtMost(Int.MAX_VALUE.toLong())?.toInt()
+    }
+
+    private fun parseInstantOrNull(value: String): Instant? =
+        runCatching { Instant.parse(value) }.getOrNull()
+
+    private fun buildRoutePoints(points: List<GpxPoint>): List<RoutePoint> {
+        var distanceMeters = 0.0
+        return points.mapIndexed { index, point ->
+            if (index > 0) {
+                val previous = points[index - 1]
+                distanceMeters += haversineMeters(
+                    previous.latitude,
+                    previous.longitude,
+                    point.latitude,
+                    point.longitude
+                )
+            }
+            RoutePoint(
+                latitude = point.latitude,
+                longitude = point.longitude,
+                elevationMeters = point.elevationMeters,
+                distanceAlongRouteKm = distanceMeters / 1000.0
+            )
+        }
+    }
+
+    private fun elementsByLocalName(document: Document, localName: String): List<Element> {
+        val namespaced = document.getElementsByTagNameNS("*", localName).asElements()
+        return if (namespaced.isNotEmpty()) {
+            namespaced
+        } else {
+            document.getElementsByTagName(localName).asElements()
+        }
+    }
+
+    private fun descendantElementsByLocalName(element: Element, localName: String): List<Element> {
+        val namespaced = element.getElementsByTagNameNS("*", localName).asElements()
+        return if (namespaced.isNotEmpty()) {
+            namespaced
+        } else {
+            element.getElementsByTagName(localName).asElements()
+        }
+    }
+
+    private fun childText(element: Element, localName: String): String? {
+        for (index in 0 until element.childNodes.length) {
+            val node = element.childNodes.item(index)
+            if (node is Element && node.matchesLocalName(localName)) {
+                return node.textContent.trim()
+            }
+        }
+
+        return null
+    }
+
+    private fun childElementsByLocalName(element: Element, localName: String): List<Element> =
+        (0 until element.childNodes.length).mapNotNull { index ->
+            (element.childNodes.item(index) as? Element)?.takeIf { child ->
+                child.matchesLocalName(localName)
+            }
+        }
+
+    private fun Node.matchesLocalName(localName: String): Boolean =
+        this.localName == localName || this.nodeName == localName
+
+    private fun DocumentBuilderFactory.enableFeatureIfSupported(feature: String, enabled: Boolean) {
+        runCatching { setFeature(feature, enabled) }
+    }
+
+    private fun DocumentBuilderFactory.disableXIncludeIfSupported() {
+        runCatching { isXIncludeAware = false }
+    }
+
+    private fun org.w3c.dom.NodeList.asElements(): List<Element> =
+        (0 until length).mapNotNull { index -> item(index) as? Element }
+
+    private fun haversineMeters(
+        fromLatitude: Double,
+        fromLongitude: Double,
+        toLatitude: Double,
+        toLongitude: Double
+    ): Double {
+        val fromLatRad = Math.toRadians(fromLatitude)
+        val toLatRad = Math.toRadians(toLatitude)
+        val deltaLat = Math.toRadians(toLatitude - fromLatitude)
+        val deltaLon = Math.toRadians(toLongitude - fromLongitude)
+        val a = sin(deltaLat / 2) * sin(deltaLat / 2) +
+            cos(fromLatRad) * cos(toLatRad) * sin(deltaLon / 2) * sin(deltaLon / 2)
+        val c = 2 * atan2(sqrt(a), sqrt(1 - a))
+
+        return EARTH_RADIUS_METERS * c
+    }
+
+    private data class GpxPoint(
+        val latitude: Double,
+        val longitude: Double,
+        val elevationMeters: Double?,
+        val time: Instant?
+    )
+
+    private data class RouteSource(
+        val name: String?,
+        val points: List<GpxPoint>,
+        val distanceMeters: Double? = null,
+        val ascentMeters: Double? = null
+    )
+
+    private data class ExporterExtensionMetadata(
+        val name: String? = null,
+        val distanceMeters: Double? = null,
+        val ascentMeters: Double? = null
+    )
+
+    private const val EARTH_RADIUS_METERS = 6_371_000.0
+    private const val ELEVATION_GAIN_THRESHOLD_METERS = 3.0
+    private const val MIN_ROUTE_POINTS = 2
+    private const val ACCESS_EXTERNAL_DTD = "http://javax.xml.XMLConstants/property/accessExternalDTD"
+    private const val ACCESS_EXTERNAL_SCHEMA = "http://javax.xml.XMLConstants/property/accessExternalSchema"
+}

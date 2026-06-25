@@ -1,0 +1,22 @@
+trailmate:
+  auth:
+    persistence:
+      mode: memory
+    sms-code-store:
+      mode: memory
+    wechat:
+      mode: preview
+      api-base-url: https://api.weixin.qq.com
+  gear:
+    persistence:
+      mode: memory
+  offline-basemap:
+    pmtiles:
+      directory: ${TRAILMATE_OFFLINE_BASEMAP_PMTILES_DIRECTORY:offline-basemaps/pmtiles}
+
+management:
+  health:
+    db:
+      enabled: false
+    redis:
+      enabled: false

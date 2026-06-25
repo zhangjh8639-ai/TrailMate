@@ -1,0 +1,85 @@
+# Tasks
+
+- [x] Capture current Android flow screenshots from onboarding through full-screen navigation.
+- [x] Verify the local GPX file in `D:\workSpace\TrailMate` imports through `TargetRouteImporter`.
+- [x] Verify AMap online tiles, route polyline, and checkpoints render on emulator.
+- [x] Verify foreground GPS track recording service and notification controls start on emulator.
+- [x] Save audit evidence under `outputs/qa/production-outdoor-readiness/`.
+- [x] Add explicit AMap loading/fallback UI.
+- [x] Add onboarding permission completion regression test.
+- [x] Fix/verify route cockpit bottom inset on short screens.
+- [x] Remove internal AI/evidence wording from `数据` first viewport.
+- [x] Add offline base-map copy separation from local route pack.
+- [x] Add AMap offline base-map manager manual QA checklist.
+- [x] Verify AMap OfflineMapActivity can be started from the app context on emulator.
+- [x] Add SDK reader for AMap offline base-map saved-region state.
+- [x] Verify AMap offline base-map saved-region reader returns status on emulator.
+- [x] Add structured AMap offline download QA diagnostics for catalog, city, network, storage, SDK status, and callbacks.
+- [x] Hide sample GPX import behind an explicit test/demo gate.
+- [x] Keep AMap online map rendering separate from outdoor production readiness flags.
+- [x] Gate route cockpit primary action behind departure readiness repairs before showing start hike.
+- [x] Block safety-share coordinate links until location accuracy is reliable.
+- [x] Require target-route offline base-map coverage instead of count-only downloaded regions for departure readiness.
+- [x] Add route-region matching for AMap offline base-map status using route reverse-geocode evidence and downloaded city/province metadata.
+- [x] Keep AMap launch diagnostics pending until downloaded offline regions cover the active route.
+- [x] Require route coverage and network-disabled tile evidence in the outdoor production release gate.
+- [x] Keep AMap launch diagnostics pending until network-disabled offline tile evidence exists.
+- [x] Keep departure readiness and route cockpit start blocked until network-disabled offline tile evidence exists.
+- [x] Name the target offline base-map region in departure readiness and route cockpit repair actions when the region is known.
+- [x] Explain in departure readiness why required offline base maps differ from the saved local route pack.
+- [x] Use a flight-mode verification repair action after the target offline base-map region covers the route but network-disabled tile proof is still missing.
+- [x] Persist network-disabled tile proof by route key and target adcode before unlocking departure readiness.
+- [x] Require current-session AMap base-map rendering before recording network-disabled tile proof.
+- [x] Disable and relabel the offline tile-proof action until target region, coverage, network-off, and visible-tile conditions are all satisfied.
+- [x] Derive release-gate offline tile evidence from saved route-key and target-region proof.
+- [x] Derive release-gate physical-device QA evidence from structured field protocol proof.
+- [x] Block the route cockpit start action until a reliable GPS fix is available.
+- [x] Treat located fixes with missing accuracy as calibration state instead of reliable navigation.
+- [x] Block track recording start/resume and "start recording" copy until a reliable GPS fix is available.
+- [x] Use conservative field-status copy when active recording continues under weak GPS.
+- [x] Hide post-recording review when a finished recording lacks enough points or movement distance.
+- [x] Keep safety-share copy honest: current static position, not realtime tracking.
+- [x] Downgrade route-deviation recovery copy when location accuracy is worse than 50 m.
+- [x] Label low-accuracy or accuracy-missing map user markers as approximate location.
+- [x] Treat GPS fixes older than 60 seconds as stale for start, recording, map-marker, and reliability presentation.
+- [x] Surface repair actions from the location reliability panel for permission, provider, calibration, weak, stale, and unavailable states.
+- [x] Keep map readiness in calibration state until the current GPS fix is reliable; a location request flag alone is not field-ready evidence.
+- [x] Show a slow-first-fix calibration hint while keeping GPS subscription active when no first fix arrives after calibration starts.
+- [x] Split AMap launch diagnostics into precise-location permission, Android system GPS provider, and location calibration states.
+- [x] Keep AMap launch diagnostics location calibration pending until a reliable GPS fix exists, not merely when location calibration has started.
+- [x] Use system-location wording for the high-level disabled-provider status instead of presenting GPS as an app toggle.
+- [x] Reset route location request state when Android location setup reports permission, provider, disabled, or unavailable failures.
+- [x] Fall back from direct Android location settings to general settings, and show unavailable state if neither can open.
+- [x] Continue the precise-location permission flow after returning from Android system location settings when permission is still missing.
+- [x] Open app-specific Android settings when precise-location permission has been permanently denied, without looping after return.
+- [x] Keep route cockpit location repair actions in cockpit instead of replacing them with fullscreen navigation.
+- [x] Make offline base-map departure blocking risk-based: recommended routes suggest it, caution/not-recommended routes require it.
+- [x] Add a physical-device diagnostics report formatter for map, location, and offline-download QA evidence without revealing the AMap key.
+- [x] Expose the physical-device diagnostics report as a copy action in expanded route diagnostics.
+- [x] Expose a network-settings repair action when offline-download network validation fails.
+- [x] Hide the offline base-map manager download action until the user repairs an unvalidated network when no offline base-map region is known to cover the active route.
+- [x] Suppress network repair prompts when the active route already has offline base-map coverage and the user is performing network-disabled tile proof.
+- [x] Refresh offline-download network diagnostics after returning from Android network settings.
+- [x] Refresh offline-download network diagnostics on foreground Android network changes.
+- [x] Include repair action labels in copied physical-device diagnostics reports.
+- [x] Include offline-download recovery actions and user-actionable recovery steps in QA/device diagnostics.
+- [x] Distinguish missing AMap offline-download SDK callbacks from generic unfinished downloads.
+- [x] Include location recovery actions and user-actionable recovery steps in copied physical-device diagnostics reports.
+- [x] Include Android SDK, manufacturer, model, device name, and app version in copied physical-device diagnostics reports.
+- [x] Include a prioritized `launchNextAction` in copied physical-device diagnostics reports.
+- [x] Include an online base-map verification next step in copied physical-device diagnostics when the route map has not rendered AMap tiles in the current session.
+- [x] Include the GPX-vs-offline-base-map rationale in copied physical-device diagnostics reports.
+- [x] Include the target offline base-map region and airplane-mode tile verification next step in copied physical-device diagnostics reports.
+- [x] Include a representative route-coordinate fallback hint in route diagnostics and copied diagnostics when the target offline base-map city cannot be resolved.
+- [x] Surface pending AMap offline base-map download tasks separately from never-downloaded state in route diagnostics.
+- [x] Show explicit route diagnostics feedback when returning from the AMap offline manager without any detected downloaded or pending offline-map task.
+- [x] Add a production UX flow and map-readiness audit comparing TrailMate's flow against common outdoor app patterns.
+- [x] Add physical-device map/GPS evidence runbook and ADB capture script.
+- [x] Add a physical-device AMap offline download QA wrapper that saves before/after device evidence and instrumentation output.
+- [ ] Download and verify a target AMap offline base-map region before claiming true offline base maps.
+  - Latest 2026-06-21 opt-in emulator download attempt for `杭州市` did not finish: catalog verified, city resolved to `code=0571` / `adcode=330100`, request used `CITY_CODE:0571`, runtime package/SHA1 matched the debug APK, AMap storage was writable, SDK state `CHECKUPDATES(6)`, completion `0`, no download callback, saved regions `0 -> 0`, and `networkValidated=false`.
+  - Latest 2026-06-22 Samsung SM-S9480 physical-device diagnostics identify the target offline region as `杭州市`, with AMap Key, SDK, privacy consent, download network, precise location, and system GPS ready. The latest location state is `SEARCHING` with `locationAccuracy=unknown`, so the phone still needs a fresh reliable fix before departure or recording evidence. The active map blocker is still `离线底图=未下载`, so airplane-mode tile proof is not available yet.
+- [x] Add physical-device field QA checklist.
+- [x] Add automated outdoor production release gate that blocks emulator-only evidence.
+- [ ] Execute physical-device field QA before any production claim.
+  - Latest 2026-06-22 Samsung SM-S9480 diagnostics prove the app can enter the real-device GPS calibration flow and has previously reached a 3 m fix, but the newest report is waiting for first fix. They do not yet prove target offline base-map coverage, network-disabled tile rendering, 30-minute background recording, weak-signal behavior, battery behavior, or safety-share behavior.

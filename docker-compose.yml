@@ -1,0 +1,75 @@
+services:
+  trailmate-server:
+    build:
+      context: .
+      dockerfile: "${TRAILMATE_SERVER_DOCKERFILE:-trailmate-server/Dockerfile}"
+      args:
+        TRAILMATE_JDK_IMAGE: "${TRAILMATE_JDK_IMAGE:-eclipse-temurin:17-jdk}"
+        TRAILMATE_JRE_IMAGE: "${TRAILMATE_JRE_IMAGE:-eclipse-temurin:17-jre}"
+    image: trailmate-server:0.1.0
+    restart: unless-stopped
+    ports:
+      - "${TRAILMATE_SERVER_PORT:-8080}:8080"
+    environment:
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/${TRAILMATE_DB_NAME:-trailmate}"
+      SPRING_DATASOURCE_USERNAME: "${TRAILMATE_DB_USER:-trailmate}"
+      SPRING_DATASOURCE_PASSWORD: "${TRAILMATE_DB_PASSWORD:-trailmate_dev_password}"
+      TRAILMATE_AUTH_PERSISTENCE_MODE: "jdbc"
+      TRAILMATE_GEAR_PERSISTENCE_MODE: "jdbc"
+      TRAILMATE_USER_PROFILE_PERSISTENCE_MODE: "jdbc"
+      TRAILMATE_AUTH_SMS_CODE_STORE_MODE: "${TRAILMATE_AUTH_SMS_CODE_STORE_MODE:-redis}"
+      TRAILMATE_AUTH_SMS_CODE_FIXED_CODE: "${TRAILMATE_AUTH_SMS_CODE_FIXED_CODE:-}"
+      TRAILMATE_AUTH_WECHAT_MODE: "${TRAILMATE_WECHAT_MODE:-preview}"
+      TRAILMATE_AUTH_WECHAT_APP_ID: "${TRAILMATE_WECHAT_APP_ID:-wx_preview_app_id}"
+      TRAILMATE_AUTH_WECHAT_APP_SECRET: "${TRAILMATE_WECHAT_APP_SECRET:-preview_secret}"
+      TRAILMATE_AUTH_WECHAT_API_BASE_URL: "https://api.weixin.qq.com"
+      TRAILMATE_OFFLINE_BASEMAP_PMTILES_DIRECTORY: "${TRAILMATE_OFFLINE_BASEMAP_PMTILES_DIRECTORY:-/app/offline-basemaps/pmtiles}"
+      MANAGEMENT_HEALTH_DB_ENABLED: "true"
+      MANAGEMENT_HEALTH_REDIS_ENABLED: "true"
+      SPRING_DATA_REDIS_HOST: "redis"
+      SPRING_DATA_REDIS_PORT: "6379"
+      SPRING_DATA_REDIS_PASSWORD: "${TRAILMATE_REDIS_PASSWORD:-trailmate_redis_dev_password}"
+    volumes:
+      - ./offline-basemaps/pmtiles:/app/offline-basemaps/pmtiles:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health | grep -q 'UP'"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  postgres:
+    image: "${TRAILMATE_POSTGRES_IMAGE:-postgres:16}"
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "${TRAILMATE_DB_NAME:-trailmate}"
+      POSTGRES_USER: "${TRAILMATE_DB_USER:-trailmate}"
+      POSTGRES_PASSWORD: "${TRAILMATE_DB_PASSWORD:-trailmate_dev_password}"
+    volumes:
+      - trailmate-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${TRAILMATE_DB_USER:-trailmate} -d ${TRAILMATE_DB_NAME:-trailmate}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: "${TRAILMATE_REDIS_IMAGE:-redis:7}"
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${TRAILMATE_REDIS_PASSWORD:-trailmate_redis_dev_password}"]
+    volumes:
+      - trailmate-redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a ${TRAILMATE_REDIS_PASSWORD:-trailmate_redis_dev_password} ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  trailmate-postgres-data:
+  trailmate-redis-data:

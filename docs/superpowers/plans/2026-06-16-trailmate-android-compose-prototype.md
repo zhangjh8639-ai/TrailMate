@@ -1105,3 +1105,41 @@ Type consistency:
 - `BaselineProfile`, `GearItem`, `GearRecommendation`, and `RouteAssessmentSummary` are defined before UI code consumes them.
 - Route tab labels are exactly `Assessment`, `Route`, `Plan`, and `Gear`.
 - Gear statuses are exactly `COVERED`, `CHECK`, `MISSING`, and `OPTIONAL`.
+
+## Progress Update: 2026-06-17
+
+- Added a sign-in/register prototype step before questionnaire intake.
+- Defined the production auth/profile-sync boundary for account-bound profile drafts, returning-user restore, account switching, and conflict handling.
+- Replaced the static baseline profile panel with a real saveable questionnaire for exercise rhythm, session duration, outdoor experience, ascent history, height, weight, and pack weight.
+- Fed the completed questionnaire into the Home profile summary while preserving LOW confidence until GPX evidence exists; skipping leaves body and pack fields unset instead of applying sample values.
+- Added a target-route import gate so route assessment, light navigation, plan, and gear tabs appear after a GPX import action rather than as the default Home state.
+- Added a tested target-route GPX parser for trkpt/rtept points, route name, distance, ascent, and point count, currently wired to the sample import action. The parser rejects DOCTYPE declarations and chooses track points before route points when both are present.
+- Added Android `OpenDocument` route import wiring so users can pick a GPX file through the system picker; parse failures are shown as recoverable UI errors while any previous valid route remains available.
+- Added a prototype target-route import queue state so GPX import UI can show ready, importing, parsed, failed, and retry-available states while preserving the current valid route after a failed replacement.
+- Added a persistent GPX import queue with job kind, source URI, attempt counts, retry timing, exact running-job claim checks, persisted startup recovery for interrupted imports, persistable document permissions, terminal failure state, success cleanup, and local snapshot round-trip coverage.
+- Added a deterministic route assessment engine that uses the temporary questionnaire profile plus parsed route distance/ascent to produce match level, confidence, duration range, and risk text.
+- Added a deterministic hike plan engine that converts the imported route assessment into start, energy, rest, risk, and finish checkpoints, and wired Route/Plan tabs to those checkpoints.
+- Added an Active Hike route-tab prototype so users can start, pause/resume, advance to the next deterministic checkpoint, and see progress without claiming GPS-grade navigation yet.
+- Added a location-backed hike session engine so accurate foreground GPS fixes can advance checkpoints, low-accuracy fixes are ignored, and route-check prompts stay inside light-navigation safety boundaries.
+- Added a prototype historical GPX capability profile summary so Home can move from questionnaire fallback to a sample-history evidence profile after three local activities.
+- Added Android `OpenMultipleDocuments` historical GPX import so real local GPX files can append capability evidence with partial failure reporting.
+- Added a local historical activity list so users can inspect imported GPX evidence, suppress duplicate route facts, and remove a mistaken activity.
+- Parsed historical GPX point timestamps into activity duration when available, while keeping the distance/ascent estimate as a fallback for untimed or invalid GPX history and preserving parsed duration through local route state.
+- Added historical pace calibration so capability copy reports GPX-derived pace and route ETA ranges can use historical duration evidence.
+- Added a production historical GPX capability profile engine so stable distance, ascent, pace, and effective speed are derived once and reused by Home capability summary and route assessment.
+- Wired the prototype historical GPX capability evidence into target-route assessment confidence, risk text, match level, and downstream route detail tabs.
+- Persisted prototype historical GPX activities in the local snapshot and included the history count in the Data tab export preview.
+- Added a deterministic route-aware gear advisor fallback so route distance, ascent, ETA, and concrete route risks generate the Gear tab checklist while leaving route assessment unchanged.
+- Added an AI gear advisor request/response contract with assessment fingerprint validation and a Gear-tab fallback-active status, while keeping real backend service integration pending.
+- Added stale AI gear response handling so old assessment fingerprints are labeled in the Gear tab and the current route keeps using deterministic fallback recommendations.
+- Refreshed validated AI gear recommendations against current personal gear inventory before displaying covered or missing states.
+- Added an Android AI gear advisor backend service boundary so backend success, timeout, unavailable, thrown, stale, and invalid responses resolve through the same validation, retry, and deterministic fallback rules before UI presentation.
+- Added `GearInventory` rules so available owned gear can satisfy matching route recommendations without changing deterministic route assessment values.
+- Added a prototype `SharedPreferences` snapshot store with a tested codec so baseline profile, personal gear, and the last imported target route can be restored after app restart.
+- Added a local session repository boundary so Compose app state depends on a repository interface while `SharedPreferences` remains a local adapter ahead of Room and cloud sync.
+- Added a Home `Data` tab with readable local export preview, explicit empty-snapshot encoding, and a confirmed clear-local-data flow that returns users to onboarding without resurrecting old route or gear state after re-onboarding.
+- Defined production cloud export/delete rules for profile and gear data, including signed-in availability, stale export warnings for pending sync, deletion blocking on conflicts, and exclusion of route library, historical GPX evidence, and persisted GPX import queue jobs from this data scope.
+- Added a Home-level `Route` / `My Gear` switch, a saveable in-memory My Gear add form, availability switches, delete actions, and route Gear-tab actions that send missing categories into the inventory form.
+- Added a My Gear `Inventory` / `Details` split plus per-item route readiness summaries so owned brand gear can show why it does or does not satisfy the current route checklist.
+- Added unit tests for gear inventory matching, detail summaries, unavailable/deleted gear, optional brand/model entry, invalid input rejection, and Compose smoke-test coverage for the My Gear screen, details tab, matched gear copy, and route-to-gear add flow.
+- Still pending for production: real auth, Room/cloud-backed GPX file storage, cloud-safe historical GPX de-duplication, Android foreground-location permission and provider wiring, Room persistence, profile/gear sync execution, and concrete AI gear advisor HTTP transport/auth configuration.
