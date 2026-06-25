@@ -93,6 +93,7 @@ import com.trailmate.app.core.location.TrailMateLocationSettingsLaunchPolicy
 import com.trailmate.app.core.location.TrailMateLocationSettingsReturnEffect
 import com.trailmate.app.core.location.TrailMateLocationSettingsReturnEffectEngine
 import com.trailmate.app.core.location.TrackRecordingForegroundService
+import com.trailmate.app.core.location.RouteDeviationAlertAndroidDelivery
 import com.trailmate.app.core.location.LocationReliabilityDetail
 import com.trailmate.app.core.location.LocationReliabilityLevel
 import com.trailmate.app.core.location.LocationReliabilityPresentation
@@ -1173,6 +1174,11 @@ fun RouteDetailScreen(
                     fix = projectedFix,
                     state = routeDeviationAlertState,
                     nowEpochMillis = nowEpochMillis
+                )
+                RouteDeviationAlertAndroidDelivery.deliver(
+                    context = context,
+                    decision = alertDecision,
+                    notificationPermissionGranted = trackNotificationPermissionGranted
                 )
                 routeDeviationAlertState = alertDecision.nextState
                 latestRouteDeviationAlertDecision = RouteDeviationAlertPresentationEngine.displayDecision(
