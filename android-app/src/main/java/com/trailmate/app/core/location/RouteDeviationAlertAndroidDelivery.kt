@@ -125,8 +125,8 @@ object RouteDeviationAlertAndroidDelivery {
 
     private fun RouteDeviationAlertDeliveryChannel.notificationChannelDescription(): String =
         when (this) {
-            RouteDeviationAlertDeliveryChannel.URGENT_ALERT -> "路线页偏航提醒"
-            RouteDeviationAlertDeliveryChannel.ROUTE_STATUS -> "路线页状态确认"
+            RouteDeviationAlertDeliveryChannel.URGENT_ALERT -> "路线偏航提醒"
+            RouteDeviationAlertDeliveryChannel.ROUTE_STATUS -> "路线状态确认"
             RouteDeviationAlertDeliveryChannel.NONE -> ""
         }
 

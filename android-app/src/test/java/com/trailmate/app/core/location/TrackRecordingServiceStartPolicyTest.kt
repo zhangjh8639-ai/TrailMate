@@ -12,6 +12,7 @@ class TrackRecordingServiceStartPolicyTest {
     fun startsRecordingWhenRoutePermissionAndProviderAreReady() {
         val decision = TrackRecordingServiceStartPolicy.resolve(
             requestedRouteName = "龙井山脊",
+            requestedRouteKey = "longjing-ridge.gpx|龙井山脊|15.2|860|128",
             current = TrackRecordingState(),
             hasPreciseLocationPermission = true,
             hasEnabledProvider = true,
@@ -21,8 +22,35 @@ class TrackRecordingServiceStartPolicyTest {
         assertEquals(TrackRecordingServiceStartAction.PUBLISH_AND_START_UPDATES, decision.action)
         assertEquals(TrackRecordingStatus.RECORDING, decision.trackRecording.status)
         assertEquals("龙井山脊", decision.trackRecording.routeName)
+        assertEquals("longjing-ridge.gpx|龙井山脊|15.2|860|128", decision.trackRecording.routeKey)
         assertEquals("正在获取定位", decision.notificationCaption)
         assertFalse(decision.shouldStopSelf)
+    }
+
+    @Test
+    fun sameRouteNameWithDifferentRouteKeyStartsANewRecording() {
+        val current = TrackRecordingState(
+            status = TrackRecordingStatus.RECORDING,
+            routeName = "龙井山脊",
+            routeKey = "old.gpx|龙井山脊|8.0|300|80",
+            startedAtEpochMillis = NOW - 60_000L,
+            recordingActiveSinceEpochMillis = NOW - 60_000L
+        )
+
+        val decision = TrackRecordingServiceStartPolicy.resolve(
+            requestedRouteName = "龙井山脊",
+            requestedRouteKey = "new.gpx|龙井山脊|15.2|860|128",
+            current = current,
+            hasPreciseLocationPermission = true,
+            hasEnabledProvider = true,
+            nowEpochMillis = NOW
+        )
+
+        assertEquals(TrackRecordingServiceStartAction.PUBLISH_AND_START_UPDATES, decision.action)
+        assertEquals(TrackRecordingStatus.RECORDING, decision.trackRecording.status)
+        assertEquals("new.gpx|龙井山脊|15.2|860|128", decision.trackRecording.routeKey)
+        assertEquals(NOW, decision.trackRecording.startedAtEpochMillis)
+        assertEquals(0, decision.trackRecording.pointCount)
     }
 
     @Test

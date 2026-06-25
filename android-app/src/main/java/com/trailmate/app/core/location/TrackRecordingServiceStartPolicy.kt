@@ -23,9 +23,13 @@ object TrackRecordingServiceStartPolicy {
         current: TrackRecordingState,
         hasPreciseLocationPermission: Boolean,
         hasEnabledProvider: Boolean,
-        nowEpochMillis: Long
+        nowEpochMillis: Long,
+        requestedRouteKey: String? = null
     ): TrackRecordingServiceStartDecision {
+        val hasRequestedRouteName = requestedRouteName.isNotBlank()
         val activeRouteName = requestedRouteName.ifBlank { current.routeName.orEmpty() }
+        val activeRouteKey = requestedRouteKey?.takeIf { it.isNotBlank() }
+            ?: current.routeKey.takeIf { !hasRequestedRouteName || current.routeName == activeRouteName }
         if (activeRouteName.isBlank()) {
             return TrackRecordingServiceStartDecision(
                 action = TrackRecordingServiceStartAction.STOP_SELF,
@@ -52,12 +56,17 @@ object TrackRecordingServiceStartPolicy {
         }
 
         val updated = when {
-            current.status == TrackRecordingStatus.RECORDING && current.routeName == activeRouteName -> current
-            current.status == TrackRecordingStatus.PAUSED && current.routeName == activeRouteName ->
+            current.status == TrackRecordingStatus.RECORDING &&
+                current.routeName == activeRouteName &&
+                current.routeKey == activeRouteKey -> current
+            current.status == TrackRecordingStatus.PAUSED &&
+                current.routeName == activeRouteName &&
+                current.routeKey == activeRouteKey ->
                 TrackRecordingEngine.resume(current, nowEpochMillis = nowEpochMillis)
             else -> TrackRecordingEngine.start(
                 routeName = activeRouteName,
-                nowEpochMillis = nowEpochMillis
+                nowEpochMillis = nowEpochMillis,
+                routeKey = activeRouteKey
             )
         }
 

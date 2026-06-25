@@ -11,12 +11,17 @@ object TrackRecordingEngine {
     private const val MAX_RECORDING_SPEED_METERS_PER_SECOND = 12.5
     private const val EARTH_RADIUS_METERS = 6_371_000.0
 
-    fun start(routeName: String, nowEpochMillis: Long): TrackRecordingState =
+    fun start(
+        routeName: String,
+        nowEpochMillis: Long,
+        routeKey: String? = null
+    ): TrackRecordingState =
         TrackRecordingState(
             status = TrackRecordingStatus.RECORDING,
             routeName = routeName,
             startedAtEpochMillis = nowEpochMillis,
-            recordingActiveSinceEpochMillis = nowEpochMillis
+            recordingActiveSinceEpochMillis = nowEpochMillis,
+            routeKey = routeKey
         )
 
     fun pause(state: TrackRecordingState, nowEpochMillis: Long): TrackRecordingState =

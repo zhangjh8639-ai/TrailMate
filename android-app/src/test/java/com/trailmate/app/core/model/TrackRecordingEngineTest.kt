@@ -45,6 +45,18 @@ class TrackRecordingEngineTest {
     }
 
     @Test
+    fun recordingStartCapturesRouteKeyForStableRouteMonitoring() {
+        val started = TrackRecordingEngine.start(
+            routeName = "龙井山脊",
+            routeKey = "longjing-ridge.gpx|龙井山脊|15.2|860|128",
+            nowEpochMillis = 1_000L
+        )
+
+        assertEquals("龙井山脊", started.routeName)
+        assertEquals("longjing-ridge.gpx|龙井山脊|15.2|860|128", started.routeKey)
+    }
+
+    @Test
     fun recordingIgnoresLocationFixesOlderThanRecordingStart() {
         val started = TrackRecordingEngine.start(routeName = "龙井山脊", nowEpochMillis = 2_000L)
 

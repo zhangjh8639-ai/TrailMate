@@ -1,5 +1,7 @@
 package com.trailmate.app.core.model
 
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 import java.util.Locale
 
 enum class ExerciseFrequency { RARELY, ONE_TO_TWO_PER_WEEK, THREE_PLUS_PER_WEEK }
@@ -62,7 +64,29 @@ data class ImportedRoute(
 }
 
 fun ImportedRoute.offlineRoutePackKey(): String =
-    "$fileName|$routeName|$distanceKm|$ascentMeters|$pointCount"
+    "$fileName|$routeName|$distanceKm|$ascentMeters|$pointCount|${routePoints.geometryFingerprint()}"
+
+private fun List<RoutePoint>.geometryFingerprint(): String {
+    if (isEmpty()) {
+        return "geometry-none"
+    }
+
+    val digest = MessageDigest.getInstance("SHA-256")
+    forEach { point ->
+        val encoded = String.format(
+            Locale.US,
+            "%.6f,%.6f,%.2f,%.3f;",
+            point.latitude,
+            point.longitude,
+            point.elevationMeters ?: Double.NaN,
+            point.distanceAlongRouteKm
+        )
+        digest.update(encoded.toByteArray(StandardCharsets.UTF_8))
+    }
+    return digest.digest()
+        .take(8)
+        .joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
+}
 
 data class RoutePoint(
     val latitude: Double,
@@ -134,7 +158,8 @@ data class TrackRecordingState(
     val recordingActiveSinceEpochMillis: Long? = null,
     val finishedAtEpochMillis: Long? = null,
     val points: List<RecordedTrackPoint> = emptyList(),
-    val totalDistanceKm: Double = 0.0
+    val totalDistanceKm: Double = 0.0,
+    val routeKey: String? = null
 ) {
     val pointCount: Int get() = points.size
 }
