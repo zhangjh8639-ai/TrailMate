@@ -216,6 +216,8 @@ import com.trailmate.app.core.model.RouteDeviationAlertPresentation
 import com.trailmate.app.core.model.RouteDeviationAlertPresentationEngine
 import com.trailmate.app.core.model.RouteDeviationAlertState
 import com.trailmate.app.core.model.RouteDeviationAlertTone
+import com.trailmate.app.core.model.RouteDeviationRecoveryAction
+import com.trailmate.app.core.model.RouteDeviationRecoveryActionKind
 import com.trailmate.app.core.model.RouteDeviationRecoveryDetail
 import com.trailmate.app.core.model.RouteDeviationRecoveryEngine
 import com.trailmate.app.core.model.RouteDeviationRecoveryPresentation
@@ -3650,24 +3652,32 @@ private fun GpsTrackPanel(
         status = locationGuidanceStatus,
         caption = locationCaption
     )
+    val safetyShareLocation = SafetyShareLocation(
+        latitude = locationSnapshot.latitude,
+        longitude = locationSnapshot.longitude,
+        horizontalAccuracyMeters = locationSnapshot.horizontalAccuracyMeters
+    )
+    val safetyShareRoutePlan = SafetyShareRoutePlan(
+        distanceKm = route.distanceKm,
+        ascentMeters = route.ascentMeters,
+        estimatedDurationMinutes = route.durationMinutes
+    )
     val safetyShare = SafetyShareEngine.present(
         routeName = route.routeName,
-        location = SafetyShareLocation(
-            latitude = locationSnapshot.latitude,
-            longitude = locationSnapshot.longitude,
-            horizontalAccuracyMeters = locationSnapshot.horizontalAccuracyMeters
-        ),
+        location = safetyShareLocation,
         trackRecording = trackRecording,
-        routePlan = SafetyShareRoutePlan(
-            distanceKm = route.distanceKm,
-            ascentMeters = route.ascentMeters,
-            estimatedDurationMinutes = route.durationMinutes
-        )
+        routePlan = safetyShareRoutePlan
+    )
+    val recoverySafetyShare = SafetyShareEngine.present(
+        routeName = route.routeName,
+        location = safetyShareLocation,
+        trackRecording = trackRecording,
+        routePlan = safetyShareRoutePlan.copy(estimatedDurationMinutes = null)
     )
     val deviationRecovery = RouteDeviationRecoveryEngine.present(
         status = locationGuidanceStatus,
         fix = latestLocationFix,
-        safetyShareAvailable = safetyShare.shareText != null,
+        safetyShareAvailable = recoverySafetyShare.shareText != null,
         wasRecentlyOffRoute = wasRecentlyOffRoute
     )
     val routeDeviationAlert = RouteDeviationAlertPresentationEngine.present(latestRouteDeviationAlertDecision)
@@ -3708,8 +3718,10 @@ private fun GpsTrackPanel(
                     onPrimaryAction = {
                         if (deviationRecovery.tone == RouteDeviationRecoveryTone.REJOINED) {
                             onAcknowledgeRouteRejoin()
+                        } else if (deviationRecovery.primaryActionLabel == "分享当前位置") {
+                            recoverySafetyShare.shareText?.let(onShareSafetyText) ?: onRequestLocation()
                         } else {
-                            safetyShare.shareText?.let(onShareSafetyText) ?: onRequestLocation()
+                            onRequestLocation()
                         }
                     }
                 )
@@ -4245,10 +4257,17 @@ private fun RouteDeviationRecoveryPanel(
         if (presentation.details.isNotEmpty()) {
             RouteDeviationRecoveryDetailList(details = presentation.details)
         }
-        RouteDeviationRecoveryStepList(
-            steps = presentation.steps,
-            contentColor = contentColor
-        )
+        if (presentation.actions.isNotEmpty()) {
+            RouteDeviationRecoveryActionList(
+                actions = presentation.actions,
+                contentColor = contentColor
+            )
+        } else {
+            RouteDeviationRecoveryStepList(
+                steps = presentation.steps,
+                contentColor = contentColor
+            )
+        }
         OutlinedButton(
             onClick = onPrimaryAction,
             modifier = Modifier.fillMaxWidth()
@@ -4264,7 +4283,7 @@ private fun RouteDeviationRecoveryDetailList(details: List<RouteDeviationRecover
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        details.take(2).forEach { detail ->
+        details.take(3).forEach { detail ->
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -4289,6 +4308,78 @@ private fun RouteDeviationRecoveryDetailList(details: List<RouteDeviationRecover
         }
     }
 }
+
+@Composable
+private fun RouteDeviationRecoveryActionList(
+    actions: List<RouteDeviationRecoveryAction>,
+    contentColor: Color
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        actions.take(3).forEach { action ->
+            val actionColor = when {
+                !action.enabled -> MaterialTheme.colorScheme.onSurfaceVariant
+                action.emphasized -> contentColor
+                else -> MaterialTheme.colorScheme.onSurface
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        if (action.emphasized) {
+                            contentColor.copy(alpha = 0.10f)
+                        } else {
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
+                        }
+                    )
+                    .padding(horizontal = 10.dp, vertical = 9.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(actionColor.copy(alpha = if (action.enabled) 0.12f else 0.06f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    TrailMateLineIcon(
+                        glyph = action.glyph(),
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = actionColor
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        text = action.label,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = actionColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = action.value,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun RouteDeviationRecoveryAction.glyph(): TrailMateGlyph =
+    when (kind) {
+        RouteDeviationRecoveryActionKind.STOP_AND_CONFIRM -> TrailMateGlyph.Warning
+        RouteDeviationRecoveryActionKind.RETURN_TO_ROUTE -> TrailMateGlyph.Route
+        RouteDeviationRecoveryActionKind.SHARE_LOCATION -> TrailMateGlyph.Location
+        RouteDeviationRecoveryActionKind.WAIT_FOR_GPS -> TrailMateGlyph.Location
+        RouteDeviationRecoveryActionKind.CONTINUE_NAVIGATION -> TrailMateGlyph.Compass
+        RouteDeviationRecoveryActionKind.CHECK_NEXT_CHECKPOINT -> TrailMateGlyph.Check
+    }
 
 @Composable
 private fun RouteDeviationRecoveryStepList(
