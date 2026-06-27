@@ -4,6 +4,7 @@ import com.trailmate.app.core.map.PmTilesArchiveHeaderParser
 import com.trailmate.app.core.map.PmTilesArchiveHeaderParserTest
 import com.trailmate.app.core.map.PmTilesLatLngBounds
 import java.io.File
+import java.security.MessageDigest
 import java.nio.file.Files
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -64,6 +65,110 @@ class TrailMatePmTilesBasemapRemoteImportCoordinatorTest {
 
         assertEquals(TrailMatePmTilesRemoteImportAction.IMPORTED, result.action)
         assertEquals("access_token", downloader.authorizationBearerToken)
+    }
+
+    @Test
+    fun importsDownloadedPackWhenCatalogSha256Matches() {
+        val directory = Files.createTempDirectory("pmtiles-remote-import-sha-match").toFile()
+        val routeBounds = PmTilesLatLngBounds(120.05, 30.10, 120.25, 30.35)
+        val sourceFile = PmTilesArchiveHeaderParserTest.validPmTilesFile(
+            minLon = 120.00,
+            minLat = 30.05,
+            maxLon = 120.30,
+            maxLat = 30.40
+        )
+        val coordinator = TrailMatePmTilesBasemapRemoteImportCoordinator(
+            catalogApi = FakeCatalogApi(listOf(catalogItem(sha256 = sourceFile.sha256Hex()))),
+            downloader = FakeDownloader(sourceFile)
+        )
+
+        val result = coordinator.importForRoute(
+            routeBounds = routeBounds,
+            routePackKey = "longjing-ridge",
+            targetDirectory = directory
+        )
+
+        assertEquals(TrailMatePmTilesRemoteImportAction.IMPORTED, result.action)
+        assertTrue(directory.resolve("longjing-ridge.pmtiles").isFile)
+    }
+
+    @Test
+    fun rejectsDownloadedPackWhenCatalogSha256DoesNotMatch() {
+        val directory = Files.createTempDirectory("pmtiles-remote-import-sha-mismatch").toFile()
+        val routeBounds = PmTilesLatLngBounds(120.05, 30.10, 120.25, 30.35)
+        val sourceFile = PmTilesArchiveHeaderParserTest.validPmTilesFile(
+            minLon = 120.00,
+            minLat = 30.05,
+            maxLon = 120.30,
+            maxLat = 30.40
+        )
+        val coordinator = TrailMatePmTilesBasemapRemoteImportCoordinator(
+            catalogApi = FakeCatalogApi(listOf(catalogItem(sha256 = "0".repeat(64)))),
+            downloader = FakeDownloader(sourceFile)
+        )
+
+        val result = coordinator.importForRoute(
+            routeBounds = routeBounds,
+            routePackKey = "longjing-ridge",
+            targetDirectory = directory
+        )
+
+        assertEquals(TrailMatePmTilesRemoteImportAction.OPEN_LOCAL_PICKER, result.action)
+        assertEquals("服务端离线地图包完整性校验未通过，可选择本地 PMTiles 文件。", result.message)
+        assertFalse(directory.resolve("longjing-ridge.pmtiles").exists())
+        assertFalse(directory.resolve("longjing-ridge.pmtiles.download").exists())
+    }
+
+    @Test
+    fun rejectsDownloadedPackWhenCatalogSha256IsMalformed() {
+        val directory = Files.createTempDirectory("pmtiles-remote-import-sha-malformed").toFile()
+        val routeBounds = PmTilesLatLngBounds(120.05, 30.10, 120.25, 30.35)
+        val sourceFile = PmTilesArchiveHeaderParserTest.validPmTilesFile(
+            minLon = 120.00,
+            minLat = 30.05,
+            maxLon = 120.30,
+            maxLat = 30.40
+        )
+        val coordinator = TrailMatePmTilesBasemapRemoteImportCoordinator(
+            catalogApi = FakeCatalogApi(listOf(catalogItem(sha256 = "not-a-sha256"))),
+            downloader = FakeDownloader(sourceFile)
+        )
+
+        val result = coordinator.importForRoute(
+            routeBounds = routeBounds,
+            routePackKey = "longjing-ridge",
+            targetDirectory = directory
+        )
+
+        assertEquals(TrailMatePmTilesRemoteImportAction.OPEN_LOCAL_PICKER, result.action)
+        assertEquals("服务端离线地图包完整性校验未通过，可选择本地 PMTiles 文件。", result.message)
+        assertFalse(directory.resolve("longjing-ridge.pmtiles").exists())
+        assertFalse(directory.resolve("longjing-ridge.pmtiles.download").exists())
+    }
+
+    @Test
+    fun keepsPreviewCompatibilityWhenCatalogSha256IsMissing() {
+        val directory = Files.createTempDirectory("pmtiles-remote-import-sha-missing").toFile()
+        val routeBounds = PmTilesLatLngBounds(120.05, 30.10, 120.25, 30.35)
+        val sourceFile = PmTilesArchiveHeaderParserTest.validPmTilesFile(
+            minLon = 120.00,
+            minLat = 30.05,
+            maxLon = 120.30,
+            maxLat = 30.40
+        )
+        val coordinator = TrailMatePmTilesBasemapRemoteImportCoordinator(
+            catalogApi = FakeCatalogApi(listOf(catalogItem(sha256 = null))),
+            downloader = FakeDownloader(sourceFile)
+        )
+
+        val result = coordinator.importForRoute(
+            routeBounds = routeBounds,
+            routePackKey = "longjing-ridge",
+            targetDirectory = directory
+        )
+
+        assertEquals(TrailMatePmTilesRemoteImportAction.IMPORTED, result.action)
+        assertTrue(directory.resolve("longjing-ridge.pmtiles").isFile)
     }
 
     @Test
@@ -193,13 +298,13 @@ class TrailMatePmTilesBasemapRemoteImportCoordinatorTest {
         }
     }
 
-    private fun catalogItem(): TrailMatePmTilesBasemapCatalogItemDto =
+    private fun catalogItem(sha256: String? = null): TrailMatePmTilesBasemapCatalogItemDto =
         TrailMatePmTilesBasemapCatalogItemDto(
             packId = "pmtiles_hangzhou_westlake_osm_v1",
             regionName = "杭州市 · 西湖区",
             downloadUrl = "https://cdn.trailmate.local/offline-basemaps/hangzhou-westlake.pmtiles",
             sizeBytes = 120_000_000L,
-            sha256 = null,
+            sha256 = sha256,
             tileType = "MVT",
             minZoom = 10,
             maxZoom = 14,
@@ -210,4 +315,9 @@ class TrailMatePmTilesBasemapRemoteImportCoordinatorTest {
             attribution = "OpenStreetMap contributors",
             source = "OSM / Protomaps"
         )
+
+    private fun File.sha256Hex(): String {
+        val digest = MessageDigest.getInstance("SHA-256").digest(readBytes())
+        return digest.joinToString(separator = "") { byte -> "%02x".format(byte) }
+    }
 }

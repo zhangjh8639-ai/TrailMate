@@ -5,6 +5,7 @@ import com.trailmate.app.core.map.PmTilesLatLngBounds
 import com.trailmate.app.core.map.PmTilesOfflineBasemapImportCandidate
 import com.trailmate.app.core.map.PmTilesOfflineBasemapImportPolicy
 import java.io.File
+import java.security.MessageDigest
 
 enum class TrailMatePmTilesRemoteImportAction {
     IMPORTED,
@@ -55,6 +56,10 @@ class TrailMatePmTilesBasemapRemoteImportCoordinator(
                 "服务端离线地图包获取失败，可选择本地 PMTiles 文件。"
             )
         }
+        if (!downloadedFile.matchesExpectedSha256(selected.sha256)) {
+            temporaryFile.delete()
+            return openLocalPicker("服务端离线地图包完整性校验未通过，可选择本地 PMTiles 文件。")
+        }
         val decision = PmTilesOfflineBasemapImportPolicy.resolve(
             candidate = PmTilesOfflineBasemapImportCandidate(
                 displayName = "${selected.packId}.pmtiles",
@@ -93,4 +98,31 @@ class TrailMatePmTilesBasemapRemoteImportCoordinator(
             action = TrailMatePmTilesRemoteImportAction.OPEN_LOCAL_PICKER,
             message = message
         )
+
+    private fun File.matchesExpectedSha256(expectedSha256: String?): Boolean {
+        val expected = expectedSha256?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return true
+        if (!expected.matches(SHA_256_HEX_PATTERN)) {
+            return false
+        }
+        return sha256Hex() == expected
+    }
+
+    private fun File.sha256Hex(): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        inputStream().use { input ->
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                if (count > 0) {
+                    digest.update(buffer, 0, count)
+                }
+            }
+        }
+        return digest.digest().joinToString(separator = "") { byte -> "%02x".format(byte) }
+    }
+
+    private companion object {
+        val SHA_256_HEX_PATTERN = Regex("^[0-9a-f]{64}$")
+    }
 }
