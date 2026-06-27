@@ -17,9 +17,10 @@ public class OfflineBasemapProviderConfiguration {
     @Bean
     @ConditionalOnMissingBean(OfflineBasemapService.class)
     public OfflineBasemapService offlineBasemapService(
-        OfflineBasemapCatalogRepository offlineBasemapCatalogRepository
+        OfflineBasemapCatalogRepository offlineBasemapCatalogRepository,
+        OfflineBasemapFileService offlineBasemapFileService
     ) {
-        return new OfflineBasemapService(offlineBasemapCatalogRepository);
+        return new OfflineBasemapService(offlineBasemapCatalogRepository, offlineBasemapFileService);
     }
 
     @Bean
