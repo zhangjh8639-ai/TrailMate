@@ -56,6 +56,10 @@ class TrailMatePmTilesBasemapRemoteImportCoordinator(
                 "服务端离线地图包获取失败，可选择本地 PMTiles 文件。"
             )
         }
+        if (!downloadedFile.matchesExpectedSize(selected.sizeBytes)) {
+            temporaryFile.delete()
+            return openLocalPicker("服务端离线地图包大小校验未通过，可选择本地 PMTiles 文件。")
+        }
         if (!downloadedFile.matchesExpectedSha256(selected.sha256)) {
             temporaryFile.delete()
             return openLocalPicker("服务端离线地图包完整性校验未通过，可选择本地 PMTiles 文件。")
@@ -98,6 +102,11 @@ class TrailMatePmTilesBasemapRemoteImportCoordinator(
             action = TrailMatePmTilesRemoteImportAction.OPEN_LOCAL_PICKER,
             message = message
         )
+
+    private fun File.matchesExpectedSize(expectedSizeBytes: Long?): Boolean {
+        val expected = expectedSizeBytes?.takeIf { it > 0L } ?: return true
+        return length() == expected
+    }
 
     private fun File.matchesExpectedSha256(expectedSha256: String?): Boolean {
         val expected = expectedSha256?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return true
