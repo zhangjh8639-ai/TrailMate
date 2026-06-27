@@ -12,7 +12,7 @@ object TrailMateOfflineBasemapCatalogSelectionPolicy {
             item.tileType.equals("MVT", ignoreCase = true) &&
                 item.downloadUrl.isNotBlank() &&
                 itemBounds.isValid() &&
-                itemBounds.intersects(routeBounds)
+                itemBounds.contains(routeBounds)
         }
 
     private fun TrailMatePmTilesBasemapCatalogItemDto.bounds(): PmTilesLatLngBounds =

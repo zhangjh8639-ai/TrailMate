@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OfflineBasemapServiceTest {
     @TempDir
@@ -52,6 +53,33 @@ class OfflineBasemapServiceTest {
 
         assertEquals(123L, item.sizeBytes());
         assertEquals("configured", item.sha256());
+    }
+
+    @Test
+    void excludesPmTilesPackThatOnlyPartiallyIntersectsRequestedBounds() {
+        OfflineBasemapService service = new OfflineBasemapService(
+            () -> List.of(
+                new OfflineBasemapCatalogItem(
+                    "partial",
+                    "Partial",
+                    "/offline-basemaps/pmtiles/partial.pmtiles",
+                    null,
+                    null,
+                    "MVT",
+                    10,
+                    14,
+                    120.00,
+                    30.05,
+                    120.10,
+                    30.40,
+                    "OpenStreetMap contributors",
+                    "OSM / Protomaps"
+                )
+            ),
+            new OfflineBasemapFileService(pmTilesDirectory)
+        );
+
+        assertTrue(service.listPmTilesCatalog(120.05, 30.10, 120.25, 30.35).isEmpty());
     }
 
     @Test

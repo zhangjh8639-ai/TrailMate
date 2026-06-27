@@ -50,6 +50,27 @@ class TrailMateOfflineBasemapCatalogSelectionPolicyTest {
     }
 
     @Test
+    fun returnsNullWhenPackOnlyPartiallyIntersectsRouteBounds() {
+        val selection = TrailMateOfflineBasemapCatalogSelectionPolicy.selectForRoute(
+            routeBounds = PmTilesLatLngBounds(
+                minLongitude = 120.05,
+                minLatitude = 30.10,
+                maxLongitude = 120.25,
+                maxLatitude = 30.35
+            ),
+            catalog = listOf(
+                catalogItem(
+                    packId = "pmtiles_partial_overlap",
+                    maxLongitude = 120.10,
+                    maxLatitude = 30.40
+                )
+            )
+        )
+
+        assertNull(selection)
+    }
+
+    @Test
     fun returnsNullWhenCatalogPackBoundsAreInvalid() {
         val selection = TrailMateOfflineBasemapCatalogSelectionPolicy.selectForRoute(
             routeBounds = PmTilesLatLngBounds(

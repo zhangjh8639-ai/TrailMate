@@ -97,6 +97,26 @@ class PmTilesOfflineBasemapImportPolicyTest {
         assertEquals("PMTiles 未覆盖当前路线", result.title)
     }
 
+    @Test
+    fun rejectsPmtilesFileWhenItOnlyPartiallyCoversTheRouteBounds() {
+        val result = PmTilesOfflineBasemapImportPolicy.resolve(
+            candidate = PmTilesOfflineBasemapImportCandidate(
+                displayName = "partial.pmtiles",
+                sizeBytes = 12_048L,
+                archiveInspection = PmTilesArchiveInspection(
+                    header = validHeader(PmTilesLatLngBounds(120.10, 30.10, 120.18, 30.35)),
+                    error = null
+                )
+            ),
+            routePackKey = "longjing-ridge",
+            targetBounds = PmTilesLatLngBounds(120.15, 30.15, 120.20, 30.20)
+        )
+
+        assertFalse(result.canImport)
+        assertEquals(PmTilesOfflineBasemapImportStatus.REGION_NOT_COVERED, result.status)
+        assertEquals("PMTiles 未覆盖当前路线", result.title)
+    }
+
     private fun validHeader(
         bounds: PmTilesLatLngBounds = PmTilesLatLngBounds(120.10, 30.10, 120.30, 30.35)
     ) = PmTilesArchiveHeader(

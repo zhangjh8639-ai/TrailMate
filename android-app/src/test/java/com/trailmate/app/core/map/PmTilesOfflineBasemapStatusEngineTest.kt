@@ -87,6 +87,28 @@ class PmTilesOfflineBasemapStatusEngineTest {
     }
 
     @Test
+    fun blocksReadinessWhenPackOnlyPartiallyCoversTargetBounds() {
+        val status = PmTilesOfflineBasemapStatusEngine.resolve(
+            manifest = PmTilesOfflineBasemapManifest(
+                fileName = "partial.pmtiles",
+                fileExists = true,
+                fileSizeBytes = 90_000_000L,
+                coveredRegionNames = emptySet(),
+                archiveHeader = validHeader(
+                    bounds = PmTilesLatLngBounds(120.10, 30.10, 120.18, 30.35)
+                ),
+                targetBounds = PmTilesLatLngBounds(120.15, 30.15, 120.20, 30.20),
+                coversTargetBounds = false
+            ),
+            targetRegionName = "杭州市"
+        )
+
+        assertFalse(status.ready)
+        assertEquals(PmTilesOfflineBasemapStatus.REGION_NOT_COVERED, status.status)
+        assertEquals("离线地图包未覆盖目标区域", status.title)
+    }
+
+    @Test
     fun blocksReadinessWhenHeaderCannotBeValidated() {
         val status = PmTilesOfflineBasemapStatusEngine.resolve(
             manifest = PmTilesOfflineBasemapManifest(

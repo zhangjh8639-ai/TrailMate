@@ -42,6 +42,12 @@ data class PmTilesLatLngBounds(
             minLatitude <= other.maxLatitude &&
             maxLatitude >= other.minLatitude
 
+    fun contains(other: PmTilesLatLngBounds): Boolean =
+        minLongitude <= other.minLongitude &&
+            maxLongitude >= other.maxLongitude &&
+            minLatitude <= other.minLatitude &&
+            maxLatitude >= other.maxLatitude
+
     fun isValid(): Boolean =
         minLongitude in -180.0..180.0 &&
             maxLongitude in -180.0..180.0 &&

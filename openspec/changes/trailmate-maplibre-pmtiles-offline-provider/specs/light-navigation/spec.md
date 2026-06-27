@@ -41,7 +41,7 @@ TrailMate SHALL use MapLibre Native with a local Protomaps/PMTiles basemap packa
 - AND the file uses the `.pmtiles` extension
 - AND the file has a valid PMTiles v3 header
 - AND the file contains MapLibre-compatible vector tile data
-- AND the PMTiles header bounds intersect the imported GPX route bounds
+- AND the PMTiles header bounds fully contain the imported GPX route bounds
 - WHEN TrailMate evaluates offline basemap readiness
 - THEN the PMTiles basemap pack is considered ready
 
@@ -57,7 +57,7 @@ TrailMate SHALL use MapLibre Native with a local Protomaps/PMTiles basemap packa
 
 - GIVEN the route map readiness says the PMTiles basemap is missing
 - WHEN the user selects a valid `.pmtiles` file from Android document storage
-- AND the PMTiles header bounds intersect the imported GPX route bounds
+- AND the PMTiles header bounds fully contain the imported GPX route bounds
 - THEN TrailMate copies the selected file into the app PMTiles basemap directory using the imported route pack key
 - AND refreshes PMTiles readiness for the current route
 
@@ -65,15 +65,15 @@ TrailMate SHALL use MapLibre Native with a local Protomaps/PMTiles basemap packa
 
 - GIVEN Android knows the target route geographic bounds
 - WHEN Android requests `/api/v1/offline-basemaps/pmtiles/catalog` with those bounds
-- THEN the server returns PMTiles pack metadata whose bounds intersect the route bounds
+- THEN the server returns PMTiles pack metadata whose bounds fully contain the route bounds
 - AND Android selects a non-empty `downloadUrl` item with `tileType=MVT`
 - AND Android does not mark the PMTiles basemap ready until the file is downloaded/imported and passes local PMTiles header validation
 
 #### Scenario: Android downloads a valid catalog PMTiles pack
 
-- GIVEN the server catalog returns a PMTiles pack whose metadata intersects the route bounds
+- GIVEN the server catalog returns a PMTiles pack whose metadata fully contains the route bounds
 - AND the pack `downloadUrl` returns a non-empty PMTiles v3 vector archive
-- AND the archive header bounds intersect the route bounds
+- AND the archive header bounds fully contain the route bounds
 - WHEN the user chooses to import the offline basemap from the route screen
 - THEN Android downloads the pack into app storage using the route pack key
 - AND refreshes PMTiles readiness for the current route

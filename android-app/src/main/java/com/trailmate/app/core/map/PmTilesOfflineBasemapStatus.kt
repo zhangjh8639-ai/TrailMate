@@ -44,7 +44,7 @@ object PmTilesOfflineBasemapManifestReader {
         } else {
             PmTilesArchiveInspection(header = null, error = null)
         }
-        val coversTarget = targetBounds != null && inspection.header?.bounds?.intersects(targetBounds) == true
+        val coversTarget = targetBounds != null && inspection.header?.bounds?.contains(targetBounds) == true
         return PmTilesOfflineBasemapManifest(
             fileName = fileName,
             fileExists = file.isFile,

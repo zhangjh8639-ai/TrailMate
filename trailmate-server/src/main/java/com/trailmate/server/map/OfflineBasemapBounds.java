@@ -23,4 +23,11 @@ public record OfflineBasemapBounds(
             && minLatitude <= other.maxLatitude()
             && maxLatitude >= other.minLatitude();
     }
+
+    public boolean contains(OfflineBasemapBounds other) {
+        return minLongitude <= other.minLongitude()
+            && maxLongitude >= other.maxLongitude()
+            && minLatitude <= other.minLatitude()
+            && maxLatitude >= other.maxLatitude();
+    }
 }
