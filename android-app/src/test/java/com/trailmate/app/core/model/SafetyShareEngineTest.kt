@@ -1,6 +1,7 @@
 package com.trailmate.app.core.model
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -165,6 +166,35 @@ class SafetyShareEngineTest {
                 SafetyShareDetail(label = "预计完成", value = "2026-06-19 15:50"),
                 SafetyShareDetail(label = "超时确认", value = "预计完成 +60 分钟")
             ),
+            presentation.details
+        )
+    }
+
+    @Test
+    fun omitsExpectedFinishWhenRoutePlanHasNoDuration() {
+        val presentation = SafetyShareEngine.present(
+            routeName = "龙井山脊",
+            location = SafetyShareLocation(
+                latitude = 30.25,
+                longitude = 120.12,
+                horizontalAccuracyMeters = 8.0
+            ),
+            trackRecording = TrackRecordingState(),
+            routePlan = SafetyShareRoutePlan(
+                distanceKm = 15.2,
+                ascentMeters = 860,
+                estimatedDurationMinutes = null
+            ),
+            nowEpochMillis = Instant.parse("2026-06-19T01:00:00Z").toEpochMilli(),
+            zoneId = ZoneId.of("Asia/Shanghai")
+        )
+
+        val shareText = requireNotNull(presentation.shareText)
+        assertTrue(shareText.contains("计划：15.2 km / +860 m"))
+        assertFalse(shareText.contains("预计完成"))
+        assertFalse(shareText.contains("超时提示"))
+        assertEquals(
+            listOf(SafetyShareDetail(label = "路线", value = "15.2 km / +860 m")),
             presentation.details
         )
     }

@@ -940,22 +940,23 @@ class TrailMateAppSmokeTest {
                         crossTrackErrorMeters = 112.0,
                         horizontalAccuracyMeters = 8.0,
                         timestampEpochMillis = 1_000L
-                    )
+                    ),
+                    routeAssessment = nonBlockingAssessment(TrailMateSampleData.importedTargetRoute),
+                    gearRecommendations = coveredDepartureGear(),
+                    initialOfflineRoutePackReady = true,
+                    initiallyExpandRouteDiagnostics = true
                 )
             }
         }
 
         compose.onNodeWithTag("segmented-control-路线").performClick()
 
-        compose.onNodeWithText("查看恢复建议").assertExists()
-        compose.onNodeWithTag("route-cockpit-primary-action").performScrollTo().performClick()
-        compose.waitForIdle()
         compose.onNodeWithText("收起").assertExists()
         compose.onNodeWithText("偏离恢复").performScrollTo().assertExists()
         compose.onNodeWithText("停止自动推进").assertExists()
         compose.onNodeWithText("疑似偏离路线约 112 m", substring = true).assertExists()
-        compose.onNodeWithText("返回最近路径").assertExists()
-        compose.onAllNodesWithText("分享当前位置").assertCountEquals(2)
+        compose.onNodeWithText("回到最近路线").assertExists()
+        compose.onAllNodesWithText("分享当前位置").assertCountEquals(3)
     }
 
     @Test
@@ -1534,7 +1535,8 @@ class TrailMateAppSmokeTest {
         initialLocationGuidanceCaption: String = "授权定位后，可用当前位置辅助检查点推进。",
         initialLocationFix: HikeLocationFix? = null,
         initialWasRecentlyOffRoute: Boolean = false,
-        initialOfflineRoutePackReady: Boolean = false
+        initialOfflineRoutePackReady: Boolean = false,
+        initiallyExpandRouteDiagnostics: Boolean = false
     ) {
         var routeNavigationFullscreen by androidx.compose.runtime.remember { mutableStateOf(false) }
         Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
@@ -1553,6 +1555,7 @@ class TrailMateAppSmokeTest {
                 initialLocationFix = initialLocationFix,
                 initialWasRecentlyOffRoute = initialWasRecentlyOffRoute,
                 initialOfflineRoutePackReady = initialOfflineRoutePackReady,
+                initiallyExpandRouteDiagnostics = initiallyExpandRouteDiagnostics,
                 routeNavigationFullscreen = routeNavigationFullscreen,
                 onRouteNavigationFullscreenChanged = { fullscreen ->
                     routeNavigationFullscreen = fullscreen
