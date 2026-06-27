@@ -68,7 +68,7 @@ object PmTilesOfflineBasemapImportPolicy {
                 caption = "TrailMate 当前只支持 OSM/Protomaps 向量瓦片底图。"
             )
         }
-        if (targetBounds != null && !inspection.header.bounds.intersects(targetBounds)) {
+        if (targetBounds != null && !inspection.header.bounds.contains(targetBounds)) {
             return PmTilesOfflineBasemapImportDecision(
                 status = PmTilesOfflineBasemapImportStatus.REGION_NOT_COVERED,
                 canImport = false,

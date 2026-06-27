@@ -43,7 +43,7 @@ public class OfflineBasemapService {
             maxLatitude
         );
         return catalogRepository.listPmTilesPacks().stream()
-            .filter(pack -> pack.intersects(routeBounds))
+            .filter(pack -> pack.contains(routeBounds))
             .map(this::withLocalPmTilesMetadata)
             .toList();
     }

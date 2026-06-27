@@ -67,4 +67,27 @@ class PmTilesOfflineBasemapManifestReaderTest {
         assertEquals(PmTilesArchiveHeaderError.TOO_SHORT, manifest.archiveHeaderError)
         assertFalse(manifest.coversTargetBounds)
     }
+
+    @Test
+    fun marksRoutePackNotCoveredWhenPmtilesOnlyPartiallyCoversTargetBounds() {
+        val directory = Files.createTempDirectory("trailmate-pmtiles-partial").toFile()
+        val packFile = directory.resolve("longjing.pmtiles")
+        PmTilesArchiveHeaderParserTest.validPmTilesFile(
+            minLon = 120.10,
+            minLat = 30.10,
+            maxLon = 120.18,
+            maxLat = 30.35
+        ).copyTo(packFile, overwrite = true)
+
+        val manifest = PmTilesOfflineBasemapManifestReader.read(
+            directory = directory,
+            routePackKey = "longjing",
+            targetRegionName = "杭州市",
+            targetBounds = PmTilesLatLngBounds(120.15, 30.15, 120.20, 30.20)
+        )
+
+        assertTrue(manifest.fileExists)
+        assertNotNull(manifest.archiveHeader)
+        assertFalse(manifest.coversTargetBounds)
+    }
 }

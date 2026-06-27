@@ -58,7 +58,7 @@ Auth validation failures return the same shape with `code=AUTH_INVALID_REQUEST`,
 | `GET` | `/plans/{planId}` | `getPlan` | Reads saved plan |
 | `GET` | `/gear/catalog/categories` | `listGearCatalogCategories` | Server-owned gear categories for route checklist matching |
 | `GET` | `/gear/catalog/search` | `searchGearCatalog` | Searches server-owned gear catalog by category and query |
-| `GET` | `/offline-basemaps/pmtiles/catalog` | `listPmTilesBasemaps` | Lists server-owned PMTiles pack metadata intersecting route bounds |
+| `GET` | `/offline-basemaps/pmtiles/catalog` | `listPmTilesBasemaps` | Lists server-owned PMTiles pack metadata that fully contains route bounds |
 | `POST` | `/plans/{planId}/gear-advice` | `requestGearAdvice` | Optional AI-backed checklist text |
 | `POST` | `/plans/{planId}/feedback` | `submitCompletionFeedback` | Completion result and fatigue |
 | `POST` | `/tracks` | `uploadRecordedTrack` | Uploads completed local recording |

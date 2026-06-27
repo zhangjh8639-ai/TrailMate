@@ -20,6 +20,10 @@ public record OfflineBasemapCatalogItem(
         return bounds().intersects(routeBounds);
     }
 
+    public boolean contains(OfflineBasemapBounds routeBounds) {
+        return bounds().contains(routeBounds);
+    }
+
     private OfflineBasemapBounds bounds() {
         return new OfflineBasemapBounds(
             minLongitude,
