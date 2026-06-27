@@ -40,6 +40,67 @@ class TrailMatePmTilesBasemapRemoteImportCoordinatorTest {
     }
 
     @Test
+    fun passesDownloadAuthorizationTokenToDownloader() {
+        val directory = Files.createTempDirectory("pmtiles-remote-import-auth").toFile()
+        val routeBounds = PmTilesLatLngBounds(120.05, 30.10, 120.25, 30.35)
+        val sourceFile = PmTilesArchiveHeaderParserTest.validPmTilesFile(
+            minLon = 120.00,
+            minLat = 30.05,
+            maxLon = 120.30,
+            maxLat = 30.40
+        )
+        val downloader = FakeDownloader(sourceFile)
+        val coordinator = TrailMatePmTilesBasemapRemoteImportCoordinator(
+            catalogApi = FakeCatalogApi(listOf(catalogItem())),
+            downloader = downloader
+        )
+
+        val result = coordinator.importForRoute(
+            routeBounds = routeBounds,
+            routePackKey = "longjing-ridge",
+            targetDirectory = directory,
+            authorizationBearerToken = "access_token"
+        )
+
+        assertEquals(TrailMatePmTilesRemoteImportAction.IMPORTED, result.action)
+        assertEquals("access_token", downloader.authorizationBearerToken)
+    }
+
+    @Test
+    fun preservesTemporaryPartialFileSoRemoteImportCanResume() {
+        val directory = Files.createTempDirectory("pmtiles-remote-import-resume").toFile()
+        val routeBounds = PmTilesLatLngBounds(120.05, 30.10, 120.25, 30.35)
+        val sourceFile = PmTilesArchiveHeaderParserTest.validPmTilesFile(
+            minLon = 120.00,
+            minLat = 30.05,
+            maxLon = 120.30,
+            maxLat = 30.40
+        )
+        val sourceBytes = sourceFile.readBytes()
+        val partialBytes = sourceBytes.copyOfRange(0, 64)
+        directory.mkdirs()
+        directory.resolve("longjing-ridge.pmtiles.download").writeBytes(partialBytes)
+        val coordinator = TrailMatePmTilesBasemapRemoteImportCoordinator(
+            catalogApi = FakeCatalogApi(listOf(catalogItem())),
+            downloader = FakeResumableDownloader(
+                sourceBytes = sourceBytes,
+                expectedPartialBytes = partialBytes
+            )
+        )
+
+        val result = coordinator.importForRoute(
+            routeBounds = routeBounds,
+            routePackKey = "longjing-ridge",
+            targetDirectory = directory
+        )
+
+        val targetFile = directory.resolve("longjing-ridge.pmtiles")
+        assertEquals(TrailMatePmTilesRemoteImportAction.IMPORTED, result.action)
+        assertTrue(targetFile.isFile)
+        assertEquals(null, PmTilesArchiveHeaderParser.inspect(targetFile).error)
+    }
+
+    @Test
     fun asksForLocalPickerWhenCatalogHasNoCoveringPack() {
         val directory = Files.createTempDirectory("pmtiles-remote-import-empty").toFile()
         val coordinator = TrailMatePmTilesBasemapRemoteImportCoordinator(
@@ -92,10 +153,15 @@ class TrailMatePmTilesBasemapRemoteImportCoordinatorTest {
     private class FakeDownloader(
         private val sourceFile: File?
     ) : TrailMatePmTilesBasemapFileDownloader {
+        var authorizationBearerToken: String? = null
+            private set
+
         override fun downloadToFile(
             downloadUrl: String,
-            targetFile: File
+            targetFile: File,
+            authorizationBearerToken: String?
         ): TrailMateApiResult<File> {
+            this.authorizationBearerToken = authorizationBearerToken
             val source = sourceFile ?: return TrailMateApiResult.Failure(
                 TrailMateApiError(
                     status = 404,
@@ -105,6 +171,24 @@ class TrailMatePmTilesBasemapRemoteImportCoordinatorTest {
                 )
             )
             source.copyTo(targetFile, overwrite = true)
+            return TrailMateApiResult.Success(targetFile)
+        }
+    }
+
+    private class FakeResumableDownloader(
+        private val sourceBytes: ByteArray,
+        private val expectedPartialBytes: ByteArray
+    ) : TrailMatePmTilesBasemapFileDownloader {
+        override fun downloadToFile(
+            downloadUrl: String,
+            targetFile: File,
+            authorizationBearerToken: String?
+        ): TrailMateApiResult<File> {
+            assertEquals(
+                expectedPartialBytes.toList(),
+                targetFile.readBytes().toList()
+            )
+            targetFile.appendBytes(sourceBytes.copyOfRange(expectedPartialBytes.size, sourceBytes.size))
             return TrailMateApiResult.Success(targetFile)
         }
     }

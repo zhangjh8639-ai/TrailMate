@@ -23,7 +23,8 @@ class TrailMatePmTilesBasemapRemoteImportCoordinator(
     fun importForRoute(
         routeBounds: PmTilesLatLngBounds?,
         routePackKey: String,
-        targetDirectory: File
+        targetDirectory: File,
+        authorizationBearerToken: String? = null
     ): TrailMatePmTilesRemoteImportResult {
         if (routeBounds == null || catalogApi == null) {
             return openLocalPicker("请选择本地 PMTiles 离线地图包。")
@@ -44,8 +45,11 @@ class TrailMatePmTilesBasemapRemoteImportCoordinator(
 
         targetDirectory.mkdirs()
         val temporaryFile = targetDirectory.resolve("$routePackKey.pmtiles.download")
-        temporaryFile.delete()
-        val downloadedFile = when (downloader.downloadToFile(selected.downloadUrl, temporaryFile)) {
+        val downloadedFile = when (downloader.downloadToFile(
+            downloadUrl = selected.downloadUrl,
+            targetFile = temporaryFile,
+            authorizationBearerToken = authorizationBearerToken
+        )) {
             is TrailMateApiResult.Success -> temporaryFile
             is TrailMateApiResult.Failure -> return openLocalPicker(
                 "服务端离线地图包获取失败，可选择本地 PMTiles 文件。"
