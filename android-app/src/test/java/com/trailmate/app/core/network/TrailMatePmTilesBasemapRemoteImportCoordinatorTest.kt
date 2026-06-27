@@ -93,6 +93,58 @@ class TrailMatePmTilesBasemapRemoteImportCoordinatorTest {
     }
 
     @Test
+    fun importsDownloadedPackWhenCatalogSizeMatches() {
+        val directory = Files.createTempDirectory("pmtiles-remote-import-size-match").toFile()
+        val routeBounds = PmTilesLatLngBounds(120.05, 30.10, 120.25, 30.35)
+        val sourceFile = PmTilesArchiveHeaderParserTest.validPmTilesFile(
+            minLon = 120.00,
+            minLat = 30.05,
+            maxLon = 120.30,
+            maxLat = 30.40
+        )
+        val coordinator = TrailMatePmTilesBasemapRemoteImportCoordinator(
+            catalogApi = FakeCatalogApi(listOf(catalogItem(sizeBytes = sourceFile.length()))),
+            downloader = FakeDownloader(sourceFile)
+        )
+
+        val result = coordinator.importForRoute(
+            routeBounds = routeBounds,
+            routePackKey = "longjing-ridge",
+            targetDirectory = directory
+        )
+
+        assertEquals(TrailMatePmTilesRemoteImportAction.IMPORTED, result.action)
+        assertTrue(directory.resolve("longjing-ridge.pmtiles").isFile)
+    }
+
+    @Test
+    fun rejectsDownloadedPackWhenCatalogSizeDoesNotMatch() {
+        val directory = Files.createTempDirectory("pmtiles-remote-import-size-mismatch").toFile()
+        val routeBounds = PmTilesLatLngBounds(120.05, 30.10, 120.25, 30.35)
+        val sourceFile = PmTilesArchiveHeaderParserTest.validPmTilesFile(
+            minLon = 120.00,
+            minLat = 30.05,
+            maxLon = 120.30,
+            maxLat = 30.40
+        )
+        val coordinator = TrailMatePmTilesBasemapRemoteImportCoordinator(
+            catalogApi = FakeCatalogApi(listOf(catalogItem(sizeBytes = sourceFile.length() + 1L))),
+            downloader = FakeDownloader(sourceFile)
+        )
+
+        val result = coordinator.importForRoute(
+            routeBounds = routeBounds,
+            routePackKey = "longjing-ridge",
+            targetDirectory = directory
+        )
+
+        assertEquals(TrailMatePmTilesRemoteImportAction.OPEN_LOCAL_PICKER, result.action)
+        assertEquals("服务端离线地图包大小校验未通过，可选择本地 PMTiles 文件。", result.message)
+        assertFalse(directory.resolve("longjing-ridge.pmtiles").exists())
+        assertFalse(directory.resolve("longjing-ridge.pmtiles.download").exists())
+    }
+
+    @Test
     fun rejectsDownloadedPackWhenCatalogSha256DoesNotMatch() {
         val directory = Files.createTempDirectory("pmtiles-remote-import-sha-mismatch").toFile()
         val routeBounds = PmTilesLatLngBounds(120.05, 30.10, 120.25, 30.35)
@@ -298,12 +350,15 @@ class TrailMatePmTilesBasemapRemoteImportCoordinatorTest {
         }
     }
 
-    private fun catalogItem(sha256: String? = null): TrailMatePmTilesBasemapCatalogItemDto =
+    private fun catalogItem(
+        sizeBytes: Long? = null,
+        sha256: String? = null
+    ): TrailMatePmTilesBasemapCatalogItemDto =
         TrailMatePmTilesBasemapCatalogItemDto(
             packId = "pmtiles_hangzhou_westlake_osm_v1",
             regionName = "杭州市 · 西湖区",
             downloadUrl = "https://cdn.trailmate.local/offline-basemaps/hangzhou-westlake.pmtiles",
-            sizeBytes = 120_000_000L,
+            sizeBytes = sizeBytes,
             sha256 = sha256,
             tileType = "MVT",
             minZoom = 10,
