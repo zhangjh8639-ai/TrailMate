@@ -4070,6 +4070,10 @@ private fun GpsTrackPanel(
         safetyShareAvailable = recoverySafetyShare.shareText != null,
         wasRecentlyOffRoute = wasRecentlyOffRoute
     )
+    val deviationRecoveryButton = RouteDeviationRecoveryPanelButtonPresentationEngine.present(
+        presentation = deviationRecovery,
+        safetyShareTextAvailable = recoverySafetyShare.shareText != null
+    )
     val exitGuidance = RouteExitGuidanceEngine.present(
         route = route,
         plan = plan,
@@ -4174,18 +4178,20 @@ private fun GpsTrackPanel(
             if (deviationRecovery.visible) {
                 RouteDeviationRecoveryPanel(
                     presentation = deviationRecovery,
+                    button = deviationRecoveryButton,
                     onPrimaryAction = {
-                        if (deviationRecovery.tone == RouteDeviationRecoveryTone.REJOINED) {
-                            onAcknowledgeRouteRejoin()
-                        } else if (deviationRecovery.primaryActionLabel == "分享当前位置") {
-                            SafetyShareActionEngine.resolveShareAction(
-                                routeName = route.routeName,
-                                location = safetyShareLocation,
-                                trackRecording = trackRecording,
-                                routePlan = safetyShareRoutePlan.copy(estimatedDurationMinutes = null)
-                            ).shareText?.let(onShareSafetyText) ?: onRequestLocation()
-                        } else {
-                            onRequestLocation()
+                        when (deviationRecoveryButton.kind) {
+                            RouteDeviationRecoveryPanelActionKind.ACKNOWLEDGE_REJOIN -> onAcknowledgeRouteRejoin()
+                            RouteDeviationRecoveryPanelActionKind.REQUEST_LOCATION -> onRequestLocation()
+                            RouteDeviationRecoveryPanelActionKind.SHARE_LOCATION -> {
+                                SafetyShareActionEngine.resolveShareAction(
+                                    routeName = route.routeName,
+                                    location = safetyShareLocation,
+                                    trackRecording = trackRecording,
+                                    routePlan = safetyShareRoutePlan.copy(estimatedDurationMinutes = null)
+                                ).shareText?.let(onShareSafetyText) ?: onRequestLocation()
+                            }
+                            RouteDeviationRecoveryPanelActionKind.NONE -> Unit
                         }
                     }
                 )
@@ -6064,6 +6070,7 @@ private fun RouteExitGuidanceTone.exitGuidanceContentColor(): Color =
 @Composable
 private fun RouteDeviationRecoveryPanel(
     presentation: RouteDeviationRecoveryPresentation,
+    button: RouteDeviationRecoveryPanelButtonPresentation,
     onPrimaryAction: () -> Unit
 ) {
     val contentColor = presentation.tone.recoveryContentColor()
@@ -6142,11 +6149,13 @@ private fun RouteDeviationRecoveryPanel(
                 contentColor = contentColor
             )
         }
-        OutlinedButton(
-            onClick = onPrimaryAction,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(presentation.primaryActionLabel)
+        if (button.visible) {
+            OutlinedButton(
+                onClick = onPrimaryAction,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(button.label)
+            }
         }
     }
 }
