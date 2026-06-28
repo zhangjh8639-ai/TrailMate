@@ -185,6 +185,10 @@ import com.trailmate.app.core.model.GearCatalogSelectionEngine
 import com.trailmate.app.core.model.GearRecommendation
 import com.trailmate.app.core.model.GearDepartureQaOverridePolicy
 import com.trailmate.app.core.model.GearStatus
+import com.trailmate.app.core.model.GpsSignalLossWatchDetail
+import com.trailmate.app.core.model.GpsSignalLossWatchEngine
+import com.trailmate.app.core.model.GpsSignalLossWatchPresentation
+import com.trailmate.app.core.model.GpsSignalLossWatchTone
 import com.trailmate.app.core.model.HikeLocationFix
 import com.trailmate.app.core.model.HikePlanCheckpoint
 import com.trailmate.app.core.model.HikePlanCheckpointType
@@ -1289,9 +1293,15 @@ fun RouteDetailScreen(
         }
     }
     val currentHandleLocationSnapshot by rememberUpdatedState(handleLocationSnapshot)
-    LaunchedEffect(gpsEnabled, locationSnapshot.status, routeSessionKey) {
+    LaunchedEffect(gpsEnabled, locationSnapshot.status, routeSessionKey, trackRecording.status) {
         locationPresentationNowEpochMillis = System.currentTimeMillis()
-        while (gpsEnabled && locationSnapshot.status == TrailMateLocationStatus.SEARCHING) {
+        while (
+            gpsEnabled &&
+            (
+                locationSnapshot.status == TrailMateLocationStatus.SEARCHING ||
+                    trackRecording.status == TrackRecordingStatus.RECORDING
+                )
+        ) {
             delay(5_000L)
             locationPresentationNowEpochMillis = System.currentTimeMillis()
         }
@@ -1800,6 +1810,11 @@ internal fun RouteCockpitTabContent(
         notificationPermissionGranted = notificationPermissionGranted,
         batteryStatus = routeBatteryStatus
     )
+    val gpsSignalLossWatch = GpsSignalLossWatchEngine.present(
+        snapshot = locationSnapshot,
+        trackRecording = trackRecording,
+        nowEpochMillis = locationPresentationNowEpochMillis
+    )
     val lowPowerGuidance = LowPowerGuidanceEngine.present(
         batteryStatus = routeBatteryStatus,
         trackRecording = trackRecording,
@@ -1915,6 +1930,7 @@ internal fun RouteCockpitTabContent(
             liveGuidance = liveGuidance,
             mapReadiness = mapReadiness,
             fieldStatus = fieldStatus,
+            gpsSignalLossWatch = gpsSignalLossWatch,
             directionWatch = routeDirectionWatch,
             trackRecording = trackRecording,
             showUserLocationOnAmap = gpsEnabled,
@@ -1951,6 +1967,10 @@ internal fun RouteCockpitTabContent(
             onSafetyShare = handleSafetyShare,
             onEnterFullscreen = { onNavigationFullscreenChange(true) },
             onAmapBaseMapRenderedChange = onAmapBaseMapRenderedChange
+        )
+        GpsSignalLossWatchPanel(
+            presentation = gpsSignalLossWatch,
+            onPrimaryAction = onRequestLocation
         )
         LowPowerGuidancePanel(
             presentation = lowPowerGuidance,
@@ -2069,6 +2089,7 @@ private fun RouteNavigationFullscreen(
     liveGuidance: LiveCheckpointGuidance,
     mapReadiness: TrailMapReadiness,
     fieldStatus: RouteFieldStatusSummary,
+    gpsSignalLossWatch: GpsSignalLossWatchPresentation,
     directionWatch: RouteDirectionWatchPresentation,
     trackRecording: TrackRecordingState,
     showUserLocationOnAmap: Boolean,
@@ -2122,10 +2143,12 @@ private fun RouteNavigationFullscreen(
                 presentation = presentation,
                 liveGuidance = liveGuidance,
                 fieldStatus = fieldStatus,
+                gpsSignalLossWatch = gpsSignalLossWatch,
                 directionWatch = directionWatch,
                 trackRecording = trackRecording,
                 session = hikeSession,
                 onPrimaryAction = onPrimaryAction,
+                onGpsSignalLossAction = onLocateRequested,
                 onDirectionWatchAction = onLocateRequested,
                 onSafetyShare = onSafetyShare,
                 onMarkNextCheckpoint = onMarkNextCheckpoint,
@@ -2215,10 +2238,12 @@ private fun RouteNavigationFullscreenDock(
     presentation: RouteCockpitPresentation,
     liveGuidance: LiveCheckpointGuidance,
     fieldStatus: RouteFieldStatusSummary,
+    gpsSignalLossWatch: GpsSignalLossWatchPresentation,
     directionWatch: RouteDirectionWatchPresentation,
     trackRecording: TrackRecordingState,
     session: HikeSessionState,
     onPrimaryAction: () -> Unit,
+    onGpsSignalLossAction: () -> Unit,
     onDirectionWatchAction: () -> Unit,
     onSafetyShare: () -> Unit,
     onMarkNextCheckpoint: () -> Unit,
@@ -2241,6 +2266,10 @@ private fun RouteNavigationFullscreenDock(
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            GpsSignalLossWatchCompactBanner(
+                presentation = gpsSignalLossWatch,
+                onPrimaryAction = onGpsSignalLossAction
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -2385,6 +2414,55 @@ private fun RouteNavigationFullscreenDock(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
+private fun GpsSignalLossWatchCompactBanner(
+    presentation: GpsSignalLossWatchPresentation,
+    onPrimaryAction: () -> Unit
+) {
+    if (!presentation.visible) {
+        return
+    }
+    val contentColor = presentation.tone.gpsSignalLossContentColor()
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("gps-signal-loss-watch-compact")
+            .clip(RoundedCornerShape(14.dp))
+            .background(presentation.tone.gpsSignalLossContainerColor())
+            .border(1.dp, contentColor.copy(alpha = 0.16f), RoundedCornerShape(14.dp))
+            .clickable(onClick = onPrimaryAction)
+            .padding(horizontal = 10.dp, vertical = 9.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        TrailMateLineIcon(
+            glyph = TrailMateGlyph.Warning,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = contentColor
+        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = "${presentation.statusLabel} · ${presentation.primaryActionLabel}",
+                style = MaterialTheme.typography.labelMedium,
+                color = contentColor,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
+            )
+            Text(
+                text = presentation.caption,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2
             )
         }
     }
@@ -5005,6 +5083,81 @@ private fun DaylightReturnWatchTone.daylightContentColor(): Color =
     }
 
 @Composable
+private fun GpsSignalLossWatchPanel(
+    presentation: GpsSignalLossWatchPresentation,
+    onPrimaryAction: () -> Unit
+) {
+    if (!presentation.visible) {
+        return
+    }
+    val contentColor = presentation.tone.gpsSignalLossContentColor()
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("gps-signal-loss-watch")
+            .clip(RoundedCornerShape(16.dp))
+            .background(presentation.tone.gpsSignalLossContainerColor())
+            .border(1.dp, contentColor.copy(alpha = 0.18f), RoundedCornerShape(16.dp))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(contentColor.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center
+            ) {
+                TrailMateLineIcon(
+                    glyph = TrailMateGlyph.Warning,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = contentColor
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = presentation.title,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    TrailMateStatusPill(
+                        text = presentation.statusLabel,
+                        containerColor = contentColor.copy(alpha = 0.12f),
+                        contentColor = contentColor
+                    )
+                }
+                Text(
+                    text = presentation.caption,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        GpsSignalLossWatchDetailList(details = presentation.details)
+        OutlinedButton(
+            onClick = onPrimaryAction,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(presentation.primaryActionLabel)
+        }
+    }
+}
+
+@Composable
 private fun ProgressSafetyWatchPanel(
     presentation: ProgressSafetyWatchPresentation,
     onPrimaryAction: () -> Unit
@@ -5188,6 +5341,39 @@ private fun RouteDirectionWatchDetailList(details: List<RouteDirectionWatchDetai
 }
 
 @Composable
+private fun GpsSignalLossWatchDetailList(details: List<GpsSignalLossWatchDetail>) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        details.take(3).forEach { detail ->
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.74f))
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = detail.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = detail.value,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun ProgressSafetyWatchDetailList(details: List<ProgressSafetyWatchDetail>) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -5218,6 +5404,20 @@ private fun ProgressSafetyWatchDetailList(details: List<ProgressSafetyWatchDetai
         }
     }
 }
+
+@Composable
+private fun GpsSignalLossWatchTone.gpsSignalLossContainerColor(): Color =
+    when (this) {
+        GpsSignalLossWatchTone.CAUTION -> Color(0xFFFFF4E0)
+        GpsSignalLossWatchTone.ALERT -> Color(0xFFFFEDE6)
+    }
+
+@Composable
+private fun GpsSignalLossWatchTone.gpsSignalLossContentColor(): Color =
+    when (this) {
+        GpsSignalLossWatchTone.CAUTION -> Color(0xFF9A5B00)
+        GpsSignalLossWatchTone.ALERT -> Color(0xFFB3261E)
+    }
 
 @Composable
 private fun ProgressSafetyWatchTone.progressSafetyContainerColor(): Color =
