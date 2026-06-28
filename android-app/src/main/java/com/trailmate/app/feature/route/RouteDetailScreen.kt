@@ -4507,6 +4507,7 @@ private fun DepartureBriefSharePanel(
     presentation: DepartureBriefSharePresentation,
     onPrimaryAction: () -> Unit
 ) {
+    val button = DepartureBriefSharePanelButtonPresentationEngine.present(presentation)
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -4564,11 +4565,10 @@ private fun DepartureBriefSharePanel(
                     DepartureBriefShareDetailList(details = presentation.details)
                 }
             }
-            OutlinedButton(
-                onClick = onPrimaryAction,
-                enabled = presentation.shareText != null
-            ) {
-                Text(presentation.primaryActionLabel)
+            if (button.visible) {
+                OutlinedButton(onClick = onPrimaryAction) {
+                    Text(button.label)
+                }
             }
         }
     }
