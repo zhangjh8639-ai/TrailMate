@@ -4081,6 +4081,20 @@ private fun GpsTrackPanel(
         trackRecording = trackRecording,
         nowEpochMillis = locationPresentationNowEpochMillis
     )
+    val breadcrumbButton = BacktrackBreadcrumbGuidancePanelButtonPresentationEngine.present(
+        presentation = breadcrumbGuidance,
+        trackRecordingStatus = trackRecording.status,
+        currentTrackActionLabel = trackActionLabel,
+        trackActionEnabled = trackActionEnabled
+    )
+    val handleBacktrackBreadcrumbAction: () -> Unit = {
+        when (breadcrumbButton.kind) {
+            BacktrackBreadcrumbGuidancePanelActionKind.VIEW_TRACK -> onOpenTrackDataRequested()
+            BacktrackBreadcrumbGuidancePanelActionKind.REQUEST_LOCATION -> onRequestLocation()
+            BacktrackBreadcrumbGuidancePanelActionKind.CONTINUE_RECORDING -> onTrackAction()
+            BacktrackBreadcrumbGuidancePanelActionKind.NONE -> Unit
+        }
+    }
     val returnEtaWatch = ReturnEtaWatchEngine.present(
         plan = ReturnEtaPlan(
             estimatedDurationMinutes = plannedDurationMinutes
@@ -4180,7 +4194,11 @@ private fun GpsTrackPanel(
                 presentation = exitGuidance,
                 onPrimaryAction = onRequestLocation
             )
-            BacktrackBreadcrumbGuidancePanel(presentation = breadcrumbGuidance)
+            BacktrackBreadcrumbGuidancePanel(
+                presentation = breadcrumbGuidance,
+                button = breadcrumbButton,
+                onPrimaryAction = handleBacktrackBreadcrumbAction
+            )
             ReturnEtaWatchPanel(
                 presentation = returnEtaWatch,
                 onPrimaryAction = {
@@ -5680,7 +5698,9 @@ private fun HikePlanSummary.estimatedDurationMinutesFromFinish(): Int? {
 
 @Composable
 private fun BacktrackBreadcrumbGuidancePanel(
-    presentation: BacktrackBreadcrumbGuidancePresentation
+    presentation: BacktrackBreadcrumbGuidancePresentation,
+    button: BacktrackBreadcrumbGuidancePanelButtonPresentation,
+    onPrimaryAction: () -> Unit
 ) {
     if (!presentation.visible) {
         return
@@ -5753,6 +5773,14 @@ private fun BacktrackBreadcrumbGuidancePanel(
             details = presentation.details,
             contentColor = contentColor
         )
+        if (button.visible) {
+            OutlinedButton(
+                onClick = onPrimaryAction,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(button.label)
+            }
+        }
     }
 }
 
