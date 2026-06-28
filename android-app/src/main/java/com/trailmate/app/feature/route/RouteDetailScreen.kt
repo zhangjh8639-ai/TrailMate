@@ -5030,6 +5030,10 @@ private fun DaylightReturnWatchPanel(
     }
     val tone = presentation.tone ?: return
     val contentColor = tone.daylightContentColor()
+    val button = FieldSafetyWatchPanelButtonPresentationEngine.present(
+        primaryActionLabel = presentation.primaryActionLabel,
+        primaryActionRequiresSafetyShare = presentation.primaryActionRequiresSafetyShare
+    )
 
     Column(
         modifier = Modifier
@@ -5086,12 +5090,16 @@ private fun DaylightReturnWatchPanel(
             }
         }
         DaylightReturnWatchDetailList(details = presentation.details)
-        if (presentation.primaryActionRequiresSafetyShare) {
+        FieldSafetyWatchManualGuidance(
+            label = button.manualGuidanceLabel,
+            contentColor = contentColor
+        )
+        if (button.visible) {
             OutlinedButton(
                 onClick = onPrimaryAction,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(presentation.primaryActionLabel)
+                Text(button.label)
             }
         }
     }
@@ -5228,6 +5236,10 @@ private fun ProgressSafetyWatchPanel(
     }
     val tone = presentation.tone ?: return
     val contentColor = tone.progressSafetyContentColor()
+    val button = FieldSafetyWatchPanelButtonPresentationEngine.present(
+        primaryActionLabel = presentation.primaryActionLabel,
+        primaryActionRequiresSafetyShare = presentation.primaryActionRequiresSafetyShare
+    )
 
     Column(
         modifier = Modifier
@@ -5284,15 +5296,35 @@ private fun ProgressSafetyWatchPanel(
             }
         }
         ProgressSafetyWatchDetailList(details = presentation.details)
-        if (presentation.primaryActionRequiresSafetyShare) {
+        FieldSafetyWatchManualGuidance(
+            label = button.manualGuidanceLabel,
+            contentColor = contentColor
+        )
+        if (button.visible) {
             OutlinedButton(
                 onClick = onPrimaryAction,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(presentation.primaryActionLabel)
+                Text(button.label)
             }
         }
     }
+}
+
+@Composable
+private fun FieldSafetyWatchManualGuidance(
+    label: String,
+    contentColor: Color
+) {
+    if (label.isBlank()) {
+        return
+    }
+    Text(
+        text = label,
+        style = MaterialTheme.typography.labelMedium,
+        color = contentColor,
+        fontWeight = FontWeight.SemiBold
+    )
 }
 
 @Composable
