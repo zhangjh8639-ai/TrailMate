@@ -23,11 +23,12 @@ object TrackRecordingDepartureGateEngine {
         currentTrackActionLabel: String,
         departureReadiness: DepartureReadinessSummary
     ): TrackRecordingDepartureGateAction {
+        val departureAction = DepartureReadinessPrimaryActionEngine.resolve(departureReadiness)
         if (
             hikeSessionStatus != HikeSessionStatus.READY ||
             trackRecordingStatus == TrackRecordingStatus.RECORDING ||
             trackRecordingStatus == TrackRecordingStatus.PAUSED ||
-            departureReadiness.primaryActionLabel == START_HIKE_WITH_TRACK_LABEL
+            departureAction.kind == DepartureReadinessPrimaryActionKind.START_HIKE_AND_RECORD
         ) {
             return TrackRecordingDepartureGateAction(
                 label = currentTrackActionLabel,
@@ -35,53 +36,36 @@ object TrackRecordingDepartureGateEngine {
             )
         }
 
-        return departureReadiness.primaryActionLabel.toRepairAction()
+        return departureAction.toTrackAction()
     }
 
-    private fun String.toRepairAction(): TrackRecordingDepartureGateAction =
-        when {
-            isSaveRouteAction() -> TrackRecordingDepartureGateAction(
-                label = this,
+    private fun DepartureReadinessPrimaryAction.toTrackAction(): TrackRecordingDepartureGateAction =
+        when (kind) {
+            DepartureReadinessPrimaryActionKind.SAVE_OFFLINE_ROUTE_PACK -> TrackRecordingDepartureGateAction(
+                label = label,
                 kind = TrackRecordingDepartureGateActionKind.SAVE_OFFLINE_ROUTE_PACK
             )
-            isOfflineBaseMapRepairAction() -> TrackRecordingDepartureGateAction(
-                label = this,
+            DepartureReadinessPrimaryActionKind.OPEN_OFFLINE_BASE_MAP -> TrackRecordingDepartureGateAction(
+                label = label,
                 kind = TrackRecordingDepartureGateActionKind.OPEN_OFFLINE_BASE_MAP
             )
-            this == "授权定位" -> TrackRecordingDepartureGateAction(
-                label = this,
+            DepartureReadinessPrimaryActionKind.REQUEST_LOCATION -> TrackRecordingDepartureGateAction(
+                label = label,
                 kind = TrackRecordingDepartureGateActionKind.REQUEST_LOCATION
             )
-            this == "打开系统定位" -> TrackRecordingDepartureGateAction(
-                label = this,
+            DepartureReadinessPrimaryActionKind.OPEN_LOCATION_SETTINGS -> TrackRecordingDepartureGateAction(
+                label = label,
                 kind = TrackRecordingDepartureGateActionKind.OPEN_LOCATION_SETTINGS
             )
-            this == "等待定位稳定" || this == "重试定位" -> TrackRecordingDepartureGateAction(
-                label = this,
-                kind = TrackRecordingDepartureGateActionKind.REQUEST_LOCATION
-            )
-            startsWith("补齐") -> TrackRecordingDepartureGateAction(
-                label = this,
+            DepartureReadinessPrimaryActionKind.SHOW_GEAR -> TrackRecordingDepartureGateAction(
+                label = label,
                 kind = TrackRecordingDepartureGateActionKind.SHOW_GEAR
             )
-            else -> TrackRecordingDepartureGateAction(
-                label = this,
+            DepartureReadinessPrimaryActionKind.START_HIKE_AND_RECORD,
+            DepartureReadinessPrimaryActionKind.BLOCKED -> TrackRecordingDepartureGateAction(
+                label = label,
                 kind = TrackRecordingDepartureGateActionKind.BLOCKED,
                 enabled = false
             )
         }
-
-    private fun String.isOfflineBaseMapRepairAction(): Boolean =
-        this == "导入离线地图包" ||
-            this == "导入底图" ||
-            this == "导入离线底图" ||
-            this == "下载底图" ||
-            contains("离线地图包") ||
-            contains("离线底图") ||
-            this == "飞行模式验证底图"
-
-    private fun String.isSaveRouteAction(): Boolean =
-        this == "保存离线路线" || this == "保存 GPX 路线" || this == "保存路线包"
-
-    private const val START_HIKE_WITH_TRACK_LABEL = "开始徒步并记录轨迹"
 }

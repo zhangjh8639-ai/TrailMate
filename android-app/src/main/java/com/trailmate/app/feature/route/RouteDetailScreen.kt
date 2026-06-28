@@ -181,6 +181,8 @@ import com.trailmate.app.core.model.DepartureBriefPlan
 import com.trailmate.app.core.model.DepartureBriefShareDetail
 import com.trailmate.app.core.model.DepartureBriefShareEngine
 import com.trailmate.app.core.model.DepartureBriefSharePresentation
+import com.trailmate.app.core.model.DepartureReadinessPrimaryActionEngine
+import com.trailmate.app.core.model.DepartureReadinessPrimaryActionKind
 import com.trailmate.app.core.model.DepartureReadinessEngine
 import com.trailmate.app.core.model.DepartureReadinessStep
 import com.trailmate.app.core.model.DepartureReadinessSummary
@@ -1795,6 +1797,7 @@ internal fun RouteCockpitTabContent(
         locationSnapshot = locationSnapshot,
         gearRecommendations = gearRecommendations
     )
+    val departureReadinessPrimaryAction = DepartureReadinessPrimaryActionEngine.resolve(departureReadiness)
     val mapLayerLegend = TrailMapLayerLegendEngine.build(
         readiness = mapReadiness,
         routePointCount = route.routePoints.size,
@@ -2086,16 +2089,17 @@ internal fun RouteCockpitTabContent(
             DepartureReadinessPanel(
                 summary = departureReadiness,
                 onPrimaryAction = {
-                    when {
-                        departureReadiness.primaryActionLabel.isSaveRouteAction() -> onOfflineRoutePackToggle()
-                        departureReadiness.primaryActionLabel.isOfflineBaseMapRepairAction() -> handleOfflineBaseMapAction()
-                        departureReadiness.primaryActionLabel == "授权定位" ||
-                            departureReadiness.primaryActionLabel == "打开系统定位" ||
-                            departureReadiness.primaryActionLabel == "等待定位稳定" ||
-                            departureReadiness.primaryActionLabel == "重试定位" -> onRequestLocation()
-                        departureReadiness.primaryActionLabel.startsWith("补齐") -> onShowGearTab()
-                        departureReadiness.primaryActionLabel == "开始徒步" ->
+                    when (departureReadinessPrimaryAction.kind) {
+                        DepartureReadinessPrimaryActionKind.START_HIKE_AND_RECORD -> {
                             onSessionChange(HikeSessionEngine.start(hikeSession))
+                            onTrackAction()
+                        }
+                        DepartureReadinessPrimaryActionKind.SAVE_OFFLINE_ROUTE_PACK -> onOfflineRoutePackToggle()
+                        DepartureReadinessPrimaryActionKind.OPEN_OFFLINE_BASE_MAP -> handleOfflineBaseMapAction()
+                        DepartureReadinessPrimaryActionKind.REQUEST_LOCATION,
+                        DepartureReadinessPrimaryActionKind.OPEN_LOCATION_SETTINGS -> onRequestLocation()
+                        DepartureReadinessPrimaryActionKind.SHOW_GEAR -> onShowGearTab()
+                        DepartureReadinessPrimaryActionKind.BLOCKED -> Unit
                     }
                 }
             )
@@ -6688,18 +6692,6 @@ private fun String.isPmTilesBasemapImportAction(): Boolean =
         this == "下载底图" ||
         this == "下载离线底图" ||
         this == "导入离线底图"
-
-private fun String.isOfflineBaseMapRepairAction(): Boolean =
-    this == "导入离线地图包" ||
-        this == "导入底图" ||
-        this == "导入离线底图" ||
-        this == "下载底图" ||
-        contains("离线地图包") ||
-        contains("离线底图") ||
-        this == "飞行模式验证底图"
-
-private fun String.isSaveRouteAction(): Boolean =
-    this == "保存离线路线" || this == "保存 GPX 路线" || this == "保存路线包"
 
 @Composable
 private fun TrailMapReadinessStepStatus.mapCheckContainerColor(): Color =
