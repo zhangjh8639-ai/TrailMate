@@ -18,6 +18,12 @@ class RouteCockpitPrimaryActionNavigationPolicyTest {
     }
 
     @Test
+    fun blockedActionsStayInCockpitAndHideFullscreenShortcut() {
+        assertFalse(RouteCockpitPrimaryActionKind.BLOCKED.opensFullscreenFromCockpit())
+        assertFalse(RouteCockpitPrimaryActionKind.BLOCKED.showsFullscreenShortcutInActionDrawer())
+    }
+
+    @Test
     fun fieldRecordingActionsCanEnterFullscreenFromCockpit() {
         assertTrue(RouteCockpitPrimaryActionKind.START_RECORDING.opensFullscreenFromCockpit())
         assertTrue(RouteCockpitPrimaryActionKind.PAUSE_RECORDING.opensFullscreenFromCockpit())
