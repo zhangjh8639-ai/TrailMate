@@ -32,25 +32,30 @@ class WXEntryActivity : Activity(), IWXAPIEventHandler {
     override fun onReq(req: BaseReq?) = Unit
 
     override fun onResp(resp: BaseResp?) {
-        val result = if (resp is SendAuth.Resp && resp.type == ConstantsAPI.COMMAND_SENDAUTH) {
-            when (resp.errCode) {
-                BaseResp.ErrCode.ERR_OK ->
-                    resp.code
-                        ?.takeIf { code -> code.isNotBlank() }
-                        ?.let { code ->
-                            TrailMateWechatAuthCodeResult.Success(
-                                authCode = code,
-                                state = resp.state.orEmpty()
-                            )
-                        }
-                        ?: TrailMateWechatAuthCodeResult.Unavailable
-                BaseResp.ErrCode.ERR_USER_CANCEL -> TrailMateWechatAuthCodeResult.Cancelled
-                else -> TrailMateWechatAuthCodeResult.Unavailable
-            }
-        } else {
-            TrailMateWechatAuthCodeResult.Unavailable
+        if (resp == null) {
+            TrailMateGlobalWechatAuthCallbackStore.store.publish(TrailMateWechatAuthCodeResult.Unavailable)
+            finish()
+            return
+        }
+        if (resp !is SendAuth.Resp || resp.type != ConstantsAPI.COMMAND_SENDAUTH) {
+            finish()
+            return
         }
 
+        val result = when (resp.errCode) {
+            BaseResp.ErrCode.ERR_OK ->
+                resp.code
+                    ?.takeIf { code -> code.isNotBlank() }
+                    ?.let { code ->
+                        TrailMateWechatAuthCodeResult.Success(
+                            authCode = code,
+                            state = resp.state.orEmpty()
+                        )
+                    }
+                    ?: TrailMateWechatAuthCodeResult.Unavailable
+            BaseResp.ErrCode.ERR_USER_CANCEL -> TrailMateWechatAuthCodeResult.Cancelled
+            else -> TrailMateWechatAuthCodeResult.Unavailable
+        }
         TrailMateGlobalWechatAuthCallbackStore.store.publish(result)
         finish()
     }

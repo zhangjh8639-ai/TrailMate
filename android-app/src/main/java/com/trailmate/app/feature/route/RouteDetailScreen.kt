@@ -278,6 +278,8 @@ import com.trailmate.app.core.model.TrackRecordingState
 import com.trailmate.app.core.model.TrackRecordingStatus
 import com.trailmate.app.core.model.TrackRecordingUiActionEngine
 import com.trailmate.app.core.model.offlineRoutePackKey
+import com.trailmate.app.core.share.TrailMateWechatTextShareLauncher
+import com.trailmate.app.core.share.TrailMateWechatTextShareSendStatus
 import com.trailmate.app.BuildConfig
 import com.trailmate.app.feature.route.detail.RouteAssessmentTab
 import com.trailmate.app.feature.route.detail.RouteGearTab
@@ -6783,10 +6785,24 @@ private suspend fun readOfflineBaseMapStatus(
     }
 
 private fun Context.shareSafetyText(text: String) {
-    shareTrailMateText(text = text, chooserTitle = "分享安全位置")
+    shareTrailMateText(text = text, chooserTitle = "分享安全位置", preferWechat = true)
 }
 
-private fun Context.shareTrailMateText(text: String, chooserTitle: String) {
+private fun Context.shareTrailMateText(
+    text: String,
+    chooserTitle: String,
+    preferWechat: Boolean = true
+) {
+    if (preferWechat) {
+        val wechatStatus = TrailMateWechatTextShareLauncher(
+            context = this,
+            appId = BuildConfig.TRAILMATE_WECHAT_APP_ID
+        ).shareText(text)
+        if (wechatStatus == TrailMateWechatTextShareSendStatus.REQUEST_ACCEPTED) {
+            return
+        }
+    }
+
     val shareIntent = Intent(Intent.ACTION_SEND)
         .setType("text/plain")
         .putExtra(Intent.EXTRA_TEXT, text)
