@@ -19,7 +19,8 @@ data class TrailMatePmTilesRemoteImportResult(
 
 class TrailMatePmTilesBasemapRemoteImportCoordinator(
     private val catalogApi: TrailMateOfflineBasemapCatalogApi?,
-    private val downloader: TrailMatePmTilesBasemapFileDownloader
+    private val downloader: TrailMatePmTilesBasemapFileDownloader,
+    private val usableStorageBytes: (File) -> Long = { directory -> directory.usableSpace }
 ) {
     fun importForRoute(
         routeBounds: PmTilesLatLngBounds?,
@@ -46,6 +47,11 @@ class TrailMatePmTilesBasemapRemoteImportCoordinator(
 
         targetDirectory.mkdirs()
         val temporaryFile = targetDirectory.resolve("$routePackKey.pmtiles.download")
+        if (!hasEnoughStorageForDownload(selected.sizeBytes, temporaryFile, targetDirectory)) {
+            return openLocalPicker(
+                "手机剩余空间不足，无法下载服务端离线地图包；请清理空间或选择本地 PMTiles 文件。"
+            )
+        }
         val downloadedFile = when (downloader.downloadToFile(
             downloadUrl = selected.downloadUrl,
             targetFile = temporaryFile,
@@ -106,6 +112,17 @@ class TrailMatePmTilesBasemapRemoteImportCoordinator(
     private fun File.matchesExpectedSize(expectedSizeBytes: Long?): Boolean {
         val expected = expectedSizeBytes?.takeIf { it > 0L } ?: return true
         return length() == expected
+    }
+
+    private fun hasEnoughStorageForDownload(
+        expectedSizeBytes: Long?,
+        temporaryFile: File,
+        targetDirectory: File
+    ): Boolean {
+        val expected = expectedSizeBytes?.takeIf { it > 0L } ?: return true
+        val existing = if (temporaryFile.isFile) temporaryFile.length().coerceAtLeast(0L) else 0L
+        val remaining = (expected - existing).coerceAtLeast(0L)
+        return remaining <= usableStorageBytes(targetDirectory).coerceAtLeast(0L)
     }
 
     private fun File.matchesExpectedSha256(expectedSha256: String?): Boolean {

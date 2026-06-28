@@ -145,6 +145,56 @@ class TrailMatePmTilesBasemapRemoteImportCoordinatorTest {
     }
 
     @Test
+    fun opensLocalPickerWithoutDownloadingWhenKnownPackSizeExceedsUsableStorage() {
+        val directory = Files.createTempDirectory("pmtiles-remote-import-low-storage").toFile()
+        val downloader = FakeDownloader(sourceFile = null)
+        val coordinator = TrailMatePmTilesBasemapRemoteImportCoordinator(
+            catalogApi = FakeCatalogApi(listOf(catalogItem(sizeBytes = 120_000_000L))),
+            downloader = downloader,
+            usableStorageBytes = { 1_024L }
+        )
+
+        val result = coordinator.importForRoute(
+            routeBounds = PmTilesLatLngBounds(120.05, 30.10, 120.25, 30.35),
+            routePackKey = "longjing-ridge",
+            targetDirectory = directory
+        )
+
+        assertEquals(TrailMatePmTilesRemoteImportAction.OPEN_LOCAL_PICKER, result.action)
+        assertEquals("手机剩余空间不足，无法下载服务端离线地图包；请清理空间或选择本地 PMTiles 文件。", result.message)
+        assertEquals(0, downloader.downloadCount)
+        assertFalse(directory.resolve("longjing-ridge.pmtiles.download").exists())
+    }
+
+    @Test
+    fun allowsResumableDownloadWhenUsableStorageCoversKnownRemainingBytes() {
+        val directory = Files.createTempDirectory("pmtiles-remote-import-partial-storage").toFile()
+        val routePackKey = "longjing-ridge"
+        val partialBytes = ByteArray(80) { it.toByte() }
+        val remainingBytes = ByteArray(20) { (it + 80).toByte() }
+        directory.resolve("$routePackKey.pmtiles.download").writeBytes(partialBytes)
+        val downloader = FakeResumableDownloader(
+            sourceBytes = partialBytes + remainingBytes,
+            expectedPartialBytes = partialBytes
+        )
+        val coordinator = TrailMatePmTilesBasemapRemoteImportCoordinator(
+            catalogApi = FakeCatalogApi(listOf(catalogItem(sizeBytes = 100L))),
+            downloader = downloader,
+            usableStorageBytes = { 20L }
+        )
+
+        val result = coordinator.importForRoute(
+            routeBounds = PmTilesLatLngBounds(120.05, 30.10, 120.25, 30.35),
+            routePackKey = routePackKey,
+            targetDirectory = directory
+        )
+
+        assertEquals(TrailMatePmTilesRemoteImportAction.OPEN_LOCAL_PICKER, result.action)
+        assertTrue(downloader.wasCalled)
+        assertEquals("服务端离线地图包校验未通过，可选择本地 PMTiles 文件。", result.message)
+    }
+
+    @Test
     fun rejectsDownloadedPackWhenCatalogSha256DoesNotMatch() {
         val directory = Files.createTempDirectory("pmtiles-remote-import-sha-mismatch").toFile()
         val routeBounds = PmTilesLatLngBounds(120.05, 30.10, 120.25, 30.35)
@@ -312,12 +362,15 @@ class TrailMatePmTilesBasemapRemoteImportCoordinatorTest {
     ) : TrailMatePmTilesBasemapFileDownloader {
         var authorizationBearerToken: String? = null
             private set
+        var downloadCount: Int = 0
+            private set
 
         override fun downloadToFile(
             downloadUrl: String,
             targetFile: File,
             authorizationBearerToken: String?
         ): TrailMateApiResult<File> {
+            downloadCount += 1
             this.authorizationBearerToken = authorizationBearerToken
             val source = sourceFile ?: return TrailMateApiResult.Failure(
                 TrailMateApiError(
@@ -336,11 +389,15 @@ class TrailMatePmTilesBasemapRemoteImportCoordinatorTest {
         private val sourceBytes: ByteArray,
         private val expectedPartialBytes: ByteArray
     ) : TrailMatePmTilesBasemapFileDownloader {
+        var wasCalled: Boolean = false
+            private set
+
         override fun downloadToFile(
             downloadUrl: String,
             targetFile: File,
             authorizationBearerToken: String?
         ): TrailMateApiResult<File> {
+            wasCalled = true
             assertEquals(
                 expectedPartialBytes.toList(),
                 targetFile.readBytes().toList()
