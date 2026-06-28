@@ -225,6 +225,10 @@ import com.trailmate.app.core.model.RouteDeviationRecoveryEngine
 import com.trailmate.app.core.model.RouteDeviationRecoveryPresentation
 import com.trailmate.app.core.model.RouteDeviationRecoveryStep
 import com.trailmate.app.core.model.RouteDeviationRecoveryTone
+import com.trailmate.app.core.model.RouteExitGuidanceEngine
+import com.trailmate.app.core.model.RouteExitGuidanceOption
+import com.trailmate.app.core.model.RouteExitGuidancePresentation
+import com.trailmate.app.core.model.RouteExitGuidanceTone
 import com.trailmate.app.core.model.RouteGearAdvisorEngine
 import com.trailmate.app.core.model.SafetyShareDetail
 import com.trailmate.app.core.model.SafetyShareActionEngine
@@ -1840,6 +1844,7 @@ internal fun RouteCockpitTabContent(
             RouteCockpitDiagnosticsHeader(title = "位置可靠性")
             GpsTrackPanel(
                 route = route,
+                plan = plan,
                 locationSnapshot = locationSnapshot,
                 locationPresentationNowEpochMillis = locationPresentationNowEpochMillis,
                 locationGuidanceStatus = locationGuidanceStatus,
@@ -3676,6 +3681,7 @@ private fun TrackNotificationPermissionRow(
 @Composable
 private fun GpsTrackPanel(
     route: ImportedRoute,
+    plan: HikePlanSummary,
     locationSnapshot: TrailMateLocationSnapshot,
     locationPresentationNowEpochMillis: Long,
     locationGuidanceStatus: LocationBackedHikeStatus,
@@ -3738,6 +3744,13 @@ private fun GpsTrackPanel(
         safetyShareAvailable = recoverySafetyShare.shareText != null,
         wasRecentlyOffRoute = wasRecentlyOffRoute
     )
+    val exitGuidance = RouteExitGuidanceEngine.present(
+        route = route,
+        plan = plan,
+        locationStatus = locationGuidanceStatus,
+        fix = latestLocationFix,
+        trackRecording = trackRecording
+    )
     val routeDeviationAlert = RouteDeviationAlertPresentationEngine.present(latestRouteDeviationAlertDecision)
     val trackReview = TrackRecordingReviewEngine.present(trackRecording)
     Surface(
@@ -3789,6 +3802,10 @@ private fun GpsTrackPanel(
                     }
                 )
             }
+            RouteExitGuidancePanel(
+                presentation = exitGuidance,
+                onPrimaryAction = onRequestLocation
+            )
             TrailMatePanel(
                 title = "轨迹记录",
                 value = trackRecording.summaryLabel(),
@@ -4254,6 +4271,172 @@ private fun RouteDeviationAlertBanner(
         }
     }
 }
+
+@Composable
+private fun RouteExitGuidancePanel(
+    presentation: RouteExitGuidancePresentation,
+    onPrimaryAction: () -> Unit
+) {
+    val contentColor = presentation.tone.exitGuidanceContentColor()
+    val containerColor = presentation.tone.exitGuidanceContainerColor()
+    val glyph = when (presentation.tone) {
+        RouteExitGuidanceTone.READY -> TrailMateGlyph.Route
+        RouteExitGuidanceTone.CAUTION -> TrailMateGlyph.Warning
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(containerColor)
+            .border(1.dp, contentColor.copy(alpha = 0.18f), RoundedCornerShape(16.dp))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(contentColor.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center
+            ) {
+                TrailMateLineIcon(
+                    glyph = glyph,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = contentColor
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = presentation.title,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    TrailMateStatusPill(
+                        text = presentation.statusLabel,
+                        containerColor = contentColor.copy(alpha = 0.12f),
+                        contentColor = contentColor
+                    )
+                }
+                Text(
+                    text = presentation.caption,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        RouteExitGuidanceOptionList(
+            options = presentation.options,
+            contentColor = contentColor
+        )
+        if (presentation.tone == RouteExitGuidanceTone.CAUTION) {
+            OutlinedButton(
+                onClick = onPrimaryAction,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(presentation.primaryActionLabel)
+            }
+        }
+    }
+}
+
+@Composable
+private fun RouteExitGuidanceOptionList(
+    options: List<RouteExitGuidanceOption>,
+    contentColor: Color
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        options.take(2).forEach { option ->
+            val optionColor = if (option.emphasized) contentColor else MaterialTheme.colorScheme.onSurface
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        if (option.emphasized) {
+                            contentColor.copy(alpha = 0.10f)
+                        } else {
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.74f)
+                        }
+                    )
+                    .padding(horizontal = 10.dp, vertical = 9.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(optionColor.copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    TrailMateLineIcon(
+                        glyph = if (option.emphasized) TrailMateGlyph.Check else TrailMateGlyph.Route,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = optionColor
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = option.label,
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = optionColor,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = option.distanceLabel,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = optionColor,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    Text(
+                        text = option.caption,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RouteExitGuidanceTone.exitGuidanceContainerColor(): Color =
+    when (this) {
+        RouteExitGuidanceTone.READY -> MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+        RouteExitGuidanceTone.CAUTION -> Color(0xFFFFF4E0)
+    }
+
+@Composable
+private fun RouteExitGuidanceTone.exitGuidanceContentColor(): Color =
+    when (this) {
+        RouteExitGuidanceTone.READY -> MaterialTheme.colorScheme.primary
+        RouteExitGuidanceTone.CAUTION -> Color(0xFF9A5B00)
+    }
 
 @Composable
 private fun RouteDeviationRecoveryPanel(
