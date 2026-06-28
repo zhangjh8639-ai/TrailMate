@@ -3,6 +3,7 @@ package com.trailmate.app.core.model
 import com.trailmate.app.core.location.TrailMateLocationSnapshot
 import com.trailmate.app.core.map.TrailMapReadinessEngine
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -443,6 +444,32 @@ class RouteCockpitPresentationEngineTest {
             RouteCockpitReadinessActionKind.OPEN_LOCATION_SETTINGS,
             presentation.readinessItems.first { it.label == "定位" }.actionKind
         )
+    }
+
+    @Test
+    fun primaryActionBlocksUnsupportedDepartureRepairAction() {
+        val presentation = RouteCockpitPresentationEngine.build(
+            route = sampleRoute,
+            plan = samplePlan,
+            session = HikeSessionState(status = HikeSessionStatus.READY, reachedCheckpointIndex = 0),
+            liveGuidance = sampleGuidance,
+            mapReadiness = mapReadiness(gpsEnabled = true, offlineRoutePackReady = true),
+            departureReadiness = DepartureReadinessSummary(
+                title = "路线文件需处理",
+                statusLabel = "暂不建议出发",
+                caption = "当前路线缺少可用轨迹点，请重新导入 GPX 后再开始徒步。",
+                primaryActionLabel = "重新导入 GPX",
+                steps = emptyList()
+            ),
+            locationSnapshot = locatedSnapshot,
+            locationGuidanceStatus = LocationBackedHikeStatus.WAITING,
+            trackRecording = TrackRecordingState(status = TrackRecordingStatus.IDLE),
+            wasRecentlyOffRoute = false
+        )
+
+        assertEquals(RouteCockpitPrimaryActionKind.BLOCKED, presentation.primaryAction.kind)
+        assertEquals("重新导入 GPX", presentation.primaryAction.label)
+        assertFalse(presentation.primaryAction.enabled)
     }
 
     @Test

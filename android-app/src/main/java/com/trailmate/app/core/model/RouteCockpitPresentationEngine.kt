@@ -18,7 +18,8 @@ enum class RouteCockpitPrimaryActionKind {
     SHOW_GEAR,
     VIEW_RECOVERY,
     REVIEW_TRACK,
-    RESET_SESSION
+    RESET_SESSION,
+    BLOCKED
 }
 
 enum class RouteCockpitReadinessTone {
@@ -138,11 +139,12 @@ object RouteCockpitPresentationEngine {
             TrackRecordingStatus.FINISHED -> Unit
         }
 
+        val departureAction = DepartureReadinessPrimaryActionEngine.resolve(departureReadiness)
         if (
             session.status == HikeSessionStatus.READY &&
-            !departureReadiness.primaryActionLabel.isStartHikeAction()
+            departureAction.kind != DepartureReadinessPrimaryActionKind.START_HIKE_AND_RECORD
         ) {
-            return departureReadiness.primaryRepairAction()
+            return departureAction.toRouteCockpitPrimaryAction()
         }
 
         if (locationSnapshot.needsLocationAuthorization()) {
@@ -187,53 +189,35 @@ object RouteCockpitPresentationEngine {
         }
     }
 
-    private fun DepartureReadinessSummary.primaryRepairAction(): RouteCockpitPrimaryAction =
-        when {
-            primaryActionLabel.isSaveRouteAction() -> RouteCockpitPrimaryAction(
-                label = primaryActionLabel,
+    private fun DepartureReadinessPrimaryAction.toRouteCockpitPrimaryAction(): RouteCockpitPrimaryAction =
+        when (kind) {
+            DepartureReadinessPrimaryActionKind.SAVE_OFFLINE_ROUTE_PACK -> RouteCockpitPrimaryAction(
+                label = label,
                 kind = RouteCockpitPrimaryActionKind.SAVE_OFFLINE_ROUTE_PACK
             )
-            primaryActionLabel.isOfflineBaseMapRepairAction() -> RouteCockpitPrimaryAction(
-                label = primaryActionLabel,
+            DepartureReadinessPrimaryActionKind.OPEN_OFFLINE_BASE_MAP -> RouteCockpitPrimaryAction(
+                label = label,
                 kind = RouteCockpitPrimaryActionKind.OPEN_OFFLINE_BASE_MAP
             )
-            primaryActionLabel == "授权定位" -> RouteCockpitPrimaryAction(
-                label = primaryActionLabel,
+            DepartureReadinessPrimaryActionKind.REQUEST_LOCATION -> RouteCockpitPrimaryAction(
+                label = label,
                 kind = RouteCockpitPrimaryActionKind.REQUEST_LOCATION
             )
-            primaryActionLabel == "打开系统定位" -> RouteCockpitPrimaryAction(
-                label = primaryActionLabel,
+            DepartureReadinessPrimaryActionKind.OPEN_LOCATION_SETTINGS -> RouteCockpitPrimaryAction(
+                label = label,
                 kind = RouteCockpitPrimaryActionKind.OPEN_LOCATION_SETTINGS
             )
-            primaryActionLabel == "等待定位稳定" || primaryActionLabel == "重试定位" -> RouteCockpitPrimaryAction(
-                label = primaryActionLabel,
-                kind = RouteCockpitPrimaryActionKind.REQUEST_LOCATION
-            )
-            primaryActionLabel.startsWith("补齐") -> RouteCockpitPrimaryAction(
-                label = primaryActionLabel,
+            DepartureReadinessPrimaryActionKind.SHOW_GEAR -> RouteCockpitPrimaryAction(
+                label = label,
                 kind = RouteCockpitPrimaryActionKind.SHOW_GEAR
             )
-            else -> RouteCockpitPrimaryAction(
-                label = primaryActionLabel,
-                kind = RouteCockpitPrimaryActionKind.RESET_SESSION,
+            DepartureReadinessPrimaryActionKind.START_HIKE_AND_RECORD,
+            DepartureReadinessPrimaryActionKind.BLOCKED -> RouteCockpitPrimaryAction(
+                label = label,
+                kind = RouteCockpitPrimaryActionKind.BLOCKED,
                 enabled = false
             )
         }
-
-    private fun String.isOfflineBaseMapRepairAction(): Boolean =
-        this == "导入离线地图包" ||
-            this == "导入底图" ||
-            this == "导入离线底图" ||
-            this == "下载底图" ||
-            contains("离线地图包") ||
-            contains("离线底图") ||
-            this == "飞行模式验证底图"
-
-    private fun String.isSaveRouteAction(): Boolean =
-        this == "保存离线路线" || this == "保存 GPX 路线" || this == "保存路线包"
-
-    private fun String.isStartHikeAction(): Boolean =
-        this == START_HIKE_WITH_TRACK_LABEL
 
     private fun HikeSessionState.primarySessionAction(): RouteCockpitPrimaryAction =
         when (status) {

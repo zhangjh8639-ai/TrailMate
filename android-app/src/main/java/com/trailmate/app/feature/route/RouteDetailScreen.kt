@@ -181,6 +181,7 @@ import com.trailmate.app.core.model.DepartureBriefPlan
 import com.trailmate.app.core.model.DepartureBriefShareDetail
 import com.trailmate.app.core.model.DepartureBriefShareEngine
 import com.trailmate.app.core.model.DepartureBriefSharePresentation
+import com.trailmate.app.core.model.DepartureReadinessPrimaryAction
 import com.trailmate.app.core.model.DepartureReadinessPrimaryActionEngine
 import com.trailmate.app.core.model.DepartureReadinessPrimaryActionKind
 import com.trailmate.app.core.model.DepartureReadinessEngine
@@ -1933,6 +1934,7 @@ internal fun RouteCockpitTabContent(
             RouteCockpitPrimaryActionKind.REVIEW_TRACK -> onOpenTrackDataRequested()
             RouteCockpitPrimaryActionKind.RESET_SESSION ->
                 onSessionChange(HikeSessionEngine.ready(plan))
+            RouteCockpitPrimaryActionKind.BLOCKED -> Unit
         }
     }
     val handleSafetyShare: () -> Unit = {
@@ -2088,6 +2090,7 @@ internal fun RouteCockpitTabContent(
             }
             DepartureReadinessPanel(
                 summary = departureReadiness,
+                primaryAction = departureReadinessPrimaryAction,
                 onPrimaryAction = {
                     when (departureReadinessPrimaryAction.kind) {
                         DepartureReadinessPrimaryActionKind.START_HIKE_AND_RECORD -> {
@@ -3242,6 +3245,7 @@ private fun RouteCockpitPrimaryActionKind.primaryActionGlyph(): TrailMateGlyph =
         RouteCockpitPrimaryActionKind.VIEW_RECOVERY -> TrailMateGlyph.Warning
         RouteCockpitPrimaryActionKind.REVIEW_TRACK -> TrailMateGlyph.Chart
         RouteCockpitPrimaryActionKind.RESET_SESSION -> TrailMateGlyph.Route
+        RouteCockpitPrimaryActionKind.BLOCKED -> TrailMateGlyph.Warning
     }
 
 internal fun RouteCockpitPrimaryActionKind.opensFullscreenFromCockpit(): Boolean =
@@ -3257,7 +3261,8 @@ internal fun RouteCockpitPrimaryActionKind.opensFullscreenFromCockpit(): Boolean
         RouteCockpitPrimaryActionKind.SHOW_GEAR,
         RouteCockpitPrimaryActionKind.VIEW_RECOVERY,
         RouteCockpitPrimaryActionKind.REVIEW_TRACK,
-        RouteCockpitPrimaryActionKind.RESET_SESSION -> false
+        RouteCockpitPrimaryActionKind.RESET_SESSION,
+        RouteCockpitPrimaryActionKind.BLOCKED -> false
     }
 
 internal fun RouteCockpitPrimaryActionKind.showsFullscreenShortcutInActionDrawer(): Boolean =
@@ -3273,14 +3278,17 @@ internal fun RouteCockpitPrimaryActionKind.showsFullscreenShortcutInActionDrawer
         RouteCockpitPrimaryActionKind.SHOW_GEAR,
         RouteCockpitPrimaryActionKind.VIEW_RECOVERY,
         RouteCockpitPrimaryActionKind.REVIEW_TRACK,
-        RouteCockpitPrimaryActionKind.RESET_SESSION -> false
+        RouteCockpitPrimaryActionKind.RESET_SESSION,
+        RouteCockpitPrimaryActionKind.BLOCKED -> false
     }
 
 @Composable
 private fun DepartureReadinessPanel(
     summary: DepartureReadinessSummary,
+    primaryAction: DepartureReadinessPrimaryAction,
     onPrimaryAction: () -> Unit
 ) {
+    val buttonPresentation = DepartureReadinessPanelButtonPresentationEngine.present(primaryAction)
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
@@ -3357,9 +3365,9 @@ private fun DepartureReadinessPanel(
             OutlinedButton(
                 onClick = onPrimaryAction,
                 modifier = Modifier.fillMaxWidth(),
-                enabled = summary.primaryActionLabel != "重新导入 GPX"
+                enabled = buttonPresentation.enabled
             ) {
-                Text("下一步：${summary.primaryActionLabel}")
+                Text(buttonPresentation.label)
             }
         }
     }
