@@ -281,6 +281,8 @@ import com.trailmate.app.core.model.TrailMateGearCatalogPreviewData
 import com.trailmate.app.core.model.TrailMateSampleData
 import com.trailmate.app.core.model.TrackRecordingActionGateEngine
 import com.trailmate.app.core.model.TrackRecordingActionGateStep
+import com.trailmate.app.core.model.TrackRecordingDepartureGateActionKind
+import com.trailmate.app.core.model.TrackRecordingDepartureGateEngine
 import com.trailmate.app.core.model.TrackRecordingForegroundRecoveryPolicy
 import com.trailmate.app.core.model.TrackRecordingReviewEngine
 import com.trailmate.app.core.model.TrackRecordingReviewPresentation
@@ -1888,6 +1890,23 @@ internal fun RouteCockpitTabContent(
             onOpenOfflineMap()
         }
     }
+    val gatedTrackAction = TrackRecordingDepartureGateEngine.present(
+        hikeSessionStatus = hikeSession.status,
+        trackRecordingStatus = trackRecording.status,
+        currentTrackActionLabel = trackActionLabel,
+        departureReadiness = departureReadiness
+    )
+    val handleGatedTrackAction: () -> Unit = {
+        when (gatedTrackAction.kind) {
+            TrackRecordingDepartureGateActionKind.APPLY_TRACK_ACTION -> onTrackAction()
+            TrackRecordingDepartureGateActionKind.SAVE_OFFLINE_ROUTE_PACK -> onOfflineRoutePackToggle()
+            TrackRecordingDepartureGateActionKind.OPEN_OFFLINE_BASE_MAP -> handleOfflineBaseMapAction()
+            TrackRecordingDepartureGateActionKind.REQUEST_LOCATION,
+            TrackRecordingDepartureGateActionKind.OPEN_LOCATION_SETTINGS -> onRequestLocation()
+            TrackRecordingDepartureGateActionKind.SHOW_GEAR -> onShowGearTab()
+            TrackRecordingDepartureGateActionKind.BLOCKED -> Unit
+        }
+    }
     val handlePrimaryAction: () -> Unit = {
         when (cockpitPresentation.primaryAction.kind) {
             RouteCockpitPrimaryActionKind.REQUEST_LOCATION -> onRequestLocation()
@@ -2024,12 +2043,13 @@ internal fun RouteCockpitTabContent(
                 wasRecentlyOffRoute = wasRecentlyOffRoute,
                 trackRecording = trackRecording,
                 notificationPermissionGranted = notificationPermissionGranted,
-                trackActionLabel = trackActionLabel,
+                trackActionLabel = gatedTrackAction.label,
+                trackActionEnabled = gatedTrackAction.enabled,
                 onRequestLocation = onRequestLocation,
                 onStopLocationUpdates = onStopLocationUpdates,
                 onShareSafetyText = onShareSafetyText,
                 onShareTrailMateText = onShareTrailMateText,
-                onTrackAction = onTrackAction,
+                onTrackAction = handleGatedTrackAction,
                 onRequestNotificationPermission = onRequestNotificationPermission,
                 onOpenTrackDataRequested = onOpenTrackDataRequested,
                 onFinishTrack = onFinishTrack,
@@ -3981,6 +4001,7 @@ private fun GpsTrackPanel(
     trackRecording: TrackRecordingState,
     notificationPermissionGranted: Boolean,
     trackActionLabel: String,
+    trackActionEnabled: Boolean,
     onRequestLocation: () -> Unit,
     onStopLocationUpdates: () -> Unit,
     onShareSafetyText: (String) -> Unit,
@@ -4215,7 +4236,8 @@ private fun GpsTrackPanel(
             ) {
                 Button(
                     onClick = onTrackAction,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    enabled = trackActionEnabled
                 ) {
                     Text(trackActionLabel)
                 }
