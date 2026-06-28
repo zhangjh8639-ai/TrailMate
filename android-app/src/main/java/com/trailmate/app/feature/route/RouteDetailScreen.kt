@@ -214,6 +214,10 @@ import com.trailmate.app.core.model.OfflineEmergencyLocation
 import com.trailmate.app.core.model.OfflineEmergencyProgress
 import com.trailmate.app.core.model.OfflineEmergencyRouteSummary
 import com.trailmate.app.core.model.MatchLevel
+import com.trailmate.app.core.model.ProgressSafetyWatchDetail
+import com.trailmate.app.core.model.ProgressSafetyWatchEngine
+import com.trailmate.app.core.model.ProgressSafetyWatchPresentation
+import com.trailmate.app.core.model.ProgressSafetyWatchTone
 import com.trailmate.app.core.model.RouteGeometryEngine
 import com.trailmate.app.core.model.RouteAssessmentEngine
 import com.trailmate.app.core.model.RouteAssessmentSummary
@@ -1773,6 +1777,13 @@ internal fun RouteCockpitTabContent(
         offlineRouteReady = offlineRoutePackReady,
         offlineBaseMapReady = offlineBaseMapReady
     )
+    val progressSafetyWatch = ProgressSafetyWatchEngine.present(
+        route = route,
+        plan = plan,
+        trackRecording = trackRecording,
+        fix = latestLocationFix,
+        nowEpochMillis = returnEtaNowEpochMillis
+    )
     val safetyShareLocation = SafetyShareLocation(
         latitude = locationSnapshot.latitude,
         longitude = locationSnapshot.longitude,
@@ -1901,6 +1912,14 @@ internal fun RouteCockpitTabContent(
         LowPowerGuidancePanel(
             presentation = lowPowerGuidance,
             onPrimaryAction = onRequestLocation
+        )
+        ProgressSafetyWatchPanel(
+            presentation = progressSafetyWatch,
+            onPrimaryAction = {
+                if (progressSafetyWatch.primaryActionRequiresSafetyShare) {
+                    handleSafetyShare()
+                }
+            }
         )
         RouteCockpitDiagnosticsDisclosure(
             plan = plan,
@@ -4749,6 +4768,129 @@ private fun ReturnEtaWatchDetailList(details: List<ReturnEtaWatchDetail>) {
         }
     }
 }
+
+@Composable
+private fun ProgressSafetyWatchPanel(
+    presentation: ProgressSafetyWatchPresentation,
+    onPrimaryAction: () -> Unit
+) {
+    if (!presentation.visible) {
+        return
+    }
+    val tone = presentation.tone ?: return
+    val contentColor = tone.progressSafetyContentColor()
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(tone.progressSafetyContainerColor())
+            .border(1.dp, contentColor.copy(alpha = 0.18f), RoundedCornerShape(16.dp))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(contentColor.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center
+            ) {
+                TrailMateLineIcon(
+                    glyph = TrailMateGlyph.Warning,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = contentColor
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = presentation.title,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    TrailMateStatusPill(
+                        text = presentation.statusLabel,
+                        containerColor = contentColor.copy(alpha = 0.12f),
+                        contentColor = contentColor
+                    )
+                }
+                Text(
+                    text = presentation.caption,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        ProgressSafetyWatchDetailList(details = presentation.details)
+        if (presentation.primaryActionRequiresSafetyShare) {
+            OutlinedButton(
+                onClick = onPrimaryAction,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(presentation.primaryActionLabel)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProgressSafetyWatchDetailList(details: List<ProgressSafetyWatchDetail>) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        details.take(3).forEach { detail ->
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.74f))
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = detail.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = detail.value,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProgressSafetyWatchTone.progressSafetyContainerColor(): Color =
+    when (this) {
+        ProgressSafetyWatchTone.CAUTION -> Color(0xFFFFF4E0)
+        ProgressSafetyWatchTone.ALERT -> Color(0xFFFFEDE6)
+    }
+
+@Composable
+private fun ProgressSafetyWatchTone.progressSafetyContentColor(): Color =
+    when (this) {
+        ProgressSafetyWatchTone.CAUTION -> Color(0xFF9A5B00)
+        ProgressSafetyWatchTone.ALERT -> Color(0xFFB3261E)
+    }
 
 @Composable
 private fun LowPowerGuidancePanel(
