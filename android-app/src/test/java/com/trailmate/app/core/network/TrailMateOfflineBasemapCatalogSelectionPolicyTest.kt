@@ -35,6 +35,78 @@ class TrailMateOfflineBasemapCatalogSelectionPolicyTest {
     }
 
     @Test
+    fun selectsSmallestKnownSizeVectorPackCoveringRouteBounds() {
+        val selection = TrailMateOfflineBasemapCatalogSelectionPolicy.selectForRoute(
+            routeBounds = PmTilesLatLngBounds(
+                minLongitude = 120.05,
+                minLatitude = 30.10,
+                maxLongitude = 120.25,
+                maxLatitude = 30.35
+            ),
+            catalog = listOf(
+                catalogItem(
+                    packId = "pmtiles_hangzhou_large",
+                    sizeBytes = 240_000_000L
+                ),
+                catalogItem(
+                    packId = "pmtiles_hangzhou_compact",
+                    sizeBytes = 80_000_000L
+                )
+            )
+        )
+
+        assertEquals("pmtiles_hangzhou_compact", selection?.packId)
+    }
+
+    @Test
+    fun ranksUnknownSizeVectorPacksAfterKnownSizePacks() {
+        val selection = TrailMateOfflineBasemapCatalogSelectionPolicy.selectForRoute(
+            routeBounds = PmTilesLatLngBounds(
+                minLongitude = 120.05,
+                minLatitude = 30.10,
+                maxLongitude = 120.25,
+                maxLatitude = 30.35
+            ),
+            catalog = listOf(
+                catalogItem(
+                    packId = "pmtiles_unknown_size",
+                    sizeBytes = null
+                ),
+                catalogItem(
+                    packId = "pmtiles_known_size",
+                    sizeBytes = 120_000_000L
+                )
+            )
+        )
+
+        assertEquals("pmtiles_known_size", selection?.packId)
+    }
+
+    @Test
+    fun ranksNonPositiveSizeVectorPacksAfterKnownSizePacks() {
+        val selection = TrailMateOfflineBasemapCatalogSelectionPolicy.selectForRoute(
+            routeBounds = PmTilesLatLngBounds(
+                minLongitude = 120.05,
+                minLatitude = 30.10,
+                maxLongitude = 120.25,
+                maxLatitude = 30.35
+            ),
+            catalog = listOf(
+                catalogItem(
+                    packId = "pmtiles_zero_size",
+                    sizeBytes = 0L
+                ),
+                catalogItem(
+                    packId = "pmtiles_known_size",
+                    sizeBytes = 120_000_000L
+                )
+            )
+        )
+
+        assertEquals("pmtiles_known_size", selection?.packId)
+    }
+
+    @Test
     fun returnsNullWhenNoPackIntersectsRouteBounds() {
         val selection = TrailMateOfflineBasemapCatalogSelectionPolicy.selectForRoute(
             routeBounds = PmTilesLatLngBounds(
@@ -88,6 +160,7 @@ class TrailMateOfflineBasemapCatalogSelectionPolicyTest {
     private fun catalogItem(
         packId: String,
         tileType: String = "MVT",
+        sizeBytes: Long? = 120_000_000L,
         maxLongitude: Double = 120.30,
         maxLatitude: Double = 30.40
     ): TrailMatePmTilesBasemapCatalogItemDto =
@@ -95,7 +168,7 @@ class TrailMateOfflineBasemapCatalogSelectionPolicyTest {
             packId = packId,
             regionName = "杭州市 · 西湖区",
             downloadUrl = "https://cdn.trailmate.local/offline-basemaps/hangzhou-westlake.pmtiles",
-            sizeBytes = 120_000_000L,
+            sizeBytes = sizeBytes,
             sha256 = null,
             tileType = tileType,
             minZoom = 10,
