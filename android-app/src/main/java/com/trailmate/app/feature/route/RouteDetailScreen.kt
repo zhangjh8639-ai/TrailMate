@@ -142,6 +142,7 @@ import com.trailmate.app.core.map.TrailMapLayerLegendItemStatus
 import com.trailmate.app.core.map.TrailMapLoadingPresentation
 import com.trailmate.app.core.map.TrailMapLoadingPresentationEngine
 import com.trailmate.app.core.map.TrailMapProjection
+import com.trailmate.app.core.map.TrailMapProvider
 import com.trailmate.app.core.map.TrailMapReadiness
 import com.trailmate.app.core.map.TrailMapReadinessEngine
 import com.trailmate.app.core.map.TrailMapReadinessStep
@@ -198,6 +199,10 @@ import com.trailmate.app.core.model.LocationBackedHikeStatus
 import com.trailmate.app.core.model.LocationGuidancePresentation
 import com.trailmate.app.core.model.LocationGuidancePresentationEngine
 import com.trailmate.app.core.model.LocationGuidanceTone
+import com.trailmate.app.core.model.LowPowerGuidanceAction
+import com.trailmate.app.core.model.LowPowerGuidanceEngine
+import com.trailmate.app.core.model.LowPowerGuidancePresentation
+import com.trailmate.app.core.model.LowPowerGuidanceTone
 import com.trailmate.app.core.model.OfflineBaseMapDepartureQaOverridePolicy
 import com.trailmate.app.core.model.OfflineBaseMapDepartureState
 import com.trailmate.app.core.model.OfflineBaseMapRequirementPolicy
@@ -1495,6 +1500,12 @@ private fun Intent?.toRouteBatteryStatus(): RouteBatteryStatus {
     return RouteBatteryStatus.fromPercent(percent)
 }
 
+private fun TrailMapReadiness.offlineBaseMapStep(): TrailMapReadinessStep? =
+    setupSteps.firstOrNull { it.label == "离线地图包" }
+
+private fun TrailMapReadiness.isOfflineBaseMapReady(): Boolean =
+    provider == TrailMapProvider.MAPLIBRE_PMTILES && isProductionMapReady
+
 @Composable
 private fun RouteReadinessStrip(
     plan: HikePlanSummary,
@@ -1504,8 +1515,8 @@ private fun RouteReadinessStrip(
     onOfflineRoutePackSave: () -> Unit,
     onOfflineBaseMapAction: () -> Unit
 ) {
-    val offlineBasemapStep = mapReadiness.setupSteps.firstOrNull { it.label == "离线地图包" }
-    val offlineBasemapReady = offlineBasemapStep?.status == TrailMapReadinessStepStatus.READY
+    val offlineBasemapStep = mapReadiness.offlineBaseMapStep()
+    val offlineBasemapReady = mapReadiness.isOfflineBaseMapReady()
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -1699,6 +1710,7 @@ internal fun RouteCockpitTabContent(
 ) {
     val context = LocalContext.current
     val routeBatteryStatus = rememberRouteBatteryStatus(context)
+    val offlineBaseMapReady = mapReadiness.isOfflineBaseMapReady()
     var diagnosticsExpanded by rememberSaveable(route.offlineRoutePackKey(), initiallyExpandDiagnostics) {
         mutableStateOf(initiallyExpandDiagnostics)
     }
@@ -1754,6 +1766,12 @@ internal fun RouteCockpitTabContent(
         trackRecording = trackRecording,
         notificationPermissionGranted = notificationPermissionGranted,
         batteryStatus = routeBatteryStatus
+    )
+    val lowPowerGuidance = LowPowerGuidanceEngine.present(
+        batteryStatus = routeBatteryStatus,
+        trackRecording = trackRecording,
+        offlineRouteReady = offlineRoutePackReady,
+        offlineBaseMapReady = offlineBaseMapReady
     )
     val safetyShareLocation = SafetyShareLocation(
         latitude = locationSnapshot.latitude,
@@ -1879,6 +1897,10 @@ internal fun RouteCockpitTabContent(
             onSafetyShare = handleSafetyShare,
             onEnterFullscreen = { onNavigationFullscreenChange(true) },
             onAmapBaseMapRenderedChange = onAmapBaseMapRenderedChange
+        )
+        LowPowerGuidancePanel(
+            presentation = lowPowerGuidance,
+            onPrimaryAction = onRequestLocation
         )
         RouteCockpitDiagnosticsDisclosure(
             plan = plan,
@@ -4727,6 +4749,152 @@ private fun ReturnEtaWatchDetailList(details: List<ReturnEtaWatchDetail>) {
         }
     }
 }
+
+@Composable
+private fun LowPowerGuidancePanel(
+    presentation: LowPowerGuidancePresentation,
+    onPrimaryAction: () -> Unit
+) {
+    if (!presentation.visible) {
+        return
+    }
+    val tone = presentation.tone ?: return
+    val contentColor = tone.lowPowerContentColor()
+    val containerColor = tone.lowPowerContainerColor()
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(containerColor)
+            .border(1.dp, contentColor.copy(alpha = 0.18f), RoundedCornerShape(16.dp))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(contentColor.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center
+            ) {
+                TrailMateLineIcon(
+                    glyph = TrailMateGlyph.Warning,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = contentColor
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = presentation.title,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    TrailMateStatusPill(
+                        text = presentation.statusLabel,
+                        containerColor = contentColor.copy(alpha = 0.12f),
+                        contentColor = contentColor
+                    )
+                }
+                Text(
+                    text = presentation.caption,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        LowPowerGuidanceActionList(
+            actions = presentation.actions,
+            contentColor = contentColor
+        )
+        if (presentation.primaryActionRequestsFinalFix) {
+            OutlinedButton(
+                onClick = onPrimaryAction,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(presentation.primaryActionLabel)
+            }
+        }
+    }
+}
+
+@Composable
+private fun LowPowerGuidanceActionList(
+    actions: List<LowPowerGuidanceAction>,
+    contentColor: Color
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        actions.take(4).forEach { action ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.74f))
+                    .padding(horizontal = 10.dp, vertical = 9.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(26.dp)
+                        .clip(CircleShape)
+                        .background(contentColor.copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    TrailMateLineIcon(
+                        glyph = TrailMateGlyph.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(15.dp),
+                        tint = contentColor
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        text = action.title,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = action.caption,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LowPowerGuidanceTone.lowPowerContainerColor(): Color =
+    when (this) {
+        LowPowerGuidanceTone.CAUTION -> Color(0xFFFFF4E0)
+        LowPowerGuidanceTone.ALERT -> Color(0xFFFFEDE6)
+    }
+
+@Composable
+private fun LowPowerGuidanceTone.lowPowerContentColor(): Color =
+    when (this) {
+        LowPowerGuidanceTone.CAUTION -> Color(0xFF9A5B00)
+        LowPowerGuidanceTone.ALERT -> Color(0xFFB3261E)
+    }
 
 @Composable
 private fun ReturnEtaWatchTone.returnEtaContainerColor(): Color =
