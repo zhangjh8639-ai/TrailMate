@@ -249,6 +249,10 @@ import com.trailmate.app.core.model.RouteDeviationRecoveryEngine
 import com.trailmate.app.core.model.RouteDeviationRecoveryPresentation
 import com.trailmate.app.core.model.RouteDeviationRecoveryStep
 import com.trailmate.app.core.model.RouteDeviationRecoveryTone
+import com.trailmate.app.core.model.RouteDirectionWatchDetail
+import com.trailmate.app.core.model.RouteDirectionWatchEngine
+import com.trailmate.app.core.model.RouteDirectionWatchPresentation
+import com.trailmate.app.core.model.RouteDirectionWatchTone
 import com.trailmate.app.core.model.RouteExitGuidanceEngine
 import com.trailmate.app.core.model.RouteExitGuidanceOption
 import com.trailmate.app.core.model.RouteExitGuidancePresentation
@@ -381,6 +385,7 @@ fun RouteDetailScreen(
         mutableStateOf(System.currentTimeMillis())
     }
     var latestLocationFix by remember(routeSessionKey) { mutableStateOf(initialLocationFix) }
+    var previousRouteDirectionFix by remember(routeSessionKey) { mutableStateOf<HikeLocationFix?>(null) }
     var wasRecentlyOffRoute by remember(routeSessionKey) { mutableStateOf(initialWasRecentlyOffRoute) }
     var routeDeviationAlertState by remember(routeSessionKey) { mutableStateOf(RouteDeviationAlertState()) }
     var latestRouteDeviationAlertDecision by remember(routeSessionKey) {
@@ -735,6 +740,16 @@ fun RouteDetailScreen(
         routeDeviationAlertState = RouteDeviationAlertState()
         latestRouteDeviationAlertDecision = null
     }
+    val clearProjectedLocationFix: () -> Unit = {
+        latestLocationFix = null
+        previousRouteDirectionFix = null
+    }
+    val publishProjectedLocationFix: (HikeLocationFix) -> Unit = { projectedFix ->
+        if (latestLocationFix?.timestampEpochMillis != projectedFix.timestampEpochMillis) {
+            previousRouteDirectionFix = latestLocationFix
+        }
+        latestLocationFix = projectedFix
+    }
     val updateHikeSession: (HikeSessionState) -> Unit = { session ->
         hikeStatus = session.status
         reachedCheckpointIndex = session.reachedCheckpointIndex
@@ -769,7 +784,7 @@ fun RouteDetailScreen(
         locationSnapshot = decision.snapshot
         if (decision.shouldClearProjectedFix) {
             locationGuidanceStatus = LocationBackedHikeStatus.WAITING
-            latestLocationFix = null
+            clearProjectedLocationFix()
             wasRecentlyOffRoute = false
         }
         if (decision.shouldClearProjectedFix || decision.shouldRestartTracking) {
@@ -856,7 +871,7 @@ fun RouteDetailScreen(
         gpsEnabled = false
         locationSnapshot = TrailMateLocationSnapshot.permissionRequired()
         locationGuidanceStatus = LocationBackedHikeStatus.WAITING
-        latestLocationFix = null
+        clearProjectedLocationFix()
         wasRecentlyOffRoute = false
         resetRouteDeviationAlert()
     }
@@ -864,7 +879,7 @@ fun RouteDetailScreen(
         gpsEnabled = false
         locationSnapshot = TrailMateLocationSnapshot.unavailable()
         locationGuidanceStatus = LocationBackedHikeStatus.WAITING
-        latestLocationFix = null
+        clearProjectedLocationFix()
         wasRecentlyOffRoute = false
         resetRouteDeviationAlert()
     }
@@ -876,7 +891,7 @@ fun RouteDetailScreen(
             gpsEnabled = true
             locationSnapshot = TrailMateLocationSnapshot.searching()
             locationGuidanceStatus = LocationBackedHikeStatus.WAITING
-            latestLocationFix = null
+            clearProjectedLocationFix()
             wasRecentlyOffRoute = false
             resetRouteDeviationAlert()
             locationTrackingRestartToken += 1
@@ -945,7 +960,7 @@ fun RouteDetailScreen(
         gpsEnabled = true
         locationSnapshot = TrailMateLocationSnapshot.searching()
         locationGuidanceStatus = LocationBackedHikeStatus.WAITING
-        latestLocationFix = null
+        clearProjectedLocationFix()
         wasRecentlyOffRoute = false
         resetRouteDeviationAlert()
         locationTrackingRestartToken += 1
@@ -954,7 +969,7 @@ fun RouteDetailScreen(
         gpsEnabled = false
         locationSnapshot = TrailMateLocationSnapshot.providerDisabled()
         locationGuidanceStatus = LocationBackedHikeStatus.WAITING
-        latestLocationFix = null
+        clearProjectedLocationFix()
         wasRecentlyOffRoute = false
         resetRouteDeviationAlert()
     }
@@ -1130,7 +1145,7 @@ fun RouteDetailScreen(
         gpsEnabled = false
         locationSnapshot = TrailMateLocationSnapshot.disabled()
         locationGuidanceStatus = LocationBackedHikeStatus.WAITING
-        latestLocationFix = null
+        clearProjectedLocationFix()
         wasRecentlyOffRoute = false
         resetRouteDeviationAlert()
     }
@@ -1232,7 +1247,7 @@ fun RouteDetailScreen(
                     horizontalAccuracyMeters = accuracy,
                     timestampEpochMillis = snapshot.timestampEpochMillis
                 )
-                latestLocationFix = projectedFix
+                publishProjectedLocationFix(projectedFix)
                 val nowEpochMillis = System.currentTimeMillis()
                 val update = LocationBackedHikeSessionEngine.applyLocationFix(
                     plan = plan,
@@ -1270,7 +1285,7 @@ fun RouteDetailScreen(
                 }
             }
         } else {
-            latestLocationFix = null
+            clearProjectedLocationFix()
         }
     }
     val currentHandleLocationSnapshot by rememberUpdatedState(handleLocationSnapshot)
@@ -1289,6 +1304,11 @@ fun RouteDetailScreen(
         ) {
             delay(60_000L)
             returnEtaNowEpochMillis = System.currentTimeMillis()
+        }
+    }
+    LaunchedEffect(routeSessionKey, trackRecording.status, trackRecording.startedAtEpochMillis) {
+        if (trackRecording.status != TrackRecordingStatus.RECORDING) {
+            previousRouteDirectionFix = null
         }
     }
     LaunchedEffect(routeSessionKey) {
@@ -1343,6 +1363,7 @@ fun RouteDetailScreen(
             locationGuidanceStatus = locationGuidanceStatus,
             locationGuidanceCaption = locationGuidanceCaption,
             latestLocationFix = latestLocationFix,
+            previousRouteDirectionFix = previousRouteDirectionFix,
             latestRouteDeviationAlertDecision = latestRouteDeviationAlertDecision,
             wasRecentlyOffRoute = wasRecentlyOffRoute,
             trackRecording = trackRecording,
@@ -1685,6 +1706,7 @@ internal fun RouteCockpitTabContent(
     locationGuidanceStatus: LocationBackedHikeStatus,
     locationGuidanceCaption: String,
     latestLocationFix: HikeLocationFix?,
+    previousRouteDirectionFix: HikeLocationFix? = null,
     latestRouteDeviationAlertDecision: RouteDeviationAlertDecision? = null,
     wasRecentlyOffRoute: Boolean,
     trackRecording: TrackRecordingState,
@@ -1793,6 +1815,12 @@ internal fun RouteCockpitTabContent(
         fix = latestLocationFix,
         nowEpochMillis = returnEtaNowEpochMillis
     )
+    val routeDirectionWatch = RouteDirectionWatchEngine.present(
+        previousFix = previousRouteDirectionFix,
+        currentFix = latestLocationFix,
+        locationStatus = locationGuidanceStatus,
+        trackRecording = trackRecording
+    )
     val daylightReturnWatch = DaylightReturnWatchEngine.present(
         route = route,
         trackRecording = trackRecording,
@@ -1887,6 +1915,7 @@ internal fun RouteCockpitTabContent(
             liveGuidance = liveGuidance,
             mapReadiness = mapReadiness,
             fieldStatus = fieldStatus,
+            directionWatch = routeDirectionWatch,
             trackRecording = trackRecording,
             showUserLocationOnAmap = gpsEnabled,
             locationSnapshot = locationSnapshot,
@@ -1934,6 +1963,10 @@ internal fun RouteCockpitTabContent(
                     handleSafetyShare()
                 }
             }
+        )
+        RouteDirectionWatchPanel(
+            presentation = routeDirectionWatch,
+            onPrimaryAction = onRequestLocation
         )
         DaylightReturnWatchPanel(
             presentation = daylightReturnWatch,
@@ -2036,6 +2069,7 @@ private fun RouteNavigationFullscreen(
     liveGuidance: LiveCheckpointGuidance,
     mapReadiness: TrailMapReadiness,
     fieldStatus: RouteFieldStatusSummary,
+    directionWatch: RouteDirectionWatchPresentation,
     trackRecording: TrackRecordingState,
     showUserLocationOnAmap: Boolean,
     locationSnapshot: TrailMateLocationSnapshot,
@@ -2088,9 +2122,11 @@ private fun RouteNavigationFullscreen(
                 presentation = presentation,
                 liveGuidance = liveGuidance,
                 fieldStatus = fieldStatus,
+                directionWatch = directionWatch,
                 trackRecording = trackRecording,
                 session = hikeSession,
                 onPrimaryAction = onPrimaryAction,
+                onDirectionWatchAction = onLocateRequested,
                 onSafetyShare = onSafetyShare,
                 onMarkNextCheckpoint = onMarkNextCheckpoint,
                 onFinishTrack = onFinishTrack,
@@ -2179,9 +2215,11 @@ private fun RouteNavigationFullscreenDock(
     presentation: RouteCockpitPresentation,
     liveGuidance: LiveCheckpointGuidance,
     fieldStatus: RouteFieldStatusSummary,
+    directionWatch: RouteDirectionWatchPresentation,
     trackRecording: TrackRecordingState,
     session: HikeSessionState,
     onPrimaryAction: () -> Unit,
+    onDirectionWatchAction: () -> Unit,
     onSafetyShare: () -> Unit,
     onMarkNextCheckpoint: () -> Unit,
     onFinishTrack: () -> Unit,
@@ -2283,6 +2321,10 @@ private fun RouteNavigationFullscreenDock(
                     )
                 }
             }
+            RouteDirectionWatchCompactBanner(
+                presentation = directionWatch,
+                onPrimaryAction = onDirectionWatchAction
+            )
             Button(
                 onClick = onPrimaryAction,
                 enabled = presentation.primaryAction.enabled,
@@ -2343,6 +2385,54 @@ private fun RouteNavigationFullscreenDock(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
+private fun RouteDirectionWatchCompactBanner(
+    presentation: RouteDirectionWatchPresentation,
+    onPrimaryAction: () -> Unit
+) {
+    if (!presentation.visible) {
+        return
+    }
+    val contentColor = presentation.tone.routeDirectionContentColor()
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(presentation.tone.routeDirectionContainerColor())
+            .border(1.dp, contentColor.copy(alpha = 0.16f), RoundedCornerShape(14.dp))
+            .clickable(onClick = onPrimaryAction)
+            .padding(horizontal = 10.dp, vertical = 9.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        TrailMateLineIcon(
+            glyph = TrailMateGlyph.Warning,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = contentColor
+        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = "${presentation.statusLabel} · ${presentation.primaryActionLabel}",
+                style = MaterialTheme.typography.labelMedium,
+                color = contentColor,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
+            )
+            Text(
+                text = presentation.caption,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2
             )
         }
     }
@@ -4992,6 +5082,112 @@ private fun ProgressSafetyWatchPanel(
 }
 
 @Composable
+private fun RouteDirectionWatchPanel(
+    presentation: RouteDirectionWatchPresentation,
+    onPrimaryAction: () -> Unit
+) {
+    if (!presentation.visible) {
+        return
+    }
+    val contentColor = presentation.tone.routeDirectionContentColor()
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(presentation.tone.routeDirectionContainerColor())
+            .border(1.dp, contentColor.copy(alpha = 0.18f), RoundedCornerShape(16.dp))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(contentColor.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center
+            ) {
+                TrailMateLineIcon(
+                    glyph = TrailMateGlyph.Warning,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = contentColor
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = presentation.title,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    TrailMateStatusPill(
+                        text = presentation.statusLabel,
+                        containerColor = contentColor.copy(alpha = 0.12f),
+                        contentColor = contentColor
+                    )
+                }
+                Text(
+                    text = presentation.caption,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        RouteDirectionWatchDetailList(details = presentation.details)
+        OutlinedButton(
+            onClick = onPrimaryAction,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(presentation.primaryActionLabel)
+        }
+    }
+}
+
+@Composable
+private fun RouteDirectionWatchDetailList(details: List<RouteDirectionWatchDetail>) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        details.take(2).forEach { detail ->
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.74f))
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = detail.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = detail.value,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun ProgressSafetyWatchDetailList(details: List<ProgressSafetyWatchDetail>) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -5035,6 +5231,22 @@ private fun ProgressSafetyWatchTone.progressSafetyContentColor(): Color =
     when (this) {
         ProgressSafetyWatchTone.CAUTION -> Color(0xFF9A5B00)
         ProgressSafetyWatchTone.ALERT -> Color(0xFFB3261E)
+    }
+
+@Composable
+private fun RouteDirectionWatchTone.routeDirectionContainerColor(): Color =
+    when (this) {
+        RouteDirectionWatchTone.NEUTRAL,
+        RouteDirectionWatchTone.READY -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.54f)
+        RouteDirectionWatchTone.ALERT -> Color(0xFFFFEDE6)
+    }
+
+@Composable
+private fun RouteDirectionWatchTone.routeDirectionContentColor(): Color =
+    when (this) {
+        RouteDirectionWatchTone.NEUTRAL -> MaterialTheme.colorScheme.onSurfaceVariant
+        RouteDirectionWatchTone.READY -> MaterialTheme.colorScheme.primary
+        RouteDirectionWatchTone.ALERT -> Color(0xFFB3261E)
     }
 
 @Composable
