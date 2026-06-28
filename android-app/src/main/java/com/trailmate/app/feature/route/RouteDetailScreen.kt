@@ -1305,11 +1305,11 @@ fun RouteDetailScreen(
     LaunchedEffect(gpsEnabled, locationSnapshot.status, routeSessionKey, trackRecording.status) {
         locationPresentationNowEpochMillis = System.currentTimeMillis()
         while (
-            gpsEnabled &&
-            (
-                locationSnapshot.status == TrailMateLocationStatus.SEARCHING ||
-                    trackRecording.status == TrackRecordingStatus.RECORDING
-                )
+            RouteLocationPresentationClockPolicy.shouldRefresh(
+                gpsEnabled = gpsEnabled,
+                locationStatus = locationSnapshot.status,
+                trackRecordingStatus = trackRecording.status
+            )
         ) {
             delay(5_000L)
             locationPresentationNowEpochMillis = System.currentTimeMillis()
@@ -1872,6 +1872,9 @@ internal fun RouteCockpitTabContent(
         routePlan = safetyShareRoutePlan,
         nowEpochMillis = locationPresentationNowEpochMillis
     )
+    val safetyShareShortcut = RouteSafetyShareShortcutPresentationEngine.present(
+        presentation = safetyShare
+    )
     val cockpitPresentation = RouteCockpitPresentationEngine.build(
         route = route,
         plan = plan,
@@ -1945,6 +1948,12 @@ internal fun RouteCockpitTabContent(
             routePlan = safetyShareRoutePlan
         ).shareText?.let(onShareSafetyText) ?: onRequestLocation()
     }
+    val handleSafetyShareShortcut: () -> Unit = {
+        when (safetyShareShortcut.kind) {
+            RouteSafetyShareShortcutActionKind.REQUEST_LOCATION -> onRequestLocation()
+            RouteSafetyShareShortcutActionKind.SHARE_LOCATION -> handleSafetyShare()
+        }
+    }
     val handleMarkNextCheckpoint: () -> Unit = {
         onSessionChange(HikeSessionEngine.advance(plan, hikeSession))
     }
@@ -1960,6 +1969,7 @@ internal fun RouteCockpitTabContent(
             fieldStatus = fieldStatus,
             gpsSignalLossWatch = gpsSignalLossWatch,
             directionWatch = routeDirectionWatch,
+            safetyShareShortcut = safetyShareShortcut,
             trackRecording = trackRecording,
             showUserLocationOnAmap = gpsEnabled,
             locationSnapshot = locationSnapshot,
@@ -1968,7 +1978,7 @@ internal fun RouteCockpitTabContent(
             onCheckpointFocused = onCheckpointFocused,
             onExitFullscreen = { onNavigationFullscreenChange(false) },
             onPrimaryAction = handlePrimaryAction,
-            onSafetyShare = handleSafetyShare,
+            onSafetyShare = handleSafetyShareShortcut,
             onMarkNextCheckpoint = handleMarkNextCheckpoint,
             onFinishTrack = onFinishTrack,
             onAmapBaseMapRenderedChange = onAmapBaseMapRenderedChange
@@ -1983,6 +1993,7 @@ internal fun RouteCockpitTabContent(
             hikeSession = hikeSession,
             presentation = cockpitPresentation,
             mapReadiness = mapReadiness,
+            safetyShareShortcut = safetyShareShortcut,
             trackRecording = trackRecording,
             showUserLocationOnAmap = gpsEnabled,
             locationSnapshot = locationSnapshot,
@@ -1992,7 +2003,7 @@ internal fun RouteCockpitTabContent(
             onPrimaryAction = handlePrimaryAction,
             onSaveOfflineRoutePack = onOfflineRoutePackToggle,
             onOpenOfflineBaseMap = handleOfflineBaseMapAction,
-            onSafetyShare = handleSafetyShare,
+            onSafetyShare = handleSafetyShareShortcut,
             onEnterFullscreen = { onNavigationFullscreenChange(true) },
             onAmapBaseMapRenderedChange = onAmapBaseMapRenderedChange
         )
@@ -2122,6 +2133,7 @@ private fun RouteNavigationFullscreen(
     fieldStatus: RouteFieldStatusSummary,
     gpsSignalLossWatch: GpsSignalLossWatchPresentation,
     directionWatch: RouteDirectionWatchPresentation,
+    safetyShareShortcut: RouteSafetyShareShortcutPresentation,
     trackRecording: TrackRecordingState,
     showUserLocationOnAmap: Boolean,
     locationSnapshot: TrailMateLocationSnapshot,
@@ -2176,6 +2188,7 @@ private fun RouteNavigationFullscreen(
                 fieldStatus = fieldStatus,
                 gpsSignalLossWatch = gpsSignalLossWatch,
                 directionWatch = directionWatch,
+                safetyShareShortcut = safetyShareShortcut,
                 trackRecording = trackRecording,
                 session = hikeSession,
                 onPrimaryAction = onPrimaryAction,
@@ -2271,6 +2284,7 @@ private fun RouteNavigationFullscreenDock(
     fieldStatus: RouteFieldStatusSummary,
     gpsSignalLossWatch: GpsSignalLossWatchPresentation,
     directionWatch: RouteDirectionWatchPresentation,
+    safetyShareShortcut: RouteSafetyShareShortcutPresentation,
     trackRecording: TrackRecordingState,
     session: HikeSessionState,
     onPrimaryAction: () -> Unit,
@@ -2416,7 +2430,7 @@ private fun RouteNavigationFullscreenDock(
                         .weight(1f)
                         .height(42.dp)
                 ) {
-                    Text("安全分享", maxLines = 1)
+                    Text(safetyShareShortcut.label, maxLines = 1)
                 }
                 OutlinedButton(
                     onClick = onMarkNextCheckpoint,
@@ -2683,6 +2697,7 @@ private fun RouteCockpitSection(
     hikeSession: HikeSessionState,
     presentation: RouteCockpitPresentation,
     mapReadiness: TrailMapReadiness,
+    safetyShareShortcut: RouteSafetyShareShortcutPresentation,
     trackRecording: TrackRecordingState,
     showUserLocationOnAmap: Boolean,
     locationSnapshot: TrailMateLocationSnapshot,
@@ -2728,6 +2743,7 @@ private fun RouteCockpitSection(
             onPrimaryAction = onPrimaryAction,
             onSaveOfflineRoutePack = onSaveOfflineRoutePack,
             onOpenOfflineBaseMap = onOpenOfflineBaseMap,
+            safetyShareShortcut = safetyShareShortcut,
             onSafetyShare = onSafetyShare,
             onEnterFullscreen = onEnterFullscreen
         )
@@ -2803,6 +2819,7 @@ private fun RouteCockpitActionDrawer(
     onPrimaryAction: () -> Unit,
     onSaveOfflineRoutePack: () -> Unit,
     onOpenOfflineBaseMap: () -> Unit,
+    safetyShareShortcut: RouteSafetyShareShortcutPresentation,
     onSafetyShare: () -> Unit,
     onEnterFullscreen: () -> Unit,
     modifier: Modifier = Modifier
@@ -3023,7 +3040,7 @@ private fun RouteCockpitActionDrawer(
                                 modifier = Modifier.size(17.dp),
                                 tint = MaterialTheme.colorScheme.primary
                             )
-                            Text("安全分享", maxLines = 1)
+                            Text(safetyShareShortcut.label, maxLines = 1)
                         }
                     }
                 }
@@ -3044,7 +3061,7 @@ private fun RouteCockpitActionDrawer(
                             modifier = Modifier.size(17.dp),
                             tint = MaterialTheme.colorScheme.primary
                         )
-                        Text("安全分享", maxLines = 1)
+                        Text(safetyShareShortcut.label, maxLines = 1)
                     }
                 }
             }
