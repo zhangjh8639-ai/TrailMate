@@ -201,6 +201,13 @@ import com.trailmate.app.core.model.LocationGuidanceTone
 import com.trailmate.app.core.model.OfflineBaseMapDepartureQaOverridePolicy
 import com.trailmate.app.core.model.OfflineBaseMapDepartureState
 import com.trailmate.app.core.model.OfflineBaseMapRequirementPolicy
+import com.trailmate.app.core.model.OfflineEmergencyInfoActionEngine
+import com.trailmate.app.core.model.OfflineEmergencyInfoDetail
+import com.trailmate.app.core.model.OfflineEmergencyInfoEngine
+import com.trailmate.app.core.model.OfflineEmergencyInfoPresentation
+import com.trailmate.app.core.model.OfflineEmergencyLocation
+import com.trailmate.app.core.model.OfflineEmergencyProgress
+import com.trailmate.app.core.model.OfflineEmergencyRouteSummary
 import com.trailmate.app.core.model.MatchLevel
 import com.trailmate.app.core.model.RouteGeometryEngine
 import com.trailmate.app.core.model.RouteAssessmentEngine
@@ -352,6 +359,9 @@ fun RouteDetailScreen(
         mutableStateOf(System.currentTimeMillis())
     }
     var returnEtaNowEpochMillis by remember(routeSessionKey) {
+        mutableStateOf(System.currentTimeMillis())
+    }
+    var offlineEmergencyInfoNowEpochMillis by remember(routeSessionKey) {
         mutableStateOf(System.currentTimeMillis())
     }
     var latestLocationFix by remember(routeSessionKey) { mutableStateOf(initialLocationFix) }
@@ -1265,6 +1275,12 @@ fun RouteDetailScreen(
             returnEtaNowEpochMillis = System.currentTimeMillis()
         }
     }
+    LaunchedEffect(routeSessionKey) {
+        while (true) {
+            offlineEmergencyInfoNowEpochMillis = System.currentTimeMillis()
+            delay(60_000L)
+        }
+    }
     DisposableEffect(gpsEnabled, locationTrackingRestartToken, routeSessionKey) {
         if (gpsEnabled) {
             locationTracker.start { snapshot ->
@@ -1307,6 +1323,7 @@ fun RouteDetailScreen(
             locationSnapshot = locationSnapshot,
             locationPresentationNowEpochMillis = locationPresentationNowEpochMillis,
             returnEtaNowEpochMillis = returnEtaNowEpochMillis,
+            offlineEmergencyInfoNowEpochMillis = offlineEmergencyInfoNowEpochMillis,
             locationGuidanceStatus = locationGuidanceStatus,
             locationGuidanceCaption = locationGuidanceCaption,
             latestLocationFix = latestLocationFix,
@@ -1319,7 +1336,7 @@ fun RouteDetailScreen(
             onRequestLocation = requestLocation,
             onStopLocationUpdates = stopLocationUpdates,
             onShareSafetyText = { text -> context.shareSafetyText(text) },
-            onShareDepartureBriefText = { text, chooserTitle -> context.shareTrailMateText(text, chooserTitle) },
+            onShareTrailMateText = { text, chooserTitle -> context.shareTrailMateText(text, chooserTitle) },
             onTrackAction = requestTrackActionWithPermissionGate,
             onRequestNotificationPermission = requestTrackNotificationPermission,
             onOpenTrackDataRequested = onOpenTrackDataRequested,
@@ -1642,6 +1659,7 @@ internal fun RouteCockpitTabContent(
     locationSnapshot: TrailMateLocationSnapshot,
     locationPresentationNowEpochMillis: Long = System.currentTimeMillis(),
     returnEtaNowEpochMillis: Long = System.currentTimeMillis(),
+    offlineEmergencyInfoNowEpochMillis: Long = System.currentTimeMillis(),
     locationGuidanceStatus: LocationBackedHikeStatus,
     locationGuidanceCaption: String,
     latestLocationFix: HikeLocationFix?,
@@ -1654,7 +1672,7 @@ internal fun RouteCockpitTabContent(
     onRequestLocation: () -> Unit,
     onStopLocationUpdates: () -> Unit,
     onShareSafetyText: (String) -> Unit,
-    onShareDepartureBriefText: (String, String) -> Unit = { _, _ -> },
+    onShareTrailMateText: (String, String) -> Unit = { _, _ -> },
     onTrackAction: () -> Unit,
     onRequestNotificationPermission: () -> Unit,
     onOpenTrackDataRequested: () -> Unit,
@@ -1878,6 +1896,7 @@ internal fun RouteCockpitTabContent(
                 locationSnapshot = locationSnapshot,
                 locationPresentationNowEpochMillis = locationPresentationNowEpochMillis,
                 returnEtaNowEpochMillis = returnEtaNowEpochMillis,
+                offlineEmergencyInfoNowEpochMillis = offlineEmergencyInfoNowEpochMillis,
                 locationGuidanceStatus = locationGuidanceStatus,
                 locationGuidanceCaption = locationGuidanceCaption,
                 latestLocationFix = latestLocationFix,
@@ -1889,7 +1908,7 @@ internal fun RouteCockpitTabContent(
                 onRequestLocation = onRequestLocation,
                 onStopLocationUpdates = onStopLocationUpdates,
                 onShareSafetyText = onShareSafetyText,
-                onShareDepartureBriefText = onShareDepartureBriefText,
+                onShareTrailMateText = onShareTrailMateText,
                 onTrackAction = onTrackAction,
                 onRequestNotificationPermission = onRequestNotificationPermission,
                 onOpenTrackDataRequested = onOpenTrackDataRequested,
@@ -3718,6 +3737,7 @@ private fun GpsTrackPanel(
     locationSnapshot: TrailMateLocationSnapshot,
     locationPresentationNowEpochMillis: Long,
     returnEtaNowEpochMillis: Long,
+    offlineEmergencyInfoNowEpochMillis: Long,
     locationGuidanceStatus: LocationBackedHikeStatus,
     locationGuidanceCaption: String,
     latestLocationFix: HikeLocationFix?,
@@ -3729,7 +3749,7 @@ private fun GpsTrackPanel(
     onRequestLocation: () -> Unit,
     onStopLocationUpdates: () -> Unit,
     onShareSafetyText: (String) -> Unit,
-    onShareDepartureBriefText: (String, String) -> Unit,
+    onShareTrailMateText: (String, String) -> Unit,
     onTrackAction: () -> Unit,
     onRequestNotificationPermission: () -> Unit,
     onOpenTrackDataRequested: () -> Unit,
@@ -3806,6 +3826,32 @@ private fun GpsTrackPanel(
         trackRecording = trackRecording,
         routeSessionCompleted = hikeSession.status == HikeSessionStatus.COMPLETED,
         nowEpochMillis = returnEtaNowEpochMillis
+    )
+    val currentCheckpoint = HikeSessionEngine.currentCheckpoint(plan, hikeSession)
+    val nextCheckpoint = HikeSessionEngine.nextCheckpoint(plan, hikeSession)
+    val offlineEmergencyRoute = OfflineEmergencyRouteSummary(
+        routeName = route.routeName,
+        distanceKm = route.distanceKm,
+        ascentMeters = route.ascentMeters
+    )
+    val offlineEmergencyLocation = OfflineEmergencyLocation(
+        latitude = locationSnapshot.latitude,
+        longitude = locationSnapshot.longitude,
+        horizontalAccuracyMeters = locationSnapshot.horizontalAccuracyMeters,
+        timestampEpochMillis = locationSnapshot.timestampEpochMillis
+    )
+    val offlineEmergencyProgress = OfflineEmergencyProgress(
+        currentCheckpointLabel = currentCheckpoint?.let { checkpoint -> "当前 ${checkpoint.title}" } ?: "当前检查点待确认",
+        nextCheckpointLabel = nextCheckpoint?.let { checkpoint -> "下一站 ${checkpoint.title}" },
+        recordedDistanceKm = trackRecording.totalDistanceKm,
+        recordingActive = trackRecording.status == TrackRecordingStatus.RECORDING ||
+            trackRecording.status == TrackRecordingStatus.PAUSED
+    )
+    val offlineEmergencyInfo = OfflineEmergencyInfoEngine.present(
+        route = offlineEmergencyRoute,
+        location = offlineEmergencyLocation,
+        progress = offlineEmergencyProgress,
+        nowEpochMillis = offlineEmergencyInfoNowEpochMillis
     )
     val routeDeviationAlert = RouteDeviationAlertPresentationEngine.present(latestRouteDeviationAlertDecision)
     val trackReview = TrackRecordingReviewEngine.present(trackRecording)
@@ -3895,8 +3941,20 @@ private fun GpsTrackPanel(
                 presentation = departureBriefShare,
                 onPrimaryAction = {
                     departureBriefShare.shareText?.let { text ->
-                        onShareDepartureBriefText(text, departureBriefShare.chooserTitle ?: "发送出发报备")
+                        onShareTrailMateText(text, departureBriefShare.chooserTitle ?: "发送出发报备")
                     }
+                }
+            )
+            OfflineEmergencyInfoPanel(
+                presentation = offlineEmergencyInfo,
+                onPrimaryAction = {
+                    val action = OfflineEmergencyInfoActionEngine.resolveShareAction(
+                        route = offlineEmergencyRoute,
+                        location = offlineEmergencyLocation,
+                        progress = offlineEmergencyProgress,
+                        nowEpochMillis = System.currentTimeMillis()
+                    )
+                    onShareTrailMateText(action.shareText, action.chooserTitle)
                 }
             )
             SafetySharePanel(
@@ -4263,6 +4321,114 @@ private fun DepartureBriefShareDetailList(details: List<DepartureBriefShareDetai
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.End
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun OfflineEmergencyInfoPanel(
+    presentation: OfflineEmergencyInfoPresentation,
+    onPrimaryAction: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.error.copy(alpha = 0.07f),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.error.copy(alpha = 0.18f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.error),
+                    contentAlignment = Alignment.Center
+                ) {
+                    TrailMateLineIcon(
+                        glyph = TrailMateGlyph.Warning,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onError
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = presentation.title,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        TrailMateStatusPill(
+                            text = presentation.statusLabel,
+                            containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.10f),
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    Text(
+                        text = presentation.caption,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            if (presentation.details.isNotEmpty()) {
+                OfflineEmergencyInfoDetailList(details = presentation.details)
+            }
+            OutlinedButton(
+                onClick = onPrimaryAction,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(presentation.primaryActionLabel)
+            }
+        }
+    }
+}
+
+@Composable
+private fun OfflineEmergencyInfoDetailList(details: List<OfflineEmergencyInfoDetail>) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        details.take(3).forEach { detail ->
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.72f))
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = detail.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = detail.value,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
