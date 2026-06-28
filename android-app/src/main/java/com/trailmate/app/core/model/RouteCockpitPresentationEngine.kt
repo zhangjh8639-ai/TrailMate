@@ -125,10 +125,22 @@ object RouteCockpitPresentationEngine {
         wasRecentlyOffRoute: Boolean,
         nowEpochMillis: Long
     ): RouteCockpitPrimaryAction {
+        when (trackRecording.status) {
+            TrackRecordingStatus.RECORDING -> return RouteCockpitPrimaryAction(
+                label = "暂停",
+                kind = RouteCockpitPrimaryActionKind.PAUSE_RECORDING
+            )
+            TrackRecordingStatus.PAUSED -> return RouteCockpitPrimaryAction(
+                label = "继续",
+                kind = RouteCockpitPrimaryActionKind.RESUME_RECORDING
+            )
+            TrackRecordingStatus.IDLE,
+            TrackRecordingStatus.FINISHED -> Unit
+        }
+
         if (
             session.status == HikeSessionStatus.READY &&
-            !departureReadiness.primaryActionLabel.isStartHikeAction() &&
-            !departureReadiness.primaryActionLabel.isOfflineBaseMapRepairAction()
+            !departureReadiness.primaryActionLabel.isStartHikeAction()
         ) {
             return departureReadiness.primaryRepairAction()
         }
@@ -144,22 +156,11 @@ object RouteCockpitPresentationEngine {
             )
         }
 
-        when (trackRecording.status) {
-            TrackRecordingStatus.RECORDING -> return RouteCockpitPrimaryAction(
-                label = "暂停",
-                kind = RouteCockpitPrimaryActionKind.PAUSE_RECORDING
-            )
-            TrackRecordingStatus.PAUSED -> return RouteCockpitPrimaryAction(
-                label = "继续",
-                kind = RouteCockpitPrimaryActionKind.RESUME_RECORDING
-            )
-            TrackRecordingStatus.FINISHED -> if (trackRecording.pointCount > 0) {
+        if (trackRecording.status == TrackRecordingStatus.FINISHED && trackRecording.pointCount > 0) {
                 return RouteCockpitPrimaryAction(
                     label = "查看轨迹回顾",
                     kind = RouteCockpitPrimaryActionKind.REVIEW_TRACK
                 )
-            }
-            TrackRecordingStatus.IDLE -> Unit
         }
 
         if (locationGuidanceStatus == LocationBackedHikeStatus.CHECK_ROUTE || wasRecentlyOffRoute) {
