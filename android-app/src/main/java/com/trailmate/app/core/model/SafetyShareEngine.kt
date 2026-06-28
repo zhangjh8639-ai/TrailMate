@@ -16,7 +16,8 @@ data class SafetyShareLocation(
 data class SafetyShareRoutePlan(
     val distanceKm: Double,
     val ascentMeters: Int,
-    val estimatedDurationMinutes: Int?
+    val estimatedDurationMinutes: Int?,
+    val expectedFinishEpochMillis: Long? = null
 )
 
 data class SafetyShareDetail(
@@ -176,12 +177,23 @@ object SafetyShareEngine {
             }
             routePlan?.let { plan ->
                 appendLine("计划：${plan.routeSummary()}")
-                plan.estimatedDurationMinutes
-                    ?.takeIf { it > 0 }
-                    ?.let { durationMinutes ->
-                        appendLine("预计完成：${expectedFinishLabel(nowEpochMillis, durationMinutes, zoneId)}")
-                        appendLine("超时提示：若超过预计完成 60 分钟仍未联系，请先电话确认，再根据共享位置判断是否需要求助。")
+                plan.expectedFinishEpochMillis
+                    ?.takeIf { it > 0L }
+                    ?.let { expectedFinishEpochMillis ->
+                        appendLine("预计完成：${expectedFinishEpochMillis.timeLabel(zoneId)}")
+                        val overdueMinutes = (nowEpochMillis - expectedFinishEpochMillis) / MILLIS_PER_MINUTE
+                        if (overdueMinutes > 0) {
+                            appendLine("逾期提示：已超过预计完成 ${compactDuration(overdueMinutes)}，请先电话确认，再根据共享位置判断是否需要求助。")
+                        } else {
+                            appendLine("超时提示：若超过预计完成 60 分钟仍未联系，请先电话确认，再根据共享位置判断是否需要求助。")
+                        }
                     }
+                    ?: plan.estimatedDurationMinutes
+                        ?.takeIf { it > 0 }
+                        ?.let { durationMinutes ->
+                            appendLine("预计完成：${expectedFinishLabel(nowEpochMillis, durationMinutes, zoneId)}")
+                            appendLine("超时提示：若超过预计完成 60 分钟仍未联系，请先电话确认，再根据共享位置判断是否需要求助。")
+                        }
             }
             appendLine("位置：$lat,$lon$accuracy")
             append("高德地图：https://uri.amap.com/marker?position=$lon,$lat&name=$markerName&coordinate=wgs84&src=TrailMate&callnative=1")
@@ -207,10 +219,7 @@ object SafetyShareEngine {
         durationMinutes: Int,
         zoneId: ZoneId
     ): String =
-        Instant.ofEpochMilli(nowEpochMillis)
-            .atZone(zoneId)
-            .plusMinutes(durationMinutes.toLong())
-            .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+        (nowEpochMillis + durationMinutes * MILLIS_PER_MINUTE).timeLabel(zoneId)
 
     private fun SafetyShareRoutePlan?.safetyDetails(
         nowEpochMillis: Long,
@@ -219,23 +228,55 @@ object SafetyShareEngine {
         val plan = this ?: return emptyList()
         return buildList {
             add(SafetyShareDetail(label = "路线", value = plan.routeSummary()))
-            plan.estimatedDurationMinutes
-                ?.takeIf { it > 0 }
-                ?.let { durationMinutes ->
+            plan.expectedFinishEpochMillis
+                ?.takeIf { it > 0L }
+                ?.let { expectedFinishEpochMillis ->
                     add(
                         SafetyShareDetail(
                             label = "预计完成",
-                            value = expectedFinishLabel(nowEpochMillis, durationMinutes, zoneId)
+                            value = expectedFinishEpochMillis.timeLabel(zoneId)
                         )
                     )
                     add(SafetyShareDetail(label = "超时确认", value = "预计完成 +60 分钟"))
+                    val overdueMinutes = (nowEpochMillis - expectedFinishEpochMillis) / MILLIS_PER_MINUTE
+                    if (overdueMinutes > 0) {
+                        add(SafetyShareDetail(label = "当前状态", value = "已超过 ${compactDuration(overdueMinutes)}"))
+                    }
                 }
+                ?: plan.estimatedDurationMinutes
+                    ?.takeIf { it > 0 }
+                    ?.let { durationMinutes ->
+                        add(
+                            SafetyShareDetail(
+                                label = "预计完成",
+                                value = expectedFinishLabel(nowEpochMillis, durationMinutes, zoneId)
+                            )
+                        )
+                        add(SafetyShareDetail(label = "超时确认", value = "预计完成 +60 分钟"))
+                    }
         }
     }
 
     private fun SafetyShareRoutePlan.routeSummary(): String =
         "${String.format(Locale.US, "%.1f", distanceKm)} km / +$ascentMeters m"
 
+    private fun Long.timeLabel(zoneId: ZoneId): String =
+        Instant.ofEpochMilli(this)
+            .atZone(zoneId)
+            .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+
+    private fun compactDuration(totalMinutes: Long): String {
+        val minutes = totalMinutes.coerceAtLeast(0L)
+        val hours = minutes / 60L
+        val remainder = minutes % 60L
+        return if (hours > 0L) {
+            "${hours}h${remainder.toString().padStart(2, '0')}"
+        } else {
+            "$remainder 分钟"
+        }
+    }
+
     private const val MAX_SHARE_ACCURACY_METERS = 100.0
     private const val MAX_SHARE_LOCATION_AGE_MILLIS = 2 * 60_000L
+    private const val MILLIS_PER_MINUTE = 60_000L
 }

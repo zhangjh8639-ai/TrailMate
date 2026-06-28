@@ -230,6 +230,11 @@ import com.trailmate.app.core.model.RouteExitGuidanceOption
 import com.trailmate.app.core.model.RouteExitGuidancePresentation
 import com.trailmate.app.core.model.RouteExitGuidanceTone
 import com.trailmate.app.core.model.RouteGearAdvisorEngine
+import com.trailmate.app.core.model.ReturnEtaPlan
+import com.trailmate.app.core.model.ReturnEtaWatchDetail
+import com.trailmate.app.core.model.ReturnEtaWatchEngine
+import com.trailmate.app.core.model.ReturnEtaWatchPresentation
+import com.trailmate.app.core.model.ReturnEtaWatchTone
 import com.trailmate.app.core.model.SafetyShareDetail
 import com.trailmate.app.core.model.SafetyShareActionEngine
 import com.trailmate.app.core.model.SafetyShareEngine
@@ -340,6 +345,9 @@ fun RouteDetailScreen(
     var locationGuidanceStatus by remember(routeSessionKey) { mutableStateOf(initialLocationGuidanceStatus) }
     var locationGuidanceCaption by remember(routeSessionKey) { mutableStateOf(initialLocationGuidanceCaption) }
     var locationPresentationNowEpochMillis by remember(routeSessionKey) {
+        mutableStateOf(System.currentTimeMillis())
+    }
+    var returnEtaNowEpochMillis by remember(routeSessionKey) {
         mutableStateOf(System.currentTimeMillis())
     }
     var latestLocationFix by remember(routeSessionKey) { mutableStateOf(initialLocationFix) }
@@ -1243,6 +1251,16 @@ fun RouteDetailScreen(
             locationPresentationNowEpochMillis = System.currentTimeMillis()
         }
     }
+    LaunchedEffect(routeSessionKey, trackRecording.status, trackRecording.startedAtEpochMillis) {
+        returnEtaNowEpochMillis = System.currentTimeMillis()
+        while (
+            trackRecording.status == TrackRecordingStatus.RECORDING ||
+            trackRecording.status == TrackRecordingStatus.PAUSED
+        ) {
+            delay(60_000L)
+            returnEtaNowEpochMillis = System.currentTimeMillis()
+        }
+    }
     DisposableEffect(gpsEnabled, locationTrackingRestartToken, routeSessionKey) {
         if (gpsEnabled) {
             locationTracker.start { snapshot ->
@@ -1284,6 +1302,7 @@ fun RouteDetailScreen(
             gpsEnabled = gpsEnabled,
             locationSnapshot = locationSnapshot,
             locationPresentationNowEpochMillis = locationPresentationNowEpochMillis,
+            returnEtaNowEpochMillis = returnEtaNowEpochMillis,
             locationGuidanceStatus = locationGuidanceStatus,
             locationGuidanceCaption = locationGuidanceCaption,
             latestLocationFix = latestLocationFix,
@@ -1617,6 +1636,7 @@ internal fun RouteCockpitTabContent(
     gpsEnabled: Boolean,
     locationSnapshot: TrailMateLocationSnapshot,
     locationPresentationNowEpochMillis: Long = System.currentTimeMillis(),
+    returnEtaNowEpochMillis: Long = System.currentTimeMillis(),
     locationGuidanceStatus: LocationBackedHikeStatus,
     locationGuidanceCaption: String,
     latestLocationFix: HikeLocationFix?,
@@ -1717,10 +1737,13 @@ internal fun RouteCockpitTabContent(
         horizontalAccuracyMeters = locationSnapshot.horizontalAccuracyMeters,
         timestampEpochMillis = locationSnapshot.timestampEpochMillis
     )
+    val plannedDurationMinutes = route.durationMinutes ?: plan.estimatedDurationMinutesFromFinish()
+    val activeExpectedFinishEpochMillis = trackRecording.expectedFinishEpochMillis(plannedDurationMinutes)
     val safetyShareRoutePlan = SafetyShareRoutePlan(
         distanceKm = route.distanceKm,
         ascentMeters = route.ascentMeters,
-        estimatedDurationMinutes = route.durationMinutes
+        estimatedDurationMinutes = plannedDurationMinutes,
+        expectedFinishEpochMillis = activeExpectedFinishEpochMillis
     )
     val safetyShare = SafetyShareEngine.present(
         routeName = route.routeName,
@@ -1847,6 +1870,7 @@ internal fun RouteCockpitTabContent(
                 plan = plan,
                 locationSnapshot = locationSnapshot,
                 locationPresentationNowEpochMillis = locationPresentationNowEpochMillis,
+                returnEtaNowEpochMillis = returnEtaNowEpochMillis,
                 locationGuidanceStatus = locationGuidanceStatus,
                 locationGuidanceCaption = locationGuidanceCaption,
                 latestLocationFix = latestLocationFix,
@@ -3684,6 +3708,7 @@ private fun GpsTrackPanel(
     plan: HikePlanSummary,
     locationSnapshot: TrailMateLocationSnapshot,
     locationPresentationNowEpochMillis: Long,
+    returnEtaNowEpochMillis: Long,
     locationGuidanceStatus: LocationBackedHikeStatus,
     locationGuidanceCaption: String,
     latestLocationFix: HikeLocationFix?,
@@ -3719,10 +3744,13 @@ private fun GpsTrackPanel(
         horizontalAccuracyMeters = locationSnapshot.horizontalAccuracyMeters,
         timestampEpochMillis = locationSnapshot.timestampEpochMillis
     )
+    val plannedDurationMinutes = route.durationMinutes ?: plan.estimatedDurationMinutesFromFinish()
+    val activeExpectedFinishEpochMillis = trackRecording.expectedFinishEpochMillis(plannedDurationMinutes)
     val safetyShareRoutePlan = SafetyShareRoutePlan(
         distanceKm = route.distanceKm,
         ascentMeters = route.ascentMeters,
-        estimatedDurationMinutes = route.durationMinutes
+        estimatedDurationMinutes = plannedDurationMinutes,
+        expectedFinishEpochMillis = activeExpectedFinishEpochMillis
     )
     val safetyShare = SafetyShareEngine.present(
         routeName = route.routeName,
@@ -3750,6 +3778,13 @@ private fun GpsTrackPanel(
         locationStatus = locationGuidanceStatus,
         fix = latestLocationFix,
         trackRecording = trackRecording
+    )
+    val returnEtaWatch = ReturnEtaWatchEngine.present(
+        plan = ReturnEtaPlan(
+            estimatedDurationMinutes = plannedDurationMinutes
+        ),
+        trackRecording = trackRecording,
+        nowEpochMillis = returnEtaNowEpochMillis
     )
     val routeDeviationAlert = RouteDeviationAlertPresentationEngine.present(latestRouteDeviationAlertDecision)
     val trackReview = TrackRecordingReviewEngine.present(trackRecording)
@@ -3805,6 +3840,19 @@ private fun GpsTrackPanel(
             RouteExitGuidancePanel(
                 presentation = exitGuidance,
                 onPrimaryAction = onRequestLocation
+            )
+            ReturnEtaWatchPanel(
+                presentation = returnEtaWatch,
+                onPrimaryAction = {
+                    if (returnEtaWatch.primaryActionRequiresSafetyShare) {
+                        SafetyShareActionEngine.resolveShareAction(
+                            routeName = route.routeName,
+                            location = safetyShareLocation,
+                            trackRecording = trackRecording,
+                            routePlan = safetyShareRoutePlan
+                        ).shareText?.let(onShareSafetyText) ?: onRequestLocation()
+                    }
+                }
             )
             TrailMatePanel(
                 title = "轨迹记录",
@@ -4270,6 +4318,160 @@ private fun RouteDeviationAlertBanner(
             }
         }
     }
+}
+
+@Composable
+private fun ReturnEtaWatchPanel(
+    presentation: ReturnEtaWatchPresentation,
+    onPrimaryAction: () -> Unit
+) {
+    val contentColor = presentation.tone.returnEtaContentColor()
+    val containerColor = presentation.tone.returnEtaContainerColor()
+    val glyph = when (presentation.tone) {
+        ReturnEtaWatchTone.NEUTRAL -> TrailMateGlyph.Compass
+        ReturnEtaWatchTone.READY -> TrailMateGlyph.Check
+        ReturnEtaWatchTone.CAUTION -> TrailMateGlyph.Warning
+        ReturnEtaWatchTone.ALERT -> TrailMateGlyph.Warning
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(containerColor)
+            .border(1.dp, contentColor.copy(alpha = 0.18f), RoundedCornerShape(16.dp))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(contentColor.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center
+            ) {
+                TrailMateLineIcon(
+                    glyph = glyph,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = contentColor
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = presentation.title,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    TrailMateStatusPill(
+                        text = presentation.statusLabel,
+                        containerColor = contentColor.copy(alpha = 0.12f),
+                        contentColor = contentColor
+                    )
+                }
+                Text(
+                    text = presentation.caption,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        if (presentation.details.isNotEmpty()) {
+            ReturnEtaWatchDetailList(details = presentation.details)
+        }
+        if (presentation.primaryActionRequiresSafetyShare) {
+            OutlinedButton(
+                onClick = onPrimaryAction,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(presentation.primaryActionLabel)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReturnEtaWatchDetailList(details: List<ReturnEtaWatchDetail>) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        details.take(3).forEach { detail ->
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.74f))
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = detail.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = detail.value,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReturnEtaWatchTone.returnEtaContainerColor(): Color =
+    when (this) {
+        ReturnEtaWatchTone.NEUTRAL -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.46f)
+        ReturnEtaWatchTone.READY -> MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+        ReturnEtaWatchTone.CAUTION -> Color(0xFFFFF4E0)
+        ReturnEtaWatchTone.ALERT -> Color(0xFFFFEDE6)
+    }
+
+@Composable
+private fun ReturnEtaWatchTone.returnEtaContentColor(): Color =
+    when (this) {
+        ReturnEtaWatchTone.NEUTRAL -> MaterialTheme.colorScheme.onSurfaceVariant
+        ReturnEtaWatchTone.READY -> MaterialTheme.colorScheme.primary
+        ReturnEtaWatchTone.CAUTION -> Color(0xFF9A5B00)
+        ReturnEtaWatchTone.ALERT -> Color(0xFFB3261E)
+}
+
+private fun TrackRecordingState.expectedFinishEpochMillis(durationMinutes: Int?): Long? {
+    val startedAt = startedAtEpochMillis?.takeIf { it > 0L } ?: return null
+    val duration = durationMinutes?.takeIf { it > 0 } ?: return null
+    return startedAt + duration * 60_000L
+}
+
+private fun HikePlanSummary.estimatedDurationMinutesFromFinish(): Int? {
+    val finish = checkpoints.lastOrNull { checkpoint -> checkpoint.type == HikePlanCheckpointType.FINISH }
+        ?: checkpoints.lastOrNull()
+        ?: return null
+    val parts = finish.timeFromStart.split(":")
+    if (parts.size != 2) {
+        return null
+    }
+    val hours = parts[0].toIntOrNull() ?: return null
+    val minutes = parts[1].toIntOrNull() ?: return null
+    if (hours < 0 || minutes !in 0..59) {
+        return null
+    }
+    return (hours * 60 + minutes).takeIf { it > 0 }
 }
 
 @Composable
