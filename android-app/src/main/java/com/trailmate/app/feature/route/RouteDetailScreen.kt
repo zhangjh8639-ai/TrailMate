@@ -5815,6 +5815,7 @@ private fun RouteExitGuidancePanel(
     presentation: RouteExitGuidancePresentation,
     onPrimaryAction: () -> Unit
 ) {
+    val button = RouteExitGuidancePanelButtonPresentationEngine.present(presentation)
     val contentColor = presentation.tone.exitGuidanceContentColor()
     val containerColor = presentation.tone.exitGuidanceContainerColor()
     val glyph = when (presentation.tone) {
@@ -5880,12 +5881,12 @@ private fun RouteExitGuidancePanel(
             options = presentation.options,
             contentColor = contentColor
         )
-        if (presentation.tone == RouteExitGuidanceTone.CAUTION) {
+        if (button.visible) {
             OutlinedButton(
                 onClick = onPrimaryAction,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(presentation.primaryActionLabel)
+                Text(button.label)
             }
         }
     }
