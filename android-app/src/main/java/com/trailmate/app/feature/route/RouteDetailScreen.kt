@@ -168,6 +168,10 @@ import com.trailmate.app.core.design.TrailMateStatusPill
 import com.trailmate.app.core.model.AiGearAdvisorContract
 import com.trailmate.app.core.model.AiGearAdvisorPresentation
 import com.trailmate.app.core.model.AiGearAdvisorResponse
+import com.trailmate.app.core.model.BacktrackBreadcrumbGuidanceDetail
+import com.trailmate.app.core.model.BacktrackBreadcrumbGuidanceEngine
+import com.trailmate.app.core.model.BacktrackBreadcrumbGuidancePresentation
+import com.trailmate.app.core.model.BacktrackBreadcrumbGuidanceTone
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.DaylightReturnWatchDetail
 import com.trailmate.app.core.model.DaylightReturnWatchEngine
@@ -4040,6 +4044,10 @@ private fun GpsTrackPanel(
         fix = latestLocationFix,
         trackRecording = trackRecording
     )
+    val breadcrumbGuidance = BacktrackBreadcrumbGuidanceEngine.present(
+        trackRecording = trackRecording,
+        nowEpochMillis = locationPresentationNowEpochMillis
+    )
     val returnEtaWatch = ReturnEtaWatchEngine.present(
         plan = ReturnEtaPlan(
             estimatedDurationMinutes = plannedDurationMinutes
@@ -4139,6 +4147,7 @@ private fun GpsTrackPanel(
                 presentation = exitGuidance,
                 onPrimaryAction = onRequestLocation
             )
+            BacktrackBreadcrumbGuidancePanel(presentation = breadcrumbGuidance)
             ReturnEtaWatchPanel(
                 presentation = returnEtaWatch,
                 onPrimaryAction = {
@@ -5634,6 +5643,138 @@ private fun HikePlanSummary.estimatedDurationMinutesFromFinish(): Int? {
     }
     return (hours * 60 + minutes).takeIf { it > 0 }
 }
+
+@Composable
+private fun BacktrackBreadcrumbGuidancePanel(
+    presentation: BacktrackBreadcrumbGuidancePresentation
+) {
+    if (!presentation.visible) {
+        return
+    }
+
+    val contentColor = presentation.tone.backtrackBreadcrumbContentColor()
+    val containerColor = presentation.tone.backtrackBreadcrumbContainerColor()
+    val glyph = when (presentation.tone) {
+        BacktrackBreadcrumbGuidanceTone.READY -> TrailMateGlyph.Route
+        BacktrackBreadcrumbGuidanceTone.CAUTION -> TrailMateGlyph.Route
+        BacktrackBreadcrumbGuidanceTone.ALERT -> TrailMateGlyph.Warning
+        BacktrackBreadcrumbGuidanceTone.UNAVAILABLE -> TrailMateGlyph.Map
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(containerColor)
+            .border(1.dp, contentColor.copy(alpha = 0.16f), RoundedCornerShape(16.dp))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(contentColor.copy(alpha = 0.13f)),
+                contentAlignment = Alignment.Center
+            ) {
+                TrailMateLineIcon(
+                    glyph = glyph,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = contentColor
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = presentation.title,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    TrailMateStatusPill(
+                        text = presentation.statusLabel,
+                        containerColor = contentColor.copy(alpha = 0.12f),
+                        contentColor = contentColor
+                    )
+                }
+                Text(
+                    text = presentation.caption,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        BacktrackBreadcrumbGuidanceDetailList(
+            details = presentation.details,
+            contentColor = contentColor
+        )
+    }
+}
+
+@Composable
+private fun BacktrackBreadcrumbGuidanceDetailList(
+    details: List<BacktrackBreadcrumbGuidanceDetail>,
+    contentColor: Color
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        details.take(3).forEach { detail ->
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.72f))
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = detail.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = detail.value,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = contentColor,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BacktrackBreadcrumbGuidanceTone.backtrackBreadcrumbContainerColor(): Color =
+    when (this) {
+        BacktrackBreadcrumbGuidanceTone.READY -> MaterialTheme.colorScheme.primary.copy(alpha = 0.07f)
+        BacktrackBreadcrumbGuidanceTone.CAUTION -> Color(0xFFFFF4E0)
+        BacktrackBreadcrumbGuidanceTone.ALERT -> Color(0xFFFFEDE6)
+        BacktrackBreadcrumbGuidanceTone.UNAVAILABLE -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.50f)
+    }
+
+@Composable
+private fun BacktrackBreadcrumbGuidanceTone.backtrackBreadcrumbContentColor(): Color =
+    when (this) {
+        BacktrackBreadcrumbGuidanceTone.READY -> MaterialTheme.colorScheme.primary
+        BacktrackBreadcrumbGuidanceTone.CAUTION -> Color(0xFF9A5B00)
+        BacktrackBreadcrumbGuidanceTone.ALERT -> Color(0xFFB3261E)
+        BacktrackBreadcrumbGuidanceTone.UNAVAILABLE -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
 
 @Composable
 private fun RouteExitGuidancePanel(
