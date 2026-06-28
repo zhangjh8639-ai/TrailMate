@@ -149,7 +149,7 @@ class RouteCockpitPresentationEngineTest {
     }
 
     @Test
-    fun primaryActionKeepsOfflineBaseMapRepairInReadinessBeforeStartingHike() {
+    fun primaryActionRequiresOfflineBaseMapBeforeStartingHike() {
         val presentation = RouteCockpitPresentationEngine.build(
             route = sampleRoute,
             plan = samplePlan,
@@ -168,14 +168,14 @@ class RouteCockpitPresentationEngineTest {
             nowEpochMillis = NOW_EPOCH_MILLIS
         )
 
-        assertEquals("开始徒步并记录轨迹", presentation.primaryAction.label)
-        assertEquals(RouteCockpitPrimaryActionKind.START_HIKE, presentation.primaryAction.kind)
+        assertEquals("导入离线地图包", presentation.primaryAction.label)
+        assertEquals(RouteCockpitPrimaryActionKind.OPEN_OFFLINE_BASE_MAP, presentation.primaryAction.kind)
         val baseMapItem = presentation.readinessItems.first { it.label == "离线地图包" }
         assertEquals(RouteCockpitReadinessActionKind.OPEN_OFFLINE_BASE_MAP, baseMapItem.actionKind)
     }
 
     @Test
-    fun primaryActionKeepsTargetOfflineBaseMapRegionInReadinessBeforeStartingHike() {
+    fun primaryActionRequiresTargetOfflineBaseMapRegionBeforeStartingHike() {
         val presentation = RouteCockpitPresentationEngine.build(
             route = sampleRoute,
             plan = samplePlan,
@@ -195,14 +195,15 @@ class RouteCockpitPresentationEngineTest {
             nowEpochMillis = NOW_EPOCH_MILLIS
         )
 
-        assertEquals("开始徒步并记录轨迹", presentation.primaryAction.label)
-        assertEquals(RouteCockpitPrimaryActionKind.START_HIKE, presentation.primaryAction.kind)
+        assertEquals("导入离线地图包", presentation.primaryAction.label)
+        assertEquals(RouteCockpitPrimaryActionKind.OPEN_OFFLINE_BASE_MAP, presentation.primaryAction.kind)
         val baseMapItem = presentation.readinessItems.first { it.label == "离线地图包" }
+        assertEquals("杭州市未下载", baseMapItem.value)
         assertEquals(RouteCockpitReadinessActionKind.OPEN_OFFLINE_BASE_MAP, baseMapItem.actionKind)
     }
 
     @Test
-    fun primaryActionKeepsOfflineBaseMapTileVerificationInReadinessBeforeStartingHike() {
+    fun primaryActionRequiresOfflineBaseMapTileVerificationBeforeStartingHike() {
         val presentation = RouteCockpitPresentationEngine.build(
             route = sampleRoute,
             plan = samplePlan,
@@ -223,10 +224,139 @@ class RouteCockpitPresentationEngineTest {
             nowEpochMillis = NOW_EPOCH_MILLIS
         )
 
-        assertEquals("开始徒步并记录轨迹", presentation.primaryAction.label)
-        assertEquals(RouteCockpitPrimaryActionKind.START_HIKE, presentation.primaryAction.kind)
+        assertEquals("飞行模式验证底图", presentation.primaryAction.label)
+        assertEquals(RouteCockpitPrimaryActionKind.OPEN_OFFLINE_BASE_MAP, presentation.primaryAction.kind)
         val baseMapItem = presentation.readinessItems.first { it.label == "离线地图包" }
         assertEquals(RouteCockpitReadinessActionKind.OPEN_OFFLINE_BASE_MAP, baseMapItem.actionKind)
+    }
+
+    @Test
+    fun primaryActionRequiresCriticalGearBeforeStartingHike() {
+        val presentation = RouteCockpitPresentationEngine.build(
+            route = sampleRoute,
+            plan = samplePlan,
+            session = HikeSessionState(status = HikeSessionStatus.READY, reachedCheckpointIndex = 0),
+            liveGuidance = sampleGuidance,
+            mapReadiness = mapReadiness(gpsEnabled = true, offlineRoutePackReady = true),
+            departureReadiness = departureReadiness(
+                gpsEnabled = true,
+                offlineRoutePackReady = true,
+                gearRecommendations = listOf(
+                    GearRecommendation(
+                        category = "头灯",
+                        status = GearStatus.MISSING,
+                        rationale = "夜间下撤需要备用照明。"
+                    )
+                )
+            ),
+            locationSnapshot = locatedSnapshot,
+            locationGuidanceStatus = LocationBackedHikeStatus.ON_ROUTE,
+            trackRecording = TrackRecordingState(status = TrackRecordingStatus.IDLE),
+            wasRecentlyOffRoute = false,
+            nowEpochMillis = NOW_EPOCH_MILLIS
+        )
+
+        assertEquals("补齐 1 件关键装备", presentation.primaryAction.label)
+        assertEquals(RouteCockpitPrimaryActionKind.SHOW_GEAR, presentation.primaryAction.kind)
+        assertEquals("缺 1 项", presentation.readinessItems.first { it.label == "装备" }.value)
+    }
+
+    @Test
+    fun optionalOfflineBaseMapGapDoesNotBlockStartingHike() {
+        val presentation = RouteCockpitPresentationEngine.build(
+            route = sampleRoute,
+            plan = samplePlan,
+            session = HikeSessionState(status = HikeSessionStatus.READY, reachedCheckpointIndex = 0),
+            liveGuidance = sampleGuidance,
+            mapReadiness = mapReadiness(gpsEnabled = true, offlineRoutePackReady = true),
+            departureReadiness = departureReadiness(
+                gpsEnabled = true,
+                offlineRoutePackReady = true,
+                offlineBaseMapRequirement = OfflineBaseMapRequirement.RECOMMENDED,
+                offlineBaseMapRegionCount = 0
+            ),
+            locationSnapshot = locatedSnapshot,
+            locationGuidanceStatus = LocationBackedHikeStatus.ON_ROUTE,
+            trackRecording = TrackRecordingState(status = TrackRecordingStatus.IDLE),
+            wasRecentlyOffRoute = false,
+            nowEpochMillis = NOW_EPOCH_MILLIS
+        )
+
+        assertEquals("开始徒步并记录轨迹", presentation.primaryAction.label)
+        assertEquals(RouteCockpitPrimaryActionKind.START_HIKE, presentation.primaryAction.kind)
+        assertEquals("建议下载", presentation.readinessItems.first { it.label == "离线地图包" }.value)
+    }
+
+    @Test
+    fun activeRecordingKeepsPausePrimaryEvenWhenDepartureRepairsRemain() {
+        val presentation = RouteCockpitPresentationEngine.build(
+            route = sampleRoute,
+            plan = samplePlan,
+            session = HikeSessionState(status = HikeSessionStatus.ACTIVE, reachedCheckpointIndex = 1),
+            liveGuidance = sampleGuidance,
+            mapReadiness = mapReadiness(gpsEnabled = true, offlineRoutePackReady = true),
+            departureReadiness = departureReadiness(
+                gpsEnabled = true,
+                offlineRoutePackReady = true,
+                offlineBaseMapRegionCount = 0
+            ),
+            locationSnapshot = locatedSnapshot,
+            locationGuidanceStatus = LocationBackedHikeStatus.ON_ROUTE,
+            trackRecording = TrackRecordingState(status = TrackRecordingStatus.RECORDING),
+            wasRecentlyOffRoute = false,
+            nowEpochMillis = NOW_EPOCH_MILLIS
+        )
+
+        assertEquals("暂停", presentation.primaryAction.label)
+        assertEquals(RouteCockpitPrimaryActionKind.PAUSE_RECORDING, presentation.primaryAction.kind)
+    }
+
+    @Test
+    fun restoredRecordingKeepsPausePrimaryEvenWhenSessionIsStillReady() {
+        val presentation = RouteCockpitPresentationEngine.build(
+            route = sampleRoute,
+            plan = samplePlan,
+            session = HikeSessionState(status = HikeSessionStatus.READY, reachedCheckpointIndex = 0),
+            liveGuidance = sampleGuidance,
+            mapReadiness = mapReadiness(gpsEnabled = true, offlineRoutePackReady = true),
+            departureReadiness = departureReadiness(
+                gpsEnabled = true,
+                offlineRoutePackReady = true,
+                offlineBaseMapRegionCount = 0
+            ),
+            locationSnapshot = locatedSnapshot,
+            locationGuidanceStatus = LocationBackedHikeStatus.ON_ROUTE,
+            trackRecording = TrackRecordingState(status = TrackRecordingStatus.RECORDING),
+            wasRecentlyOffRoute = false,
+            nowEpochMillis = NOW_EPOCH_MILLIS
+        )
+
+        assertEquals("暂停", presentation.primaryAction.label)
+        assertEquals(RouteCockpitPrimaryActionKind.PAUSE_RECORDING, presentation.primaryAction.kind)
+    }
+
+    @Test
+    fun restoredPausedRecordingKeepsResumePrimaryEvenWhenSessionIsStillReady() {
+        val presentation = RouteCockpitPresentationEngine.build(
+            route = sampleRoute,
+            plan = samplePlan,
+            session = HikeSessionState(status = HikeSessionStatus.READY, reachedCheckpointIndex = 0),
+            liveGuidance = sampleGuidance,
+            mapReadiness = mapReadiness(gpsEnabled = true, offlineRoutePackReady = true),
+            departureReadiness = departureReadiness(
+                gpsEnabled = true,
+                offlineRoutePackReady = true,
+                offlineBaseMapRegionCount = 0
+            ),
+            locationSnapshot = locatedSnapshot,
+            locationGuidanceStatus = LocationBackedHikeStatus.ON_ROUTE,
+            trackRecording = TrackRecordingState(status = TrackRecordingStatus.PAUSED),
+            wasRecentlyOffRoute = false,
+            nowEpochMillis = NOW_EPOCH_MILLIS
+        )
+
+        assertEquals("继续", presentation.primaryAction.label)
+        assertEquals(RouteCockpitPrimaryActionKind.RESUME_RECORDING, presentation.primaryAction.kind)
     }
 
     @Test
@@ -375,6 +505,7 @@ class RouteCockpitPresentationEngineTest {
     private fun departureReadiness(
         gpsEnabled: Boolean,
         offlineRoutePackReady: Boolean,
+        offlineBaseMapRequirement: OfflineBaseMapRequirement = OfflineBaseMapRequirement.REQUIRED,
         offlineBaseMapRegionCount: Int? = 1,
         offlineBaseMapCoversTargetRoute: Boolean = offlineBaseMapRegionCount != null && offlineBaseMapRegionCount > 0,
         offlineBaseMapTilesVerifiedWithoutNetwork: Boolean = offlineBaseMapCoversTargetRoute,
@@ -384,6 +515,7 @@ class RouteCockpitPresentationEngineTest {
     ) = DepartureReadinessEngine.build(
         mapReadiness = mapReadiness(gpsEnabled = gpsEnabled, offlineRoutePackReady = offlineRoutePackReady),
         offlineRoutePackReady = offlineRoutePackReady,
+        offlineBaseMapRequirement = offlineBaseMapRequirement,
         offlineBaseMapRegionCount = offlineBaseMapRegionCount,
         offlineBaseMapCoversTargetRoute = offlineBaseMapCoversTargetRoute,
         offlineBaseMapTilesVerifiedWithoutNetwork = offlineBaseMapTilesVerifiedWithoutNetwork,
