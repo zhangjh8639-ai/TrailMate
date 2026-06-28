@@ -200,6 +200,47 @@ class SafetyShareEngineTest {
     }
 
     @Test
+    fun sharesAbsoluteExpectedFinishWithoutRecalculatingFromShareTime() {
+        val expectedFinish = SHARE_NOW + 410 * 60_000L
+        val presentation = SafetyShareEngine.present(
+            routeName = "龙井山脊",
+            location = SafetyShareLocation(
+                latitude = 30.25,
+                longitude = 120.12,
+                horizontalAccuracyMeters = 8.0,
+                timestampEpochMillis = SHARE_NOW + 500 * 60_000L - 30_000L
+            ),
+            trackRecording = TrackRecordingState(
+                status = TrackRecordingStatus.RECORDING,
+                startedAtEpochMillis = SHARE_NOW,
+                totalDistanceKm = 12.4
+            ),
+            routePlan = SafetyShareRoutePlan(
+                distanceKm = 15.2,
+                ascentMeters = 860,
+                estimatedDurationMinutes = 410,
+                expectedFinishEpochMillis = expectedFinish
+            ),
+            nowEpochMillis = SHARE_NOW + 500 * 60_000L,
+            zoneId = ZoneId.of("Asia/Shanghai")
+        )
+
+        val shareText = requireNotNull(presentation.shareText)
+        assertTrue(shareText.contains("预计完成：2026-06-19 15:50"))
+        assertTrue(shareText.contains("逾期提示：已超过预计完成 1h30"))
+        assertFalse(shareText.contains("2026-06-20 00:10"))
+        assertEquals(
+            listOf(
+                SafetyShareDetail(label = "路线", value = "15.2 km / +860 m"),
+                SafetyShareDetail(label = "预计完成", value = "2026-06-19 15:50"),
+                SafetyShareDetail(label = "超时确认", value = "预计完成 +60 分钟"),
+                SafetyShareDetail(label = "当前状态", value = "已超过 1h30")
+            ),
+            presentation.details
+        )
+    }
+
+    @Test
     fun omitsExpectedFinishWhenRoutePlanHasNoDuration() {
         val presentation = SafetyShareEngine.present(
             routeName = "龙井山脊",
