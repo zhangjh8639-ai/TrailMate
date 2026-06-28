@@ -168,6 +168,10 @@ import com.trailmate.app.core.model.AiGearAdvisorContract
 import com.trailmate.app.core.model.AiGearAdvisorPresentation
 import com.trailmate.app.core.model.AiGearAdvisorResponse
 import com.trailmate.app.core.model.BaselineProfile
+import com.trailmate.app.core.model.DepartureBriefPlan
+import com.trailmate.app.core.model.DepartureBriefShareDetail
+import com.trailmate.app.core.model.DepartureBriefShareEngine
+import com.trailmate.app.core.model.DepartureBriefSharePresentation
 import com.trailmate.app.core.model.DepartureReadinessEngine
 import com.trailmate.app.core.model.DepartureReadinessStep
 import com.trailmate.app.core.model.DepartureReadinessSummary
@@ -1315,6 +1319,7 @@ fun RouteDetailScreen(
             onRequestLocation = requestLocation,
             onStopLocationUpdates = stopLocationUpdates,
             onShareSafetyText = { text -> context.shareSafetyText(text) },
+            onShareDepartureBriefText = { text, chooserTitle -> context.shareTrailMateText(text, chooserTitle) },
             onTrackAction = requestTrackActionWithPermissionGate,
             onRequestNotificationPermission = requestTrackNotificationPermission,
             onOpenTrackDataRequested = onOpenTrackDataRequested,
@@ -1649,6 +1654,7 @@ internal fun RouteCockpitTabContent(
     onRequestLocation: () -> Unit,
     onStopLocationUpdates: () -> Unit,
     onShareSafetyText: (String) -> Unit,
+    onShareDepartureBriefText: (String, String) -> Unit = { _, _ -> },
     onTrackAction: () -> Unit,
     onRequestNotificationPermission: () -> Unit,
     onOpenTrackDataRequested: () -> Unit,
@@ -1868,6 +1874,7 @@ internal fun RouteCockpitTabContent(
             GpsTrackPanel(
                 route = route,
                 plan = plan,
+                hikeSession = hikeSession,
                 locationSnapshot = locationSnapshot,
                 locationPresentationNowEpochMillis = locationPresentationNowEpochMillis,
                 returnEtaNowEpochMillis = returnEtaNowEpochMillis,
@@ -1882,6 +1889,7 @@ internal fun RouteCockpitTabContent(
                 onRequestLocation = onRequestLocation,
                 onStopLocationUpdates = onStopLocationUpdates,
                 onShareSafetyText = onShareSafetyText,
+                onShareDepartureBriefText = onShareDepartureBriefText,
                 onTrackAction = onTrackAction,
                 onRequestNotificationPermission = onRequestNotificationPermission,
                 onOpenTrackDataRequested = onOpenTrackDataRequested,
@@ -3706,6 +3714,7 @@ private fun TrackNotificationPermissionRow(
 private fun GpsTrackPanel(
     route: ImportedRoute,
     plan: HikePlanSummary,
+    hikeSession: HikeSessionState,
     locationSnapshot: TrailMateLocationSnapshot,
     locationPresentationNowEpochMillis: Long,
     returnEtaNowEpochMillis: Long,
@@ -3720,6 +3729,7 @@ private fun GpsTrackPanel(
     onRequestLocation: () -> Unit,
     onStopLocationUpdates: () -> Unit,
     onShareSafetyText: (String) -> Unit,
+    onShareDepartureBriefText: (String, String) -> Unit,
     onTrackAction: () -> Unit,
     onRequestNotificationPermission: () -> Unit,
     onOpenTrackDataRequested: () -> Unit,
@@ -3784,6 +3794,17 @@ private fun GpsTrackPanel(
             estimatedDurationMinutes = plannedDurationMinutes
         ),
         trackRecording = trackRecording,
+        nowEpochMillis = returnEtaNowEpochMillis
+    )
+    val departureBriefShare = DepartureBriefShareEngine.present(
+        plan = DepartureBriefPlan(
+            routeName = route.routeName,
+            distanceKm = route.distanceKm,
+            ascentMeters = route.ascentMeters,
+            estimatedDurationMinutes = plannedDurationMinutes
+        ),
+        trackRecording = trackRecording,
+        routeSessionCompleted = hikeSession.status == HikeSessionStatus.COMPLETED,
         nowEpochMillis = returnEtaNowEpochMillis
     )
     val routeDeviationAlert = RouteDeviationAlertPresentationEngine.present(latestRouteDeviationAlertDecision)
@@ -3869,6 +3890,14 @@ private fun GpsTrackPanel(
             TrackNotificationPermissionRow(
                 granted = notificationPermissionGranted,
                 onRequestPermission = onRequestNotificationPermission
+            )
+            DepartureBriefSharePanel(
+                presentation = departureBriefShare,
+                onPrimaryAction = {
+                    departureBriefShare.shareText?.let { text ->
+                        onShareDepartureBriefText(text, departureBriefShare.chooserTitle ?: "发送出发报备")
+                    }
+                }
             )
             SafetySharePanel(
                 presentation = safetyShare,
@@ -4116,6 +4145,105 @@ private fun LocationReliabilityPanel(
 
 @Composable
 private fun LocationReliabilityDetailList(details: List<LocationReliabilityDetail>) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        details.take(3).forEach { detail ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = detail.label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = detail.value,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.End
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DepartureBriefSharePanel(
+    presentation: DepartureBriefSharePresentation,
+    onPrimaryAction: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.52f),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.secondary.copy(alpha = 0.16f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.secondary),
+                contentAlignment = Alignment.Center
+            ) {
+                TrailMateLineIcon(
+                    glyph = TrailMateGlyph.Route,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSecondary
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = presentation.title,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    TrailMateStatusPill(
+                        text = presentation.statusLabel,
+                        containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
+                        contentColor = MaterialTheme.colorScheme.secondary
+                    )
+                }
+                Text(
+                    text = presentation.caption,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (presentation.details.isNotEmpty()) {
+                    DepartureBriefShareDetailList(details = presentation.details)
+                }
+            }
+            OutlinedButton(
+                onClick = onPrimaryAction,
+                enabled = presentation.shareText != null
+            ) {
+                Text(presentation.primaryActionLabel)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DepartureBriefShareDetailList(details: List<DepartureBriefShareDetail>) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         details.take(3).forEach { detail ->
             Row(
@@ -6036,10 +6164,14 @@ private suspend fun readOfflineBaseMapStatus(
     }
 
 private fun Context.shareSafetyText(text: String) {
+    shareTrailMateText(text = text, chooserTitle = "分享安全位置")
+}
+
+private fun Context.shareTrailMateText(text: String, chooserTitle: String) {
     val shareIntent = Intent(Intent.ACTION_SEND)
         .setType("text/plain")
         .putExtra(Intent.EXTRA_TEXT, text)
-    startActivity(Intent.createChooser(shareIntent, "分享安全位置"))
+    startActivity(Intent.createChooser(shareIntent, chooserTitle))
 }
 
 private fun ImportedRoute.sessionKey(): String =
