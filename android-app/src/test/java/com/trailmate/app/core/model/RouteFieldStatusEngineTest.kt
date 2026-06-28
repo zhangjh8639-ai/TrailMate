@@ -44,6 +44,8 @@ class RouteFieldStatusEngineTest {
         assertEquals("2 点", status.items.first { item -> item.label == "轨迹" }.value)
         assertEquals("实走可用", status.items.first { item -> item.label == "底图" }.value)
         assertEquals("可锁屏", status.items.first { item -> item.label == "通知" }.value)
+        assertEquals("未知", status.items.first { item -> item.label == "电量" }.value)
+        assertEquals(listOf("定位", "轨迹", "底图"), status.items.take(3).map { item -> item.label })
     }
 
     @Test
@@ -113,6 +115,71 @@ class RouteFieldStatusEngineTest {
         assertEquals("0 点", status.items.first { item -> item.label == "轨迹" }.value)
         assertEquals("待允许", status.items.first { item -> item.label == "通知" }.value)
     }
+
+    @Test
+    fun normalBatteryIsShownInFieldStatusWithoutChangingRecordingCaption() {
+        val status = buildRecordingStatusWithBattery(RouteBatteryStatus.fromPercent(68))
+
+        assertEquals("68%", status.items.first { item -> item.label == "电量" }.value)
+        assertEquals("前台服务已开启，锁屏或切后台后仍会保存可信定位点。", status.caption)
+    }
+
+    @Test
+    fun lowBatteryShowsConservativeFieldGuidance() {
+        val status = buildRecordingStatusWithBattery(RouteBatteryStatus.fromPercent(24))
+
+        assertEquals("偏低 24%", status.items.first { item -> item.label == "电量" }.value)
+        assertEquals("电量偏低，建议降低屏幕常亮和后台耗电；优先确认返程、补电或缩短路线。", status.caption)
+    }
+
+    @Test
+    fun criticalBatteryShowsImmediateSafetyGuidance() {
+        val status = buildRecordingStatusWithBattery(RouteBatteryStatus.fromPercent(12))
+
+        assertEquals("危险 12%", status.items.first { item -> item.label == "电量" }.value)
+        assertEquals("电量危险，请立即降低屏幕使用，优先撤退或补电，避免继续依赖手机导航。", status.caption)
+    }
+
+    @Test
+    fun invalidBatteryPercentFallsBackToUnknown() {
+        val status = buildRecordingStatusWithBattery(RouteBatteryStatus.fromPercent(140))
+
+        assertEquals("未知", status.items.first { item -> item.label == "电量" }.value)
+    }
+
+    @Test
+    fun missingBatteryPercentFallsBackToUnknown() {
+        val status = buildRecordingStatusWithBattery(RouteBatteryStatus.fromPercent(null))
+
+        assertEquals("未知", status.items.first { item -> item.label == "电量" }.value)
+    }
+
+    private fun buildRecordingStatusWithBattery(batteryStatus: RouteBatteryStatus): RouteFieldStatusSummary =
+        RouteFieldStatusEngine.build(
+            mapReadiness = TrailMapReadiness(
+                provider = TrailMapProvider.LOCAL_GPX_PREVIEW,
+                title = "定位与记录",
+                caption = "离线路线已保存，当前位置可用于检查点推进。",
+                layerChips = listOf("GPX 折线"),
+                actionLabel = "查看路线辅助",
+                isProductionMapReady = false,
+                setupHint = TrailMapSetupHint(
+                    title = "离线与定位已可用",
+                    caption = "当前可用本地 GPX 预览和实走轨迹记录。",
+                    statusLabel = "实走可用"
+                )
+            ),
+            locationReliability = LocationReliabilityPresentation(
+                title = "定位可用于导航",
+                statusLabel = "可靠",
+                caption = "当前位置已贴近路线。",
+                level = LocationReliabilityLevel.GOOD,
+                details = listOf(LocationReliabilityDetail(label = "定位精度", value = "约 8 m"))
+            ),
+            trackRecording = recordedTrack(status = TrackRecordingStatus.RECORDING),
+            notificationPermissionGranted = true,
+            batteryStatus = batteryStatus
+        )
 
     private fun recordedTrack(status: TrackRecordingStatus): TrackRecordingState {
         val recording = TrackRecordingEngine.appendLocation(

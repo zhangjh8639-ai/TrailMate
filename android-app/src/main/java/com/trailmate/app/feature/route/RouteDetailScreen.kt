@@ -12,6 +12,7 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.Uri
+import android.os.BatteryManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.os.Build
@@ -206,6 +207,7 @@ import com.trailmate.app.core.model.RouteCockpitPrimaryActionKind
 import com.trailmate.app.core.model.RouteCockpitReadinessActionKind
 import com.trailmate.app.core.model.RouteCockpitReadinessItem
 import com.trailmate.app.core.model.RouteCockpitReadinessTone
+import com.trailmate.app.core.model.RouteBatteryStatus
 import com.trailmate.app.core.model.RouteFieldStatusEngine
 import com.trailmate.app.core.model.RouteFieldStatusItem
 import com.trailmate.app.core.model.RouteFieldStatusSummary
@@ -1407,6 +1409,47 @@ private enum class RouteDetailTab(val label: String) {
 }
 
 @Composable
+private fun rememberRouteBatteryStatus(context: Context): RouteBatteryStatus {
+    var batteryStatus by remember(context) { mutableStateOf(context.readRouteBatteryStatus()) }
+
+    DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                batteryStatus = intent.toRouteBatteryStatus()
+            }
+        }
+        val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+        val initialIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            context.registerReceiver(receiver, filter)
+        }
+        batteryStatus = initialIntent.toRouteBatteryStatus()
+
+        onDispose {
+            runCatching { context.unregisterReceiver(receiver) }
+        }
+    }
+
+    return batteryStatus
+}
+
+private fun Context.readRouteBatteryStatus(): RouteBatteryStatus =
+    registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)).toRouteBatteryStatus()
+
+private fun Intent?.toRouteBatteryStatus(): RouteBatteryStatus {
+    val level = this?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+    val scale = this?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+    val percent = if (level >= 0 && scale > 0) {
+        (level * 100) / scale
+    } else {
+        null
+    }
+    return RouteBatteryStatus.fromPercent(percent)
+}
+
+@Composable
 private fun RouteReadinessStrip(
     plan: HikePlanSummary,
     gearStatusLabel: String,
@@ -1606,6 +1649,7 @@ internal fun RouteCockpitTabContent(
     initiallyExpandDiagnostics: Boolean = false
 ) {
     val context = LocalContext.current
+    val routeBatteryStatus = rememberRouteBatteryStatus(context)
     var diagnosticsExpanded by rememberSaveable(route.offlineRoutePackKey(), initiallyExpandDiagnostics) {
         mutableStateOf(initiallyExpandDiagnostics)
     }
@@ -1659,7 +1703,8 @@ internal fun RouteCockpitTabContent(
         mapReadiness = mapReadiness,
         locationReliability = fieldLocationReliability,
         trackRecording = trackRecording,
-        notificationPermissionGranted = notificationPermissionGranted
+        notificationPermissionGranted = notificationPermissionGranted,
+        batteryStatus = routeBatteryStatus
     )
     val safetyShare = SafetyShareEngine.present(
         routeName = route.routeName,
