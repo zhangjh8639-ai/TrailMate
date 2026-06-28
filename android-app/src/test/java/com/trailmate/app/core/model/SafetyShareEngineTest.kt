@@ -35,9 +35,11 @@ class SafetyShareEngineTest {
             location = SafetyShareLocation(
                 latitude = 30.25,
                 longitude = 120.12,
-                horizontalAccuracyMeters = 12.4
+                horizontalAccuracyMeters = 12.4,
+                timestampEpochMillis = SHARE_NOW - 30_000L
             ),
-            trackRecording = TrackRecordingState()
+            trackRecording = TrackRecordingState(),
+            nowEpochMillis = SHARE_NOW
         )
 
         assertEquals("可分享当前位置", presentation.title)
@@ -57,15 +59,35 @@ class SafetyShareEngineTest {
     }
 
     @Test
+    fun sharesLocationWhenTimestampIsExactlyTwoMinutesOld() {
+        val presentation = SafetyShareEngine.present(
+            routeName = "龙井山脊",
+            location = SafetyShareLocation(
+                latitude = 30.25,
+                longitude = 120.12,
+                horizontalAccuracyMeters = 12.4,
+                timestampEpochMillis = SHARE_NOW - 2 * 60_000L
+            ),
+            trackRecording = TrackRecordingState(),
+            nowEpochMillis = SHARE_NOW
+        )
+
+        assertEquals("位置可用", presentation.statusLabel)
+        assertTrue(requireNotNull(presentation.shareText).contains("位置：30.25000,120.12000"))
+    }
+
+    @Test
     fun waitsForReliableAccuracyBeforeSharingLocation() {
         val presentation = SafetyShareEngine.present(
             routeName = "龙井山脊",
             location = SafetyShareLocation(
                 latitude = 30.25,
                 longitude = 120.12,
-                horizontalAccuracyMeters = 180.0
+                horizontalAccuracyMeters = 180.0,
+                timestampEpochMillis = SHARE_NOW - 30_000L
             ),
-            trackRecording = TrackRecordingState()
+            trackRecording = TrackRecordingState(),
+            nowEpochMillis = SHARE_NOW
         )
 
         assertEquals("等待定位稳定后分享", presentation.title)
@@ -82,9 +104,11 @@ class SafetyShareEngineTest {
             location = SafetyShareLocation(
                 latitude = 30.25,
                 longitude = 120.12,
-                horizontalAccuracyMeters = null
+                horizontalAccuracyMeters = null,
+                timestampEpochMillis = SHARE_NOW - 30_000L
             ),
-            trackRecording = TrackRecordingState()
+            trackRecording = TrackRecordingState(),
+            nowEpochMillis = SHARE_NOW
         )
 
         assertEquals("等待定位稳定后分享", presentation.title)
@@ -100,9 +124,11 @@ class SafetyShareEngineTest {
             location = SafetyShareLocation(
                 latitude = 30.25,
                 longitude = 120.12,
-                horizontalAccuracyMeters = 12.4
+                horizontalAccuracyMeters = 12.4,
+                timestampEpochMillis = SHARE_NOW - 30_000L
             ),
-            trackRecording = TrackRecordingState()
+            trackRecording = TrackRecordingState(),
+            nowEpochMillis = SHARE_NOW
         )
 
         val shareText = requireNotNull(presentation.shareText)
@@ -120,13 +146,15 @@ class SafetyShareEngineTest {
             location = SafetyShareLocation(
                 latitude = 30.25,
                 longitude = 120.12,
-                horizontalAccuracyMeters = 8.0
+                horizontalAccuracyMeters = 8.0,
+                timestampEpochMillis = SHARE_NOW - 30_000L
             ),
             trackRecording = TrackRecordingState(
                 status = TrackRecordingStatus.RECORDING,
                 routeName = "龙井山脊",
                 totalDistanceKm = 1.234
-            )
+            ),
+            nowEpochMillis = SHARE_NOW
         )
 
         assertEquals("安全分享可用", presentation.title)
@@ -144,7 +172,8 @@ class SafetyShareEngineTest {
             location = SafetyShareLocation(
                 latitude = 30.25,
                 longitude = 120.12,
-                horizontalAccuracyMeters = 8.0
+                horizontalAccuracyMeters = 8.0,
+                timestampEpochMillis = SHARE_NOW - 30_000L
             ),
             trackRecording = TrackRecordingState(),
             routePlan = SafetyShareRoutePlan(
@@ -152,7 +181,7 @@ class SafetyShareEngineTest {
                 ascentMeters = 860,
                 estimatedDurationMinutes = 410
             ),
-            nowEpochMillis = Instant.parse("2026-06-19T01:00:00Z").toEpochMilli(),
+            nowEpochMillis = SHARE_NOW,
             zoneId = ZoneId.of("Asia/Shanghai")
         )
 
@@ -177,7 +206,8 @@ class SafetyShareEngineTest {
             location = SafetyShareLocation(
                 latitude = 30.25,
                 longitude = 120.12,
-                horizontalAccuracyMeters = 8.0
+                horizontalAccuracyMeters = 8.0,
+                timestampEpochMillis = SHARE_NOW - 30_000L
             ),
             trackRecording = TrackRecordingState(),
             routePlan = SafetyShareRoutePlan(
@@ -185,7 +215,7 @@ class SafetyShareEngineTest {
                 ascentMeters = 860,
                 estimatedDurationMinutes = null
             ),
-            nowEpochMillis = Instant.parse("2026-06-19T01:00:00Z").toEpochMilli(),
+            nowEpochMillis = SHARE_NOW,
             zoneId = ZoneId.of("Asia/Shanghai")
         )
 
@@ -197,5 +227,100 @@ class SafetyShareEngineTest {
             listOf(SafetyShareDetail(label = "路线", value = "15.2 km / +860 m")),
             presentation.details
         )
+    }
+
+    @Test
+    fun waitsForFreshLocationBeforeSharingStaleCoordinates() {
+        val presentation = SafetyShareEngine.present(
+            routeName = "龙井山脊",
+            location = SafetyShareLocation(
+                latitude = 30.25,
+                longitude = 120.12,
+                horizontalAccuracyMeters = 8.0,
+                timestampEpochMillis = SHARE_NOW - 3 * 60_000L
+            ),
+            trackRecording = TrackRecordingState(),
+            nowEpochMillis = SHARE_NOW
+        )
+
+        assertEquals("刷新定位后分享", presentation.title)
+        assertEquals("位置已过期", presentation.statusLabel)
+        assertEquals("重新定位", presentation.primaryActionLabel)
+        assertNull(presentation.shareText)
+        assertTrue(presentation.caption.contains("上次定位已超过 2 分钟"))
+    }
+
+    @Test
+    fun waitsForFreshLocationWhenTimestampIsMissing() {
+        val presentation = SafetyShareEngine.present(
+            routeName = "龙井山脊",
+            location = SafetyShareLocation(
+                latitude = 30.25,
+                longitude = 120.12,
+                horizontalAccuracyMeters = 8.0,
+                timestampEpochMillis = null
+            ),
+            trackRecording = TrackRecordingState(),
+            nowEpochMillis = SHARE_NOW
+        )
+
+        assertEquals("刷新定位后分享", presentation.title)
+        assertEquals("位置时间未知", presentation.statusLabel)
+        assertNull(presentation.shareText)
+        assertTrue(presentation.caption.contains("缺少定位时间"))
+    }
+
+    @Test
+    fun waitsForFreshLocationWhenTimestampIsInvalidOrFuture() {
+        listOf(0L, -1L, SHARE_NOW + 1L).forEach { timestamp ->
+            val presentation = SafetyShareEngine.present(
+                routeName = "龙井山脊",
+                location = SafetyShareLocation(
+                    latitude = 30.25,
+                    longitude = 120.12,
+                    horizontalAccuracyMeters = 8.0,
+                    timestampEpochMillis = timestamp
+                ),
+                trackRecording = TrackRecordingState(),
+                nowEpochMillis = SHARE_NOW
+            )
+
+            assertEquals("刷新定位后分享", presentation.title)
+            assertEquals("位置时间未知", presentation.statusLabel)
+            assertNull(presentation.shareText)
+            assertTrue(presentation.caption.contains("需要重新获取 GPS 定位"))
+        }
+    }
+
+    @Test
+    fun clickActionRechecksLocationAgeAtShareTime() {
+        val location = SafetyShareLocation(
+            latitude = 30.25,
+            longitude = 120.12,
+            horizontalAccuracyMeters = 8.0,
+            timestampEpochMillis = SHARE_NOW - 30_000L
+        )
+        val initiallyAvailable = SafetyShareEngine.present(
+            routeName = "龙井山脊",
+            location = location,
+            trackRecording = TrackRecordingState(),
+            nowEpochMillis = SHARE_NOW
+        )
+
+        val action = SafetyShareActionEngine.resolveShareAction(
+            routeName = "龙井山脊",
+            location = location,
+            trackRecording = TrackRecordingState(),
+            routePlan = null,
+            nowEpochMillis = SHARE_NOW + 2 * 60_000L
+        )
+
+        assertTrue(requireNotNull(initiallyAvailable.shareText).contains("TrailMate 安全分享"))
+        assertNull(action.shareText)
+        assertTrue(action.shouldRequestLocation)
+    }
+
+    private companion object {
+        val SHARE_NOW: Long = Instant.parse("2026-06-19T01:00:00Z").toEpochMilli()
     }
 }

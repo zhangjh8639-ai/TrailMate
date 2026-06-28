@@ -9,7 +9,8 @@ import java.util.Locale
 data class SafetyShareLocation(
     val latitude: Double?,
     val longitude: Double?,
-    val horizontalAccuracyMeters: Double?
+    val horizontalAccuracyMeters: Double?,
+    val timestampEpochMillis: Long? = null
 )
 
 data class SafetyShareRoutePlan(
@@ -31,6 +32,35 @@ data class SafetySharePresentation(
     val shareText: String?,
     val details: List<SafetyShareDetail> = emptyList()
 )
+
+data class SafetyShareActionDecision(
+    val shareText: String?,
+    val shouldRequestLocation: Boolean
+)
+
+object SafetyShareActionEngine {
+    fun resolveShareAction(
+        routeName: String,
+        location: SafetyShareLocation,
+        trackRecording: TrackRecordingState,
+        routePlan: SafetyShareRoutePlan?,
+        nowEpochMillis: Long = System.currentTimeMillis(),
+        zoneId: ZoneId = ZoneId.systemDefault()
+    ): SafetyShareActionDecision {
+        val presentation = SafetyShareEngine.present(
+            routeName = routeName,
+            location = location,
+            trackRecording = trackRecording,
+            routePlan = routePlan,
+            nowEpochMillis = nowEpochMillis,
+            zoneId = zoneId
+        )
+        return SafetyShareActionDecision(
+            shareText = presentation.shareText,
+            shouldRequestLocation = presentation.shareText == null
+        )
+    }
+}
 
 object SafetyShareEngine {
     fun present(
@@ -61,6 +91,25 @@ object SafetyShareEngine {
                     ?.takeIf { it.isFinite() && it >= 0.0 }
                     ?.let { "当前定位精度约 ${it.toInt()} m，建议到开阔处重新定位后再分享。" }
                     ?: "缺少定位精度，建议等待定位稳定后再分享安全位置。",
+                primaryActionLabel = "重新定位",
+                shareText = null
+            )
+        }
+        val locationAge = location.timestampEpochMillis.toLocationAgeMillis(nowEpochMillis)
+        if (locationAge == null) {
+            return SafetySharePresentation(
+                title = "刷新定位后分享",
+                statusLabel = "位置时间未知",
+                caption = "缺少定位时间，需要重新获取 GPS 定位后再分享安全位置。",
+                primaryActionLabel = "重新定位",
+                shareText = null
+            )
+        }
+        if (locationAge > MAX_SHARE_LOCATION_AGE_MILLIS) {
+            return SafetySharePresentation(
+                title = "刷新定位后分享",
+                statusLabel = "位置已过期",
+                caption = "上次定位已超过 2 分钟，请重新定位后再分享，避免把旧位置当作当前位置发送。",
                 primaryActionLabel = "重新定位",
                 shareText = null
             )
@@ -142,6 +191,14 @@ object SafetyShareEngine {
     private fun coordinate(value: Double): String =
         String.format(Locale.US, "%.5f", value)
 
+    private fun Long?.toLocationAgeMillis(nowEpochMillis: Long): Long? {
+        val timestamp = this?.takeIf { it > 0L } ?: return null
+        if (timestamp > nowEpochMillis) {
+            return null
+        }
+        return nowEpochMillis - timestamp
+    }
+
     private fun String.urlQueryValue(): String =
         URLEncoder.encode(this, Charsets.UTF_8.name())
 
@@ -180,4 +237,5 @@ object SafetyShareEngine {
         "${String.format(Locale.US, "%.1f", distanceKm)} km / +$ascentMeters m"
 
     private const val MAX_SHARE_ACCURACY_METERS = 100.0
+    private const val MAX_SHARE_LOCATION_AGE_MILLIS = 2 * 60_000L
 }
