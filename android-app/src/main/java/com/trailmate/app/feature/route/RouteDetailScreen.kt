@@ -4911,6 +4911,10 @@ private fun ReturnEtaWatchPanel(
     presentation: ReturnEtaWatchPresentation,
     onPrimaryAction: () -> Unit
 ) {
+    val button = ReturnEtaWatchPanelButtonPresentationEngine.present(
+        primaryActionLabel = presentation.primaryActionLabel,
+        primaryActionRequiresSafetyShare = presentation.primaryActionRequiresSafetyShare
+    )
     val contentColor = presentation.tone.returnEtaContentColor()
     val containerColor = presentation.tone.returnEtaContainerColor()
     val glyph = when (presentation.tone) {
@@ -4977,15 +4981,35 @@ private fun ReturnEtaWatchPanel(
         if (presentation.details.isNotEmpty()) {
             ReturnEtaWatchDetailList(details = presentation.details)
         }
-        if (presentation.primaryActionRequiresSafetyShare) {
+        ReturnEtaWatchManualGuidance(
+            label = button.manualGuidanceLabel,
+            contentColor = contentColor
+        )
+        if (button.visible) {
             OutlinedButton(
                 onClick = onPrimaryAction,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(presentation.primaryActionLabel)
+                Text(button.label)
             }
         }
     }
+}
+
+@Composable
+private fun ReturnEtaWatchManualGuidance(
+    label: String,
+    contentColor: Color
+) {
+    if (label.isBlank()) {
+        return
+    }
+    Text(
+        text = label,
+        style = MaterialTheme.typography.labelMedium,
+        color = contentColor,
+        fontWeight = FontWeight.SemiBold
+    )
 }
 
 @Composable
