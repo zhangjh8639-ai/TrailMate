@@ -227,6 +227,7 @@ import com.trailmate.app.core.model.RouteDeviationRecoveryStep
 import com.trailmate.app.core.model.RouteDeviationRecoveryTone
 import com.trailmate.app.core.model.RouteGearAdvisorEngine
 import com.trailmate.app.core.model.SafetyShareDetail
+import com.trailmate.app.core.model.SafetyShareActionEngine
 import com.trailmate.app.core.model.SafetyShareEngine
 import com.trailmate.app.core.model.SafetyShareLocation
 import com.trailmate.app.core.model.SafetySharePresentation
@@ -1706,19 +1707,23 @@ internal fun RouteCockpitTabContent(
         notificationPermissionGranted = notificationPermissionGranted,
         batteryStatus = routeBatteryStatus
     )
+    val safetyShareLocation = SafetyShareLocation(
+        latitude = locationSnapshot.latitude,
+        longitude = locationSnapshot.longitude,
+        horizontalAccuracyMeters = locationSnapshot.horizontalAccuracyMeters,
+        timestampEpochMillis = locationSnapshot.timestampEpochMillis
+    )
+    val safetyShareRoutePlan = SafetyShareRoutePlan(
+        distanceKm = route.distanceKm,
+        ascentMeters = route.ascentMeters,
+        estimatedDurationMinutes = route.durationMinutes
+    )
     val safetyShare = SafetyShareEngine.present(
         routeName = route.routeName,
-        location = SafetyShareLocation(
-            latitude = locationSnapshot.latitude,
-            longitude = locationSnapshot.longitude,
-            horizontalAccuracyMeters = locationSnapshot.horizontalAccuracyMeters
-        ),
+        location = safetyShareLocation,
         trackRecording = trackRecording,
-        routePlan = SafetyShareRoutePlan(
-            distanceKm = route.distanceKm,
-            ascentMeters = route.ascentMeters,
-            estimatedDurationMinutes = route.durationMinutes
-        )
+        routePlan = safetyShareRoutePlan,
+        nowEpochMillis = locationPresentationNowEpochMillis
     )
     val cockpitPresentation = RouteCockpitPresentationEngine.build(
         route = route,
@@ -1768,7 +1773,12 @@ internal fun RouteCockpitTabContent(
         }
     }
     val handleSafetyShare: () -> Unit = {
-        safetyShare.shareText?.let(onShareSafetyText) ?: onRequestLocation()
+        SafetyShareActionEngine.resolveShareAction(
+            routeName = route.routeName,
+            location = safetyShareLocation,
+            trackRecording = trackRecording,
+            routePlan = safetyShareRoutePlan
+        ).shareText?.let(onShareSafetyText) ?: onRequestLocation()
     }
     val handleMarkNextCheckpoint: () -> Unit = {
         onSessionChange(HikeSessionEngine.advance(plan, hikeSession))
@@ -3700,7 +3710,8 @@ private fun GpsTrackPanel(
     val safetyShareLocation = SafetyShareLocation(
         latitude = locationSnapshot.latitude,
         longitude = locationSnapshot.longitude,
-        horizontalAccuracyMeters = locationSnapshot.horizontalAccuracyMeters
+        horizontalAccuracyMeters = locationSnapshot.horizontalAccuracyMeters,
+        timestampEpochMillis = locationSnapshot.timestampEpochMillis
     )
     val safetyShareRoutePlan = SafetyShareRoutePlan(
         distanceKm = route.distanceKm,
@@ -3711,13 +3722,15 @@ private fun GpsTrackPanel(
         routeName = route.routeName,
         location = safetyShareLocation,
         trackRecording = trackRecording,
-        routePlan = safetyShareRoutePlan
+        routePlan = safetyShareRoutePlan,
+        nowEpochMillis = locationPresentationNowEpochMillis
     )
     val recoverySafetyShare = SafetyShareEngine.present(
         routeName = route.routeName,
         location = safetyShareLocation,
         trackRecording = trackRecording,
-        routePlan = safetyShareRoutePlan.copy(estimatedDurationMinutes = null)
+        routePlan = safetyShareRoutePlan.copy(estimatedDurationMinutes = null),
+        nowEpochMillis = locationPresentationNowEpochMillis
     )
     val deviationRecovery = RouteDeviationRecoveryEngine.present(
         status = locationGuidanceStatus,
@@ -3764,7 +3777,12 @@ private fun GpsTrackPanel(
                         if (deviationRecovery.tone == RouteDeviationRecoveryTone.REJOINED) {
                             onAcknowledgeRouteRejoin()
                         } else if (deviationRecovery.primaryActionLabel == "分享当前位置") {
-                            recoverySafetyShare.shareText?.let(onShareSafetyText) ?: onRequestLocation()
+                            SafetyShareActionEngine.resolveShareAction(
+                                routeName = route.routeName,
+                                location = safetyShareLocation,
+                                trackRecording = trackRecording,
+                                routePlan = safetyShareRoutePlan.copy(estimatedDurationMinutes = null)
+                            ).shareText?.let(onShareSafetyText) ?: onRequestLocation()
                         } else {
                             onRequestLocation()
                         }
@@ -3790,7 +3808,12 @@ private fun GpsTrackPanel(
             SafetySharePanel(
                 presentation = safetyShare,
                 onPrimaryAction = {
-                    safetyShare.shareText?.let(onShareSafetyText) ?: onRequestLocation()
+                    SafetyShareActionEngine.resolveShareAction(
+                        routeName = route.routeName,
+                        location = safetyShareLocation,
+                        trackRecording = trackRecording,
+                        routePlan = safetyShareRoutePlan
+                    ).shareText?.let(onShareSafetyText) ?: onRequestLocation()
                 }
             )
             Row(
