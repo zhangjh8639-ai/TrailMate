@@ -127,6 +127,7 @@ import com.trailmate.app.core.map.AmapTargetRouteRegion
 import com.trailmate.app.core.map.AmapTargetRouteRegionReader
 import com.trailmate.app.core.map.MapScreenPoint
 import com.trailmate.app.core.map.MapLibrePmTilesBundledStyleAssetManifestResolver
+import com.trailmate.app.core.map.MapLibrePmTilesStyleAssetReadinessEngine
 import com.trailmate.app.core.map.MapLibreSdkAvailability
 import com.trailmate.app.core.map.PmTilesArchiveHeaderParser
 import com.trailmate.app.core.map.PmTilesLatLngBounds
@@ -462,12 +463,23 @@ fun RouteDetailScreen(
             targetRegionName = targetRouteRegion?.cityName
         )
     }
+    val mapLibrePmTilesStyleAssetManifest = remember(context) {
+        MapLibrePmTilesBundledStyleAssetManifestResolver.resolve { assetPath ->
+            runCatching {
+                context.assets.open(assetPath).use { true }
+            }.getOrDefault(false)
+        }
+    }
+    val mapLibrePmTilesStyleAssetReadiness = remember(mapLibrePmTilesStyleAssetManifest) {
+        MapLibrePmTilesStyleAssetReadinessEngine.resolve(mapLibrePmTilesStyleAssetManifest)
+    }
     val mapReadiness = TrailMapReadinessEngine.resolve(
         hasAmapKey = amapApiKeyConfigured,
         amapSdkAvailable = amapSdkAvailable,
         amapPrivacyConsentAccepted = amapPrivacyConsent.accepted,
         mapLibreRuntimeAvailable = MapLibreSdkAvailability.isLinked,
         pmTilesBasemapPackReady = pmTilesBasemapStatus.ready,
+        pmTilesStyleAssetReadiness = mapLibrePmTilesStyleAssetReadiness,
         offlineRoutePackReady = offlineRoutePackReady,
         gpsEnabled = gpsEnabled,
         locationReadyForFieldUse = TrailMateLocationFixReliability.isReliableForFieldUse(
