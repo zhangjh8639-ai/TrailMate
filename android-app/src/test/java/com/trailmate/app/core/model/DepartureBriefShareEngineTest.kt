@@ -125,4 +125,40 @@ class DepartureBriefShareEngineTest {
         assertNull(presentation.shareText)
         assertNull(presentation.chooserTitle)
     }
+
+    @Test
+    fun shareActionRecomputesBriefAtClickTime() {
+        val initiallyShown = DepartureBriefShareEngine.present(
+            plan = plan,
+            trackRecording = TrackRecordingState(),
+            nowEpochMillis = now,
+            zoneId = zoneId
+        )
+
+        val action = DepartureBriefShareActionEngine.resolveShareAction(
+            plan = plan,
+            trackRecording = TrackRecordingState(),
+            nowEpochMillis = now + 10 * 60_000L,
+            zoneId = zoneId
+        )
+
+        assertTrue(requireNotNull(initiallyShown.shareText).contains("计划出发：2026-06-19 09:00"))
+        assertEquals("发送出发报备", action.chooserTitle)
+        val shareText = requireNotNull(action.shareText)
+        assertTrue(shareText.contains("计划出发：2026-06-19 09:10"))
+        assertTrue(shareText.contains("预计完成：2026-06-19 16:00"))
+    }
+
+    @Test
+    fun shareActionReturnsNoTextWhenBriefBecomesUnavailableAtClickTime() {
+        val action = DepartureBriefShareActionEngine.resolveShareAction(
+            plan = plan.copy(estimatedDurationMinutes = null),
+            trackRecording = TrackRecordingState(),
+            nowEpochMillis = now,
+            zoneId = zoneId
+        )
+
+        assertNull(action.shareText)
+        assertNull(action.chooserTitle)
+    }
 }

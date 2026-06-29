@@ -27,6 +27,33 @@ data class DepartureBriefSharePresentation(
     val details: List<DepartureBriefShareDetail> = emptyList()
 )
 
+data class DepartureBriefShareAction(
+    val shareText: String?,
+    val chooserTitle: String?
+)
+
+object DepartureBriefShareActionEngine {
+    fun resolveShareAction(
+        plan: DepartureBriefPlan,
+        trackRecording: TrackRecordingState,
+        routeSessionCompleted: Boolean = false,
+        nowEpochMillis: Long = System.currentTimeMillis(),
+        zoneId: ZoneId = ZoneId.systemDefault()
+    ): DepartureBriefShareAction {
+        val presentation = DepartureBriefShareEngine.present(
+            plan = plan,
+            trackRecording = trackRecording,
+            routeSessionCompleted = routeSessionCompleted,
+            nowEpochMillis = nowEpochMillis,
+            zoneId = zoneId
+        )
+        return DepartureBriefShareAction(
+            shareText = presentation.shareText,
+            chooserTitle = presentation.chooserTitle
+        )
+    }
+}
+
 object DepartureBriefShareEngine {
     fun present(
         plan: DepartureBriefPlan,
