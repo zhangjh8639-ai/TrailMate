@@ -54,6 +54,11 @@ class RouteDeviationRecoveryEngineTest {
                     value = "计划路线在约 112 m 外，沿安全可见路径返回。"
                 ),
                 RouteDeviationRecoveryAction(
+                    kind = RouteDeviationRecoveryActionKind.REVIEW_SAFE_EXIT,
+                    label = "查看安全退出",
+                    value = "对比原路返回、下一检查点和实走轨迹，再决定继续或撤退。"
+                ),
+                RouteDeviationRecoveryAction(
                     kind = RouteDeviationRecoveryActionKind.SHARE_LOCATION,
                     label = "分享当前位置",
                     value = "发送坐标和路线信息。"
@@ -98,7 +103,11 @@ class RouteDeviationRecoveryEngineTest {
 
         assertTrue(presentation.visible)
         assertEquals(
-            listOf(RouteDeviationRecoveryActionKind.STOP_AND_CONFIRM, RouteDeviationRecoveryActionKind.RETURN_TO_ROUTE),
+            listOf(
+                RouteDeviationRecoveryActionKind.STOP_AND_CONFIRM,
+                RouteDeviationRecoveryActionKind.RETURN_TO_ROUTE,
+                RouteDeviationRecoveryActionKind.REVIEW_SAFE_EXIT
+            ),
             presentation.actions.map { action -> action.kind }
         )
         assertFalse(presentation.actions.any { action -> action.label == "分享当前位置" })

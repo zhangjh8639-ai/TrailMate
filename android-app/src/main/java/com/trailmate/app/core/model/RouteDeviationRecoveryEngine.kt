@@ -15,6 +15,7 @@ data class RouteDeviationRecoveryDetail(
 enum class RouteDeviationRecoveryActionKind {
     STOP_AND_CONFIRM,
     RETURN_TO_ROUTE,
+    REVIEW_SAFE_EXIT,
     SHARE_LOCATION,
     WAIT_FOR_GPS,
     CONTINUE_NAVIGATION,
@@ -205,6 +206,15 @@ object RouteDeviationRecoveryEngine {
                 )
             )
             add(returnAction)
+            if (fix != null) {
+                add(
+                    RouteDeviationRecoveryAction(
+                        kind = RouteDeviationRecoveryActionKind.REVIEW_SAFE_EXIT,
+                        label = "查看安全退出",
+                        value = "对比原路返回、下一检查点和实走轨迹，再决定继续或撤退。"
+                    )
+                )
+            }
             if (safetyShareAvailable) {
                 add(
                     RouteDeviationRecoveryAction(
