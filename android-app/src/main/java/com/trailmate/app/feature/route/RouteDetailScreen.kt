@@ -1954,6 +1954,13 @@ internal fun RouteCockpitTabContent(
             RouteSafetyShareShortcutActionKind.SHARE_LOCATION -> handleSafetyShare()
         }
     }
+    val handleFieldSafetyWatchAction: (FieldSafetyWatchPanelActionKind) -> Unit = { kind ->
+        when (kind) {
+            FieldSafetyWatchPanelActionKind.REQUEST_LOCATION -> onRequestLocation()
+            FieldSafetyWatchPanelActionKind.SHARE_LOCATION -> handleSafetyShare()
+            FieldSafetyWatchPanelActionKind.NONE -> Unit
+        }
+    }
     val handleMarkNextCheckpoint: () -> Unit = {
         onSessionChange(HikeSessionEngine.advance(plan, hikeSession))
     }
@@ -2017,11 +2024,8 @@ internal fun RouteCockpitTabContent(
         )
         ProgressSafetyWatchPanel(
             presentation = progressSafetyWatch,
-            onPrimaryAction = {
-                if (progressSafetyWatch.primaryActionRequiresSafetyShare) {
-                    handleSafetyShare()
-                }
-            }
+            safetyShareShortcut = safetyShareShortcut,
+            onPrimaryAction = handleFieldSafetyWatchAction
         )
         RouteDirectionWatchPanel(
             presentation = routeDirectionWatch,
@@ -2029,11 +2033,8 @@ internal fun RouteCockpitTabContent(
         )
         DaylightReturnWatchPanel(
             presentation = daylightReturnWatch,
-            onPrimaryAction = {
-                if (daylightReturnWatch.primaryActionRequiresSafetyShare) {
-                    handleSafetyShare()
-                }
-            }
+            safetyShareShortcut = safetyShareShortcut,
+            onPrimaryAction = handleFieldSafetyWatchAction
         )
         RouteCockpitDiagnosticsDisclosure(
             plan = plan,
@@ -4074,6 +4075,9 @@ private fun GpsTrackPanel(
         routePlan = safetyShareRoutePlan,
         nowEpochMillis = locationPresentationNowEpochMillis
     )
+    val safetyShareShortcut = RouteSafetyShareShortcutPresentationEngine.present(
+        presentation = safetyShare
+    )
     val recoverySafetyShare = SafetyShareEngine.present(
         routeName = route.routeName,
         location = safetyShareLocation,
@@ -4114,6 +4118,20 @@ private fun GpsTrackPanel(
             BacktrackBreadcrumbGuidancePanelActionKind.REQUEST_LOCATION -> onRequestLocation()
             BacktrackBreadcrumbGuidancePanelActionKind.CONTINUE_RECORDING -> onTrackAction()
             BacktrackBreadcrumbGuidancePanelActionKind.NONE -> Unit
+        }
+    }
+    val handleReturnEtaWatchAction: (ReturnEtaWatchPanelActionKind) -> Unit = { kind ->
+        when (kind) {
+            ReturnEtaWatchPanelActionKind.REQUEST_LOCATION -> onRequestLocation()
+            ReturnEtaWatchPanelActionKind.SHARE_LOCATION -> {
+                SafetyShareActionEngine.resolveShareAction(
+                    routeName = route.routeName,
+                    location = safetyShareLocation,
+                    trackRecording = trackRecording,
+                    routePlan = safetyShareRoutePlan
+                ).shareText?.let(onShareSafetyText) ?: onRequestLocation()
+            }
+            ReturnEtaWatchPanelActionKind.NONE -> Unit
         }
     }
     val returnEtaWatch = ReturnEtaWatchEngine.present(
@@ -4224,16 +4242,8 @@ private fun GpsTrackPanel(
             )
             ReturnEtaWatchPanel(
                 presentation = returnEtaWatch,
-                onPrimaryAction = {
-                    if (returnEtaWatch.primaryActionRequiresSafetyShare) {
-                        SafetyShareActionEngine.resolveShareAction(
-                            routeName = route.routeName,
-                            location = safetyShareLocation,
-                            trackRecording = trackRecording,
-                            routePlan = safetyShareRoutePlan
-                        ).shareText?.let(onShareSafetyText) ?: onRequestLocation()
-                    }
-                }
+                safetyShareShortcut = safetyShareShortcut,
+                onPrimaryAction = handleReturnEtaWatchAction
             )
             TrailMatePanel(
                 title = "轨迹记录",
@@ -4932,11 +4942,14 @@ private fun RouteDeviationAlertBanner(
 @Composable
 private fun ReturnEtaWatchPanel(
     presentation: ReturnEtaWatchPresentation,
-    onPrimaryAction: () -> Unit
+    safetyShareShortcut: RouteSafetyShareShortcutPresentation,
+    onPrimaryAction: (ReturnEtaWatchPanelActionKind) -> Unit
 ) {
     val button = ReturnEtaWatchPanelButtonPresentationEngine.present(
         primaryActionLabel = presentation.primaryActionLabel,
-        primaryActionRequiresSafetyShare = presentation.primaryActionRequiresSafetyShare
+        primaryActionRequiresSafetyShare = presentation.primaryActionRequiresSafetyShare,
+        safetyShareTextAvailable = safetyShareShortcut.kind == RouteSafetyShareShortcutActionKind.SHARE_LOCATION,
+        safetyShareRepairLabel = safetyShareShortcut.label
     )
     val contentColor = presentation.tone.returnEtaContentColor()
     val containerColor = presentation.tone.returnEtaContainerColor()
@@ -5010,7 +5023,7 @@ private fun ReturnEtaWatchPanel(
         )
         if (button.visible) {
             OutlinedButton(
-                onClick = onPrimaryAction,
+                onClick = { onPrimaryAction(button.kind) },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(button.label)
@@ -5070,7 +5083,8 @@ private fun ReturnEtaWatchDetailList(details: List<ReturnEtaWatchDetail>) {
 @Composable
 private fun DaylightReturnWatchPanel(
     presentation: DaylightReturnWatchPresentation,
-    onPrimaryAction: () -> Unit
+    safetyShareShortcut: RouteSafetyShareShortcutPresentation,
+    onPrimaryAction: (FieldSafetyWatchPanelActionKind) -> Unit
 ) {
     if (!presentation.visible) {
         return
@@ -5079,7 +5093,9 @@ private fun DaylightReturnWatchPanel(
     val contentColor = tone.daylightContentColor()
     val button = FieldSafetyWatchPanelButtonPresentationEngine.present(
         primaryActionLabel = presentation.primaryActionLabel,
-        primaryActionRequiresSafetyShare = presentation.primaryActionRequiresSafetyShare
+        primaryActionRequiresSafetyShare = presentation.primaryActionRequiresSafetyShare,
+        safetyShareTextAvailable = safetyShareShortcut.kind == RouteSafetyShareShortcutActionKind.SHARE_LOCATION,
+        safetyShareRepairLabel = safetyShareShortcut.label
     )
 
     Column(
@@ -5143,7 +5159,7 @@ private fun DaylightReturnWatchPanel(
         )
         if (button.visible) {
             OutlinedButton(
-                onClick = onPrimaryAction,
+                onClick = { onPrimaryAction(button.kind) },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(button.label)
@@ -5276,7 +5292,8 @@ private fun GpsSignalLossWatchPanel(
 @Composable
 private fun ProgressSafetyWatchPanel(
     presentation: ProgressSafetyWatchPresentation,
-    onPrimaryAction: () -> Unit
+    safetyShareShortcut: RouteSafetyShareShortcutPresentation,
+    onPrimaryAction: (FieldSafetyWatchPanelActionKind) -> Unit
 ) {
     if (!presentation.visible) {
         return
@@ -5285,7 +5302,9 @@ private fun ProgressSafetyWatchPanel(
     val contentColor = tone.progressSafetyContentColor()
     val button = FieldSafetyWatchPanelButtonPresentationEngine.present(
         primaryActionLabel = presentation.primaryActionLabel,
-        primaryActionRequiresSafetyShare = presentation.primaryActionRequiresSafetyShare
+        primaryActionRequiresSafetyShare = presentation.primaryActionRequiresSafetyShare,
+        safetyShareTextAvailable = safetyShareShortcut.kind == RouteSafetyShareShortcutActionKind.SHARE_LOCATION,
+        safetyShareRepairLabel = safetyShareShortcut.label
     )
 
     Column(
@@ -5349,7 +5368,7 @@ private fun ProgressSafetyWatchPanel(
         )
         if (button.visible) {
             OutlinedButton(
-                onClick = onPrimaryAction,
+                onClick = { onPrimaryAction(button.kind) },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(button.label)
