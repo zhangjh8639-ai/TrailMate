@@ -1,5 +1,6 @@
 package com.trailmate.app.core.model
 
+import com.trailmate.app.core.location.TrailMateLocationFixReliability
 import java.util.Locale
 
 data class ProgressSafetyWatchDetail(
@@ -40,10 +41,9 @@ object ProgressSafetyWatchEngine {
         val startedAt = trackRecording.startedAtEpochMillis?.takeIf { it > 0L } ?: return hidden()
         val elapsedMinutes = ((nowEpochMillis - startedAt) / MILLIS_PER_MINUTE).takeIf { it >= 0L }
             ?: return hidden()
-        val actualProgressKm = fix?.distanceAlongRouteKm
-            ?.takeIf { it.isFinite() && it >= 0.0 }
-            ?.coerceAtMost(route.distanceKm.coerceAtLeast(0.0))
-            ?: return hidden()
+        val reliableFix = fix?.takeIf { it.isReliable(nowEpochMillis) } ?: return hidden()
+        val actualProgressKm = reliableFix.distanceAlongRouteKm
+            .coerceAtMost(route.distanceKm.coerceAtLeast(0.0))
         val plannedProgressKm = plannedDistanceAt(plan, elapsedMinutes) ?: return hidden()
         if (plannedProgressKm <= 0.0) {
             return hidden()
@@ -153,7 +153,21 @@ object ProgressSafetyWatchEngine {
     private fun Double.formatKm(): String =
         String.format(Locale.US, "%.1f km", this)
 
+    private fun HikeLocationFix.isReliable(nowEpochMillis: Long): Boolean =
+        distanceAlongRouteKm.isFinite() &&
+            distanceAlongRouteKm >= 0.0 &&
+            crossTrackErrorMeters.isFinite() &&
+            crossTrackErrorMeters >= 0.0 &&
+            horizontalAccuracyMeters.isFinite() &&
+            horizontalAccuracyMeters >= 0.0 &&
+            horizontalAccuracyMeters <= MAX_PROGRESS_WATCH_ACCURACY_METERS &&
+            timestampEpochMillis > 0L &&
+            timestampEpochMillis <= nowEpochMillis &&
+            nowEpochMillis - timestampEpochMillis <=
+            TrailMateLocationFixReliability.MAX_RELIABLE_FIX_AGE_MILLIS
+
     private const val TITLE = "体力复核"
+    private const val MAX_PROGRESS_WATCH_ACCURACY_METERS = 50.0
     private const val CAUTION_MIN_ELAPSED_MINUTES = 60L
     private const val CAUTION_BEHIND_KM = 1.0
     private const val CAUTION_PROGRESS_RATIO = 0.75

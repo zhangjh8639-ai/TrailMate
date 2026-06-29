@@ -64,12 +64,13 @@ class ProgressSafetyWatchEngineTest {
 
     @Test
     fun closeEnoughProgressDoesNotAddSafetyNoise() {
+        val now = startedAt + 120 * 60_000L
         val presentation = ProgressSafetyWatchEngine.present(
             route = route,
             plan = plan,
             trackRecording = activeRecording(startedAt),
-            fix = fixAt(distanceKm = 4.3),
-            nowEpochMillis = startedAt + 120 * 60_000L
+            fix = fixAt(distanceKm = 4.3, nowEpochMillis = now),
+            nowEpochMillis = now
         )
 
         assertFalse(presentation.visible)
@@ -78,12 +79,13 @@ class ProgressSafetyWatchEngineTest {
 
     @Test
     fun exactlyTwentyFivePercentBehindShowsCaution() {
+        val now = startedAt + 210 * 60_000L
         val presentation = ProgressSafetyWatchEngine.present(
             route = route,
             plan = plan,
             trackRecording = activeRecording(startedAt),
-            fix = fixAt(distanceKm = 5.475),
-            nowEpochMillis = startedAt + 210 * 60_000L
+            fix = fixAt(distanceKm = 5.475, nowEpochMillis = now),
+            nowEpochMillis = now
         )
 
         assertTrue(presentation.visible)
@@ -93,12 +95,13 @@ class ProgressSafetyWatchEngineTest {
 
     @Test
     fun exactlyFortyPercentBehindWithLongRemainingRouteShowsAlert() {
+        val now = startedAt + 198 * 60_000L
         val presentation = ProgressSafetyWatchEngine.present(
             route = route,
             plan = plan,
             trackRecording = activeRecording(startedAt),
-            fix = fixAt(distanceKm = 4.2),
-            nowEpochMillis = startedAt + 198 * 60_000L
+            fix = fixAt(distanceKm = 4.2, nowEpochMillis = now),
+            nowEpochMillis = now
         )
 
         assertTrue(presentation.visible)
@@ -108,12 +111,13 @@ class ProgressSafetyWatchEngineTest {
 
     @Test
     fun slowProgressWarnsBeforeTheUserPushesFurther() {
+        val now = startedAt + 120 * 60_000L
         val presentation = ProgressSafetyWatchEngine.present(
             route = route,
             plan = plan,
             trackRecording = activeRecording(startedAt),
-            fix = fixAt(distanceKm = 3.3),
-            nowEpochMillis = startedAt + 120 * 60_000L
+            fix = fixAt(distanceKm = 3.3, nowEpochMillis = now),
+            nowEpochMillis = now
         )
 
         assertTrue(presentation.visible)
@@ -132,12 +136,13 @@ class ProgressSafetyWatchEngineTest {
 
     @Test
     fun severeProgressPressureSuggestsExitAndSafetyShare() {
+        val now = startedAt + 210 * 60_000L
         val presentation = ProgressSafetyWatchEngine.present(
             route = route,
             plan = plan,
             trackRecording = activeRecording(startedAt),
-            fix = fixAt(distanceKm = 3.8),
-            nowEpochMillis = startedAt + 210 * 60_000L
+            fix = fixAt(distanceKm = 3.8, nowEpochMillis = now),
+            nowEpochMillis = now
         )
 
         assertTrue(presentation.visible)
@@ -153,6 +158,7 @@ class ProgressSafetyWatchEngineTest {
 
     @Test
     fun finishedRouteHidesProgressSafetyWatch() {
+        val now = startedAt + 500 * 60_000L
         val presentation = ProgressSafetyWatchEngine.present(
             route = route,
             plan = plan,
@@ -161,11 +167,60 @@ class ProgressSafetyWatchEngineTest {
                 startedAtEpochMillis = startedAt,
                 totalDistanceKm = 15.1
             ),
-            fix = fixAt(distanceKm = 15.1),
-            nowEpochMillis = startedAt + 500 * 60_000L
+            fix = fixAt(distanceKm = 15.1, nowEpochMillis = now),
+            nowEpochMillis = now
         )
 
         assertFalse(presentation.visible)
+    }
+
+    @Test
+    fun unreliableProgressFixDoesNotShowSafetyWatch() {
+        val now = startedAt + 120 * 60_000L
+        val unreliableFixes = listOf(
+            fixAt(distanceKm = 3.3, nowEpochMillis = now).copy(
+                timestampEpochMillis = now - 61_000L
+            ),
+            fixAt(distanceKm = 3.3, nowEpochMillis = now).copy(
+                timestampEpochMillis = now + 1L
+            ),
+            fixAt(distanceKm = 3.3, nowEpochMillis = now).copy(
+                horizontalAccuracyMeters = 51.0
+            ),
+            fixAt(distanceKm = 3.3, nowEpochMillis = now).copy(
+                horizontalAccuracyMeters = Double.POSITIVE_INFINITY
+            ),
+            fixAt(distanceKm = 3.3, nowEpochMillis = now).copy(
+                horizontalAccuracyMeters = -1.0
+            ),
+            fixAt(distanceKm = 3.3, nowEpochMillis = now).copy(
+                distanceAlongRouteKm = -0.1
+            ),
+            fixAt(distanceKm = 3.3, nowEpochMillis = now).copy(
+                distanceAlongRouteKm = Double.NaN
+            ),
+            fixAt(distanceKm = 3.3, nowEpochMillis = now).copy(
+                crossTrackErrorMeters = Double.NaN
+            ),
+            fixAt(distanceKm = 3.3, nowEpochMillis = now).copy(
+                crossTrackErrorMeters = -1.0
+            ),
+            fixAt(distanceKm = 3.3, nowEpochMillis = now).copy(
+                timestampEpochMillis = 0L
+            )
+        )
+
+        unreliableFixes.forEach { fix ->
+            val presentation = ProgressSafetyWatchEngine.present(
+                route = route,
+                plan = plan,
+                trackRecording = activeRecording(startedAt),
+                fix = fix,
+                nowEpochMillis = now
+            )
+
+            assertFalse(presentation.visible)
+        }
     }
 
     private fun activeRecording(startedAt: Long): TrackRecordingState =
@@ -175,12 +230,15 @@ class ProgressSafetyWatchEngineTest {
             totalDistanceKm = 0.0
         )
 
-    private fun fixAt(distanceKm: Double): HikeLocationFix =
+    private fun fixAt(
+        distanceKm: Double,
+        nowEpochMillis: Long
+    ): HikeLocationFix =
         HikeLocationFix(
             distanceAlongRouteKm = distanceKm,
             crossTrackErrorMeters = 8.0,
             horizontalAccuracyMeters = 6.0,
-            timestampEpochMillis = startedAt
+            timestampEpochMillis = nowEpochMillis - 30_000L
         )
 
     private fun assertPolicyBoundaries(presentation: ProgressSafetyWatchPresentation) {
