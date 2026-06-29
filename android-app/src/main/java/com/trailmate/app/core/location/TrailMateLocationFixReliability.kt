@@ -8,8 +8,14 @@ object TrailMateLocationFixReliability {
         nowEpochMillis: Long,
         maxAccuracyMeters: Double
     ): Boolean {
+        val latitude = snapshot.latitude
+        val longitude = snapshot.longitude
         val accuracyMeters = snapshot.horizontalAccuracyMeters
         return snapshot.status == TrailMateLocationStatus.LOCATED &&
+            latitude != null &&
+            latitude.isFinite() &&
+            longitude != null &&
+            longitude.isFinite() &&
             accuracyMeters != null &&
             accuracyMeters.isFinite() &&
             accuracyMeters >= 0.0 &&

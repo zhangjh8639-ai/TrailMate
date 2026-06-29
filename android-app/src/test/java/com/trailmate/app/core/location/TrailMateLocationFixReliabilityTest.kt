@@ -170,6 +170,42 @@ class TrailMateLocationFixReliabilityTest {
         }
     }
 
+    @Test
+    fun missingCoordinatesAreNotReliableForFieldUse() {
+        listOf(
+            reliableSnapshot(timestampEpochMillis = NOW_EPOCH_MILLIS).copy(latitude = null),
+            reliableSnapshot(timestampEpochMillis = NOW_EPOCH_MILLIS).copy(longitude = null)
+        ).forEach { snapshot ->
+            assertFalse(
+                TrailMateLocationFixReliability.isReliableForFieldUse(
+                    snapshot = snapshot,
+                    nowEpochMillis = NOW_EPOCH_MILLIS,
+                    maxAccuracyMeters = 50.0
+                )
+            )
+        }
+    }
+
+    @Test
+    fun nonFiniteCoordinatesAreNotReliableForFieldUse() {
+        listOf(
+            reliableSnapshot(timestampEpochMillis = NOW_EPOCH_MILLIS).copy(latitude = Double.NaN),
+            reliableSnapshot(timestampEpochMillis = NOW_EPOCH_MILLIS).copy(latitude = Double.POSITIVE_INFINITY),
+            reliableSnapshot(timestampEpochMillis = NOW_EPOCH_MILLIS).copy(latitude = Double.NEGATIVE_INFINITY),
+            reliableSnapshot(timestampEpochMillis = NOW_EPOCH_MILLIS).copy(longitude = Double.NaN),
+            reliableSnapshot(timestampEpochMillis = NOW_EPOCH_MILLIS).copy(longitude = Double.POSITIVE_INFINITY),
+            reliableSnapshot(timestampEpochMillis = NOW_EPOCH_MILLIS).copy(longitude = Double.NEGATIVE_INFINITY)
+        ).forEach { snapshot ->
+            assertFalse(
+                TrailMateLocationFixReliability.isReliableForFieldUse(
+                    snapshot = snapshot,
+                    nowEpochMillis = NOW_EPOCH_MILLIS,
+                    maxAccuracyMeters = 50.0
+                )
+            )
+        }
+    }
+
     private fun reliableSnapshot(timestampEpochMillis: Long): TrailMateLocationSnapshot =
         TrailMateLocationSnapshot(
             status = TrailMateLocationStatus.LOCATED,
