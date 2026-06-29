@@ -10,10 +10,28 @@ class FieldSafetyWatchPanelButtonPresentationEngineTest {
     fun showsButtonForSafetyShareAction() {
         val button = FieldSafetyWatchPanelButtonPresentationEngine.present(
             primaryActionLabel = "分享当前位置",
-            primaryActionRequiresSafetyShare = true
+            primaryActionRequiresSafetyShare = true,
+            safetyShareTextAvailable = true,
+            safetyShareRepairLabel = "重新定位"
         )
 
         assertEquals("分享当前位置", button.label)
+        assertEquals(FieldSafetyWatchPanelActionKind.SHARE_LOCATION, button.kind)
+        assertEquals("", button.manualGuidanceLabel)
+        assertTrue(button.visible)
+    }
+
+    @Test
+    fun safetyShareActionRequestsLocationWhenShareTextIsUnavailable() {
+        val button = FieldSafetyWatchPanelButtonPresentationEngine.present(
+            primaryActionLabel = "分享当前位置",
+            primaryActionRequiresSafetyShare = true,
+            safetyShareTextAvailable = false,
+            safetyShareRepairLabel = "重新定位"
+        )
+
+        assertEquals("重新定位", button.label)
+        assertEquals(FieldSafetyWatchPanelActionKind.REQUEST_LOCATION, button.kind)
         assertEquals("", button.manualGuidanceLabel)
         assertTrue(button.visible)
     }
@@ -22,10 +40,13 @@ class FieldSafetyWatchPanelButtonPresentationEngineTest {
     fun hidesButtonForManualReviewSuggestion() {
         val button = FieldSafetyWatchPanelButtonPresentationEngine.present(
             primaryActionLabel = "复核天黑前路线",
-            primaryActionRequiresSafetyShare = false
+            primaryActionRequiresSafetyShare = false,
+            safetyShareTextAvailable = false,
+            safetyShareRepairLabel = "重新定位"
         )
 
         assertEquals("复核天黑前路线", button.label)
+        assertEquals(FieldSafetyWatchPanelActionKind.NONE, button.kind)
         assertEquals("复核天黑前路线", button.manualGuidanceLabel)
         assertFalse(button.visible)
     }
@@ -34,10 +55,13 @@ class FieldSafetyWatchPanelButtonPresentationEngineTest {
     fun hidesButtonForManualRestSuggestion() {
         val button = FieldSafetyWatchPanelButtonPresentationEngine.present(
             primaryActionLabel = "先休息复核",
-            primaryActionRequiresSafetyShare = false
+            primaryActionRequiresSafetyShare = false,
+            safetyShareTextAvailable = false,
+            safetyShareRepairLabel = "重新定位"
         )
 
         assertEquals("先休息复核", button.label)
+        assertEquals(FieldSafetyWatchPanelActionKind.NONE, button.kind)
         assertEquals("先休息复核", button.manualGuidanceLabel)
         assertFalse(button.visible)
     }
@@ -46,10 +70,13 @@ class FieldSafetyWatchPanelButtonPresentationEngineTest {
     fun hidesButtonForBlankSafetyShareLabel() {
         val button = FieldSafetyWatchPanelButtonPresentationEngine.present(
             primaryActionLabel = " ",
-            primaryActionRequiresSafetyShare = true
+            primaryActionRequiresSafetyShare = true,
+            safetyShareTextAvailable = true,
+            safetyShareRepairLabel = "重新定位"
         )
 
         assertEquals(" ", button.label)
+        assertEquals(FieldSafetyWatchPanelActionKind.NONE, button.kind)
         assertEquals("", button.manualGuidanceLabel)
         assertFalse(button.visible)
     }
