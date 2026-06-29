@@ -4118,7 +4118,8 @@ private fun GpsTrackPanel(
         plan = plan,
         locationStatus = locationGuidanceStatus,
         fix = latestLocationFix,
-        trackRecording = trackRecording
+        trackRecording = trackRecording,
+        nowEpochMillis = locationPresentationNowEpochMillis
     )
     val breadcrumbGuidance = BacktrackBreadcrumbGuidanceEngine.present(
         trackRecording = trackRecording,

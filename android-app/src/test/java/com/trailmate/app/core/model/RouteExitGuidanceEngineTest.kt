@@ -59,7 +59,8 @@ class RouteExitGuidanceEngineTest {
                 horizontalAccuracyMeters = 6.0,
                 timestampEpochMillis = 1_000L
             ),
-            trackRecording = TrackRecordingState(status = TrackRecordingStatus.RECORDING, totalDistanceKm = 2.1)
+            trackRecording = TrackRecordingState(status = TrackRecordingStatus.RECORDING, totalDistanceKm = 2.1),
+            nowEpochMillis = 1_000L
         )
 
         assertEquals("安全退出", presentation.title)
@@ -88,7 +89,8 @@ class RouteExitGuidanceEngineTest {
                 horizontalAccuracyMeters = 7.0,
                 timestampEpochMillis = 1_000L
             ),
-            trackRecording = TrackRecordingState(status = TrackRecordingStatus.RECORDING, totalDistanceKm = 4.9)
+            trackRecording = TrackRecordingState(status = TrackRecordingStatus.RECORDING, totalDistanceKm = 4.9),
+            nowEpochMillis = 1_000L
         )
 
         assertEquals("安全退出", presentation.title)
@@ -129,6 +131,80 @@ class RouteExitGuidanceEngineTest {
     }
 
     @Test
+    fun staleOnRouteFixDoesNotRecommendExitDirection() {
+        val presentation = RouteExitGuidanceEngine.present(
+            route = route,
+            plan = plan,
+            locationStatus = LocationBackedHikeStatus.ON_ROUTE,
+            fix = HikeLocationFix(
+                distanceAlongRouteKm = 5.0,
+                crossTrackErrorMeters = 12.0,
+                horizontalAccuracyMeters = 7.0,
+                timestampEpochMillis = NOW_EPOCH_MILLIS - 61_000L
+            ),
+            trackRecording = TrackRecordingState(status = TrackRecordingStatus.RECORDING, totalDistanceKm = 4.9),
+            nowEpochMillis = NOW_EPOCH_MILLIS
+        )
+
+        assertEquals("先稳定定位", presentation.statusLabel)
+        assertEquals("重新定位", presentation.primaryActionLabel)
+        assertEquals(RouteExitGuidanceTone.CAUTION, presentation.tone)
+        assertFalse(presentation.options.any { option -> option.emphasized })
+        assertFalse(presentation.options.any { option -> option.label.startsWith("继续到") })
+    }
+
+    @Test
+    fun futureOnRouteFixDoesNotRecommendExitDirection() {
+        val presentation = RouteExitGuidanceEngine.present(
+            route = route,
+            plan = plan,
+            locationStatus = LocationBackedHikeStatus.ON_ROUTE,
+            fix = HikeLocationFix(
+                distanceAlongRouteKm = 5.0,
+                crossTrackErrorMeters = 12.0,
+                horizontalAccuracyMeters = 7.0,
+                timestampEpochMillis = NOW_EPOCH_MILLIS + 1L
+            ),
+            trackRecording = TrackRecordingState(status = TrackRecordingStatus.RECORDING, totalDistanceKm = 4.9),
+            nowEpochMillis = NOW_EPOCH_MILLIS
+        )
+
+        assertEquals("先稳定定位", presentation.statusLabel)
+        assertEquals(RouteExitGuidanceTone.CAUTION, presentation.tone)
+        assertFalse(presentation.options.any { option -> option.emphasized })
+    }
+
+    @Test
+    fun malformedOnRouteFixDoesNotRecommendExitDirection() {
+        val malformedFixes = listOf(
+            HikeLocationFix(Double.NaN, 12.0, 7.0, NOW_EPOCH_MILLIS),
+            HikeLocationFix(-1.0, 12.0, 7.0, NOW_EPOCH_MILLIS),
+            HikeLocationFix(5.0, Double.NaN, 7.0, NOW_EPOCH_MILLIS),
+            HikeLocationFix(5.0, -1.0, 7.0, NOW_EPOCH_MILLIS),
+            HikeLocationFix(5.0, 12.0, Double.POSITIVE_INFINITY, NOW_EPOCH_MILLIS),
+            HikeLocationFix(5.0, 12.0, -1.0, NOW_EPOCH_MILLIS),
+            HikeLocationFix(5.0, 12.0, 51.0, NOW_EPOCH_MILLIS),
+            HikeLocationFix(5.0, 12.0, 7.0, 0L)
+        )
+
+        malformedFixes.forEach { fix ->
+            val presentation = RouteExitGuidanceEngine.present(
+                route = route,
+                plan = plan,
+                locationStatus = LocationBackedHikeStatus.ON_ROUTE,
+                fix = fix,
+                trackRecording = TrackRecordingState(status = TrackRecordingStatus.RECORDING, totalDistanceKm = 4.9),
+                nowEpochMillis = NOW_EPOCH_MILLIS
+            )
+
+            assertEquals("先稳定定位", presentation.statusLabel)
+            assertEquals(RouteExitGuidanceTone.CAUTION, presentation.tone)
+            assertFalse(presentation.options.any { option -> option.emphasized })
+            assertFalse(presentation.options.any { option -> option.label.startsWith("继续到") })
+        }
+    }
+
+    @Test
     fun asksToResolveOffRouteStateBeforeChoosingExitDirection() {
         val presentation = RouteExitGuidanceEngine.present(
             route = route,
@@ -164,7 +240,8 @@ class RouteExitGuidanceEngineTest {
                 horizontalAccuracyMeters = 6.0,
                 timestampEpochMillis = 1_000L
             ),
-            trackRecording = TrackRecordingState(status = TrackRecordingStatus.RECORDING, totalDistanceKm = 14.6)
+            trackRecording = TrackRecordingState(status = TrackRecordingStatus.RECORDING, totalDistanceKm = 14.6),
+            nowEpochMillis = 1_000L
         )
 
         assertEquals("先到终点", presentation.statusLabel)
@@ -210,5 +287,9 @@ class RouteExitGuidanceEngineTest {
         assertTrue(text.any { character -> character in '\u4e00'..'\u9fff' })
         assertFalse(text.contains("exit"))
         assertFalse(text.contains("checkpoint"))
+    }
+
+    private companion object {
+        const val NOW_EPOCH_MILLIS = 1_700_000_060_000L
     }
 }
