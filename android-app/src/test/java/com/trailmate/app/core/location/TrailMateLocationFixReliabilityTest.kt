@@ -94,6 +94,82 @@ class TrailMateLocationFixReliabilityTest {
         )
     }
 
+    @Test
+    fun malformedAccuracyIsNotReliableForFieldUse() {
+        listOf(null, -1.0, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY).forEach { accuracyMeters ->
+            assertFalse(
+                TrailMateLocationFixReliability.isReliableForFieldUse(
+                    snapshot = reliableSnapshot(timestampEpochMillis = NOW_EPOCH_MILLIS).copy(
+                        horizontalAccuracyMeters = accuracyMeters
+                    ),
+                    nowEpochMillis = NOW_EPOCH_MILLIS,
+                    maxAccuracyMeters = 50.0
+                )
+            )
+        }
+    }
+
+    @Test
+    fun overThresholdAccuracyIsNotReliableForFieldUse() {
+        assertFalse(
+            TrailMateLocationFixReliability.isReliableForFieldUse(
+                snapshot = reliableSnapshot(timestampEpochMillis = NOW_EPOCH_MILLIS).copy(
+                    horizontalAccuracyMeters = 50.1
+                ),
+                nowEpochMillis = NOW_EPOCH_MILLIS,
+                maxAccuracyMeters = 50.0
+            )
+        )
+    }
+
+    @Test
+    fun boundaryAccuracyAtThresholdRemainsReliableForFieldUse() {
+        assertTrue(
+            TrailMateLocationFixReliability.isReliableForFieldUse(
+                snapshot = reliableSnapshot(timestampEpochMillis = NOW_EPOCH_MILLIS).copy(
+                    horizontalAccuracyMeters = 50.0
+                ),
+                nowEpochMillis = NOW_EPOCH_MILLIS,
+                maxAccuracyMeters = 50.0
+            )
+        )
+    }
+
+    @Test
+    fun zeroMaxAccuracyOnlyAcceptsZeroAccuracyForFieldUse() {
+        assertTrue(
+            TrailMateLocationFixReliability.isReliableForFieldUse(
+                snapshot = reliableSnapshot(timestampEpochMillis = NOW_EPOCH_MILLIS).copy(
+                    horizontalAccuracyMeters = 0.0
+                ),
+                nowEpochMillis = NOW_EPOCH_MILLIS,
+                maxAccuracyMeters = 0.0
+            )
+        )
+        assertFalse(
+            TrailMateLocationFixReliability.isReliableForFieldUse(
+                snapshot = reliableSnapshot(timestampEpochMillis = NOW_EPOCH_MILLIS).copy(
+                    horizontalAccuracyMeters = 0.1
+                ),
+                nowEpochMillis = NOW_EPOCH_MILLIS,
+                maxAccuracyMeters = 0.0
+            )
+        )
+    }
+
+    @Test
+    fun invalidMaxAccuracyThresholdIsNotReliableForFieldUse() {
+        listOf(-1.0, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY).forEach { threshold ->
+            assertFalse(
+                TrailMateLocationFixReliability.isReliableForFieldUse(
+                    snapshot = reliableSnapshot(timestampEpochMillis = NOW_EPOCH_MILLIS),
+                    nowEpochMillis = NOW_EPOCH_MILLIS,
+                    maxAccuracyMeters = threshold
+                )
+            )
+        }
+    }
+
     private fun reliableSnapshot(timestampEpochMillis: Long): TrailMateLocationSnapshot =
         TrailMateLocationSnapshot(
             status = TrailMateLocationStatus.LOCATED,

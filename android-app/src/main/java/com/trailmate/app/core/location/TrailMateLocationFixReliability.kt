@@ -7,11 +7,17 @@ object TrailMateLocationFixReliability {
         snapshot: TrailMateLocationSnapshot,
         nowEpochMillis: Long,
         maxAccuracyMeters: Double
-    ): Boolean =
-        snapshot.status == TrailMateLocationStatus.LOCATED &&
-            snapshot.horizontalAccuracyMeters != null &&
-            snapshot.horizontalAccuracyMeters <= maxAccuracyMeters &&
+    ): Boolean {
+        val accuracyMeters = snapshot.horizontalAccuracyMeters
+        return snapshot.status == TrailMateLocationStatus.LOCATED &&
+            accuracyMeters != null &&
+            accuracyMeters.isFinite() &&
+            accuracyMeters >= 0.0 &&
+            maxAccuracyMeters.isFinite() &&
+            maxAccuracyMeters >= 0.0 &&
+            accuracyMeters <= maxAccuracyMeters &&
             isFresh(snapshot = snapshot, nowEpochMillis = nowEpochMillis)
+    }
 
     fun isFresh(
         snapshot: TrailMateLocationSnapshot,
