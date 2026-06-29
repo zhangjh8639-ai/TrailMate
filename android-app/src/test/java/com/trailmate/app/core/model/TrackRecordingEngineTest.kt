@@ -16,7 +16,8 @@ class TrackRecordingEngineTest {
                 elevationMeters = null,
                 horizontalAccuracyMeters = 120.0,
                 timestampEpochMillis = 1_100L
-            )
+            ),
+            nowEpochMillis = 1_100L
         )
         val first = TrackRecordingEngine.appendLocation(
             state = ignored,
@@ -26,7 +27,8 @@ class TrackRecordingEngineTest {
                 elevationMeters = 100.0,
                 horizontalAccuracyMeters = 8.0,
                 timestampEpochMillis = 1_200L
-            )
+            ),
+            nowEpochMillis = 1_200L
         )
         val second = TrackRecordingEngine.appendLocation(
             state = first,
@@ -36,7 +38,8 @@ class TrackRecordingEngineTest {
                 elevationMeters = 120.0,
                 horizontalAccuracyMeters = 8.0,
                 timestampEpochMillis = 421_200L
-            )
+            ),
+            nowEpochMillis = 421_200L
         )
 
         assertEquals(TrackRecordingStatus.RECORDING, second.status)
@@ -68,11 +71,63 @@ class TrackRecordingEngineTest {
                 elevationMeters = null,
                 horizontalAccuracyMeters = 8.0,
                 timestampEpochMillis = 1_900L
-            )
+            ),
+            nowEpochMillis = 2_000L
         )
 
         assertEquals(TrackRecordingStatus.RECORDING, staleAppend.status)
         assertEquals(0, staleAppend.points.size)
+    }
+
+    @Test
+    fun recordingIgnoresFutureLocationFixWithoutPoisoningTrack() {
+        val started = TrackRecordingEngine.start(routeName = "龙井山脊", nowEpochMillis = 1_000L)
+
+        val futureAppend = TrackRecordingEngine.appendLocation(
+            state = started,
+            point = RecordedTrackPoint(
+                latitude = 30.0000,
+                longitude = 120.0000,
+                elevationMeters = null,
+                horizontalAccuracyMeters = 8.0,
+                timestampEpochMillis = 999_999L
+            ),
+            nowEpochMillis = 2_000L
+        )
+        val currentAppend = TrackRecordingEngine.appendLocation(
+            state = futureAppend,
+            point = RecordedTrackPoint(
+                latitude = 30.0005,
+                longitude = 120.0000,
+                elevationMeters = null,
+                horizontalAccuracyMeters = 8.0,
+                timestampEpochMillis = 2_100L
+            ),
+            nowEpochMillis = 2_100L
+        )
+
+        assertEquals(0, futureAppend.points.size)
+        assertEquals(1, currentAppend.points.size)
+        assertEquals(2_100L, currentAppend.points.single().timestampEpochMillis)
+    }
+
+    @Test
+    fun recordingIgnoresZeroLocationTimestamp() {
+        val started = TrackRecordingEngine.start(routeName = "龙井山脊", nowEpochMillis = 0L)
+
+        val zeroTimestampAppend = TrackRecordingEngine.appendLocation(
+            state = started,
+            point = RecordedTrackPoint(
+                latitude = 30.0000,
+                longitude = 120.0000,
+                elevationMeters = null,
+                horizontalAccuracyMeters = 8.0,
+                timestampEpochMillis = 0L
+            ),
+            nowEpochMillis = 10L
+        )
+
+        assertEquals(0, zeroTimestampAppend.points.size)
     }
 
     @Test
@@ -86,7 +141,8 @@ class TrackRecordingEngineTest {
                 elevationMeters = null,
                 horizontalAccuracyMeters = 8.0,
                 timestampEpochMillis = 2_000L
-            )
+            ),
+            nowEpochMillis = 2_000L
         )
         val paused = TrackRecordingEngine.pause(withPoint, nowEpochMillis = 10_000L)
         val resumed = TrackRecordingEngine.resume(paused, nowEpochMillis = 20_000L)
@@ -99,7 +155,8 @@ class TrackRecordingEngineTest {
                 elevationMeters = null,
                 horizontalAccuracyMeters = 8.0,
                 timestampEpochMillis = 15_000L
-            )
+            ),
+            nowEpochMillis = 20_000L
         )
 
         assertEquals(TrackRecordingStatus.RECORDING, pausedWindowAppend.status)
@@ -118,7 +175,8 @@ class TrackRecordingEngineTest {
                 elevationMeters = null,
                 horizontalAccuracyMeters = 8.0,
                 timestampEpochMillis = 2_000L
-            )
+            ),
+            nowEpochMillis = 2_000L
         )
 
         val outOfOrderAppend = TrackRecordingEngine.appendLocation(
@@ -129,7 +187,8 @@ class TrackRecordingEngineTest {
                 elevationMeters = null,
                 horizontalAccuracyMeters = 8.0,
                 timestampEpochMillis = 1_900L
-            )
+            ),
+            nowEpochMillis = 2_100L
         )
 
         assertEquals(1, outOfOrderAppend.points.size)
@@ -147,7 +206,8 @@ class TrackRecordingEngineTest {
                 elevationMeters = null,
                 horizontalAccuracyMeters = 8.0,
                 timestampEpochMillis = 2_000L
-            )
+            ),
+            nowEpochMillis = 2_000L
         )
 
         val jumpAppend = TrackRecordingEngine.appendLocation(
@@ -158,7 +218,8 @@ class TrackRecordingEngineTest {
                 elevationMeters = null,
                 horizontalAccuracyMeters = 8.0,
                 timestampEpochMillis = 5_000L
-            )
+            ),
+            nowEpochMillis = 5_000L
         )
 
         assertEquals(1, jumpAppend.points.size)
@@ -176,7 +237,8 @@ class TrackRecordingEngineTest {
                 elevationMeters = null,
                 horizontalAccuracyMeters = 8.0,
                 timestampEpochMillis = 1_100L
-            )
+            ),
+            nowEpochMillis = 1_100L
         )
 
         val paused = TrackRecordingEngine.pause(withPoint, nowEpochMillis = 1_200L)
@@ -188,7 +250,8 @@ class TrackRecordingEngineTest {
                 elevationMeters = null,
                 horizontalAccuracyMeters = 8.0,
                 timestampEpochMillis = 1_300L
-            )
+            ),
+            nowEpochMillis = 1_300L
         )
         val resumed = TrackRecordingEngine.resume(pausedAppend, nowEpochMillis = 1_300L)
         val finished = TrackRecordingEngine.finish(resumed, nowEpochMillis = 1_400L)
@@ -200,7 +263,8 @@ class TrackRecordingEngineTest {
                 elevationMeters = null,
                 horizontalAccuracyMeters = 8.0,
                 timestampEpochMillis = 1_500L
-            )
+            ),
+            nowEpochMillis = 1_500L
         )
 
         assertEquals(TrackRecordingStatus.PAUSED, pausedAppend.status)

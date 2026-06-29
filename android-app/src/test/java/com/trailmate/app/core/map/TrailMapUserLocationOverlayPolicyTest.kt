@@ -91,6 +91,26 @@ class TrailMapUserLocationOverlayPolicyTest {
     }
 
     @Test
+    fun marksInvalidTimestampAsApproximateLocation() {
+        val overlay = TrailMapUserLocationOverlayPolicy.resolve(
+            gpsEnabled = true,
+            locationSnapshot = TrailMateLocationSnapshot(
+                status = TrailMateLocationStatus.LOCATED,
+                latitude = 30.2381,
+                longitude = 120.1121,
+                elevationMeters = null,
+                horizontalAccuracyMeters = 5.0,
+                timestampEpochMillis = NOW_EPOCH_MILLIS + 1L
+            ),
+            nowEpochMillis = NOW_EPOCH_MILLIS
+        )
+
+        assertEquals("大致位置", overlay?.title)
+        assertEquals(TrailMapUserLocationConfidence.APPROXIMATE, overlay?.confidence)
+        assertEquals("定位时间异常", overlay?.accuracyLabel)
+    }
+
+    @Test
     fun hidesOverlayWhenGpsIsOffOrFixIsNotUsable() {
         val located = TrailMateLocationSnapshot(
             status = TrailMateLocationStatus.LOCATED,

@@ -55,6 +55,10 @@ object GpsSignalLossWatchEngine {
         snapshot: TrailMateLocationSnapshot,
         nowEpochMillis: Long
     ): GpsSignalLossWatchPresentation {
+        if (!TrailMateLocationFixReliability.hasValidTimestamp(snapshot = snapshot, nowEpochMillis = nowEpochMillis)) {
+            return invalidTimestampPresentation(snapshot)
+        }
+
         val ageMillis = TrailMateLocationFixReliability.fixAgeMillis(snapshot, nowEpochMillis)
         if (ageMillis <= TrailMateLocationFixReliability.MAX_RELIABLE_FIX_AGE_MILLIS) {
             return hidden(statusLabel = "定位正常")
@@ -88,6 +92,21 @@ object GpsSignalLossWatchEngine {
             )
         }
     }
+
+    private fun invalidTimestampPresentation(snapshot: TrailMateLocationSnapshot): GpsSignalLossWatchPresentation =
+        GpsSignalLossWatchPresentation(
+            visible = true,
+            title = "定位时间异常",
+            statusLabel = "需重新定位",
+            caption = "定位点时间无效或来自未来；请等待新的定位点后再依赖路线进度。",
+            primaryActionLabel = "刷新定位",
+            tone = GpsSignalLossWatchTone.ALERT,
+            details = listOf(
+                GpsSignalLossWatchDetail(label = "定位时间", value = "时间异常"),
+                GpsSignalLossWatchDetail(label = "定位状态", value = snapshot.status.signalLossLabel()),
+                GpsSignalLossWatchDetail(label = "轨迹记录", value = "记录中")
+            )
+        )
 
     private fun searchingPresentation(
         snapshot: TrailMateLocationSnapshot,

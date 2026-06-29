@@ -97,6 +97,19 @@ class TrackRecordingActionGateEngineTest {
     }
 
     @Test
+    fun waitsForCurrentLocationBeforeStartingTrackRecording() {
+        val step = TrackRecordingActionGateEngine.resolve(
+            status = TrackRecordingStatus.IDLE,
+            hasForegroundLocationPermission = true,
+            notificationPermissionGranted = true,
+            locationSnapshot = reliableLocationSnapshot.copy(timestampEpochMillis = NOW_EPOCH_MILLIS + 1L),
+            nowEpochMillis = NOW_EPOCH_MILLIS
+        )
+
+        assertEquals(TrackRecordingActionGateStep.WAIT_FOR_RELIABLE_LOCATION, step)
+    }
+
+    @Test
     fun appliesTrackActionWhenStartPermissionsAndReliableLocationAreReady() {
         val step = TrackRecordingActionGateEngine.resolve(
             status = TrackRecordingStatus.FINISHED,

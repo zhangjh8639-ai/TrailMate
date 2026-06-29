@@ -60,10 +60,12 @@ object TrackRecordingEngine {
 
     fun appendLocation(
         state: TrackRecordingState,
-        point: RecordedTrackPoint
+        point: RecordedTrackPoint,
+        nowEpochMillis: Long
     ): TrackRecordingState {
         if (state.status != TrackRecordingStatus.RECORDING ||
             !point.isUsableForRecording() ||
+            !point.hasValidTimestamp(nowEpochMillis) ||
             point.isOlderThanActiveRecordingWindow(state)
         ) {
             return state
@@ -97,6 +99,10 @@ object TrackRecordingEngine {
             longitude.isFinite() &&
             horizontalAccuracyMeters.isFinite() &&
             horizontalAccuracyMeters in 0.0..MAX_RECORDING_ACCURACY_METERS
+
+    private fun RecordedTrackPoint.hasValidTimestamp(nowEpochMillis: Long): Boolean =
+        timestampEpochMillis > 0L &&
+            timestampEpochMillis <= nowEpochMillis
 
     private fun RecordedTrackPoint.isOlderThanActiveRecordingWindow(state: TrackRecordingState): Boolean {
         val activeSince = state.recordingActiveSinceEpochMillis ?: state.startedAtEpochMillis

@@ -70,6 +70,14 @@ object LocationBackedHikeSessionEngine {
             )
         }
 
+        if (!fix.hasValidTimestamp(nowEpochMillis)) {
+            return LocationBackedHikeUpdate(
+                session = session,
+                status = LocationBackedHikeStatus.LOW_ACCURACY,
+                caption = "定位时间异常，暂不推进检查点。"
+            )
+        }
+
         if (!fix.isFresh(nowEpochMillis)) {
             return LocationBackedHikeUpdate(
                 session = session,
@@ -147,8 +155,12 @@ object LocationBackedHikeSessionEngine {
             crossTrackErrorMeters.isFinite() &&
             crossTrackErrorMeters >= 0.0
 
+    private fun HikeLocationFix.hasValidTimestamp(nowEpochMillis: Long): Boolean =
+        timestampEpochMillis > 0L &&
+            timestampEpochMillis <= nowEpochMillis
+
     private fun HikeLocationFix.isFresh(nowEpochMillis: Long): Boolean =
-        (nowEpochMillis - timestampEpochMillis).coerceAtLeast(0L) <=
+        nowEpochMillis - timestampEpochMillis <=
             TrailMateLocationFixReliability.MAX_RELIABLE_FIX_AGE_MILLIS
 
     private fun Double.formatMeters(): String =

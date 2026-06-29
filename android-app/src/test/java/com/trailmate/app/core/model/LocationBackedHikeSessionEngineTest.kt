@@ -100,6 +100,50 @@ class LocationBackedHikeSessionEngineTest {
     }
 
     @Test
+    fun futureLocationFixDoesNotAdvanceCheckpoint() {
+        val active = HikeSessionEngine.start(HikeSessionEngine.ready(plan))
+
+        val update = LocationBackedHikeSessionEngine.applyLocationFix(
+            plan = plan,
+            session = active,
+            fix = HikeLocationFix(
+                distanceAlongRouteKm = 3.05,
+                crossTrackErrorMeters = 12.0,
+                horizontalAccuracyMeters = 8.0,
+                timestampEpochMillis = NOW_EPOCH_MILLIS + 1L
+            ),
+            nowEpochMillis = NOW_EPOCH_MILLIS
+        )
+
+        assertEquals(0, update.session.reachedCheckpointIndex)
+        assertEquals(LocationBackedHikeStatus.LOW_ACCURACY, update.status)
+        assertEquals("定位时间异常，暂不推进检查点。", update.caption)
+        assertChineseCaption(update.caption)
+    }
+
+    @Test
+    fun zeroLocationFixTimestampDoesNotAdvanceCheckpoint() {
+        val active = HikeSessionEngine.start(HikeSessionEngine.ready(plan))
+
+        val update = LocationBackedHikeSessionEngine.applyLocationFix(
+            plan = plan,
+            session = active,
+            fix = HikeLocationFix(
+                distanceAlongRouteKm = 3.05,
+                crossTrackErrorMeters = 12.0,
+                horizontalAccuracyMeters = 8.0,
+                timestampEpochMillis = 0L
+            ),
+            nowEpochMillis = NOW_EPOCH_MILLIS
+        )
+
+        assertEquals(0, update.session.reachedCheckpointIndex)
+        assertEquals(LocationBackedHikeStatus.LOW_ACCURACY, update.status)
+        assertEquals("定位时间异常，暂不推进检查点。", update.caption)
+        assertChineseCaption(update.caption)
+    }
+
+    @Test
     fun offRouteFixWarnsWithoutAdvancingCheckpoint() {
         val active = HikeSessionEngine.start(HikeSessionEngine.ready(plan))
 
@@ -216,5 +260,9 @@ class LocationBackedHikeSessionEngineTest {
         assertTrue(caption.any { character -> character in '\u4e00'..'\u9fff' })
         assertFalse(caption.contains("Location"))
         assertFalse(caption.contains("planned route"))
+    }
+
+    private companion object {
+        const val NOW_EPOCH_MILLIS = 1_700_000_060_000L
     }
 }

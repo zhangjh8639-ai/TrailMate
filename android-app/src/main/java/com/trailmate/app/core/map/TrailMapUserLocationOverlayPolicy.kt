@@ -14,7 +14,8 @@ data class TrailMapUserLocationOverlay(
     val longitude: Double,
     val accuracyMeters: Double?,
     val confidence: TrailMapUserLocationConfidence,
-    val staleAgeMinutes: Long? = null
+    val staleAgeMinutes: Long? = null,
+    val hasInvalidTimestamp: Boolean = false
 ) {
     val title: String =
         when (confidence) {
@@ -27,9 +28,13 @@ data class TrailMapUserLocationOverlay(
             TrailMapUserLocationConfidence.PRECISE ->
                 accuracyMeters?.let { "精度约 ${it.toInt()} m" } ?: "定位精度待确认"
             TrailMapUserLocationConfidence.APPROXIMATE ->
-                staleAgeMinutes?.let { "定位已过期 · $it 分钟前" }
-                    ?: accuracyMeters?.let { "精度较低 · 约 ${it.toInt()} m" }
-                    ?: "定位精度待确认"
+                if (hasInvalidTimestamp) {
+                    "定位时间异常"
+                } else {
+                    staleAgeMinutes?.let { "定位已过期 · $it 分钟前" } ?:
+                        accuracyMeters?.let { "精度较低 · 约 ${it.toInt()} m" } ?:
+                        "定位精度待确认"
+                }
         }
 }
 
@@ -56,7 +61,11 @@ object TrailMapUserLocationOverlayPolicy {
             longitude = longitude,
             accuracyMeters = locationSnapshot.horizontalAccuracyMeters?.takeIf { it.isFinite() && it > 0.0 },
             confidence = locationSnapshot.userLocationConfidence(nowEpochMillis),
-            staleAgeMinutes = locationSnapshot.staleAgeMinutes(nowEpochMillis)
+            staleAgeMinutes = locationSnapshot.staleAgeMinutes(nowEpochMillis),
+            hasInvalidTimestamp = !TrailMateLocationFixReliability.hasValidTimestamp(
+                snapshot = locationSnapshot,
+                nowEpochMillis = nowEpochMillis
+            )
         )
     }
 
@@ -73,6 +82,10 @@ object TrailMapUserLocationOverlayPolicy {
         }
 
     private fun TrailMateLocationSnapshot.staleAgeMinutes(nowEpochMillis: Long): Long? {
+        if (!TrailMateLocationFixReliability.hasValidTimestamp(snapshot = this, nowEpochMillis = nowEpochMillis)) {
+            return null
+        }
+
         val ageMillis = TrailMateLocationFixReliability.fixAgeMillis(
             snapshot = this,
             nowEpochMillis = nowEpochMillis

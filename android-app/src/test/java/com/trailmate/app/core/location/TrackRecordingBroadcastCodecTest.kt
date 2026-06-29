@@ -22,7 +22,8 @@ class TrackRecordingBroadcastCodecTest {
                 elevationMeters = 100.0,
                 horizontalAccuracyMeters = 8.0,
                 timestampEpochMillis = 1_100L
-            )
+            ),
+            nowEpochMillis = 1_100L
         )
 
         val decoded = TrackRecordingBroadcastCodec.decode(
