@@ -113,6 +113,7 @@ object MapLibrePmTilesStyleFactory {
                   "source-layer":"roads",
                   "layout":{
                     "symbol-placement":"line",
+                    "text-font":["${MapLibrePmTilesBundledStyleAssetManifestResolver.LABEL_FONT_STACK}"],
                     "text-field":["coalesce",["get","name"],["get","name:zh"]],
                     "text-size":12
                   },
@@ -126,6 +127,7 @@ object MapLibrePmTilesStyleFactory {
                   "layout":{
                     "icon-image":["coalesce",["get","kind"],"marker"],
                     "icon-size":0.75,
+                    "text-font":["${MapLibrePmTilesBundledStyleAssetManifestResolver.LABEL_FONT_STACK}"],
                     "text-field":["coalesce",["get","name"],["get","name:zh"]],
                     "text-size":11,
                     "text-offset":[0,1.1]
