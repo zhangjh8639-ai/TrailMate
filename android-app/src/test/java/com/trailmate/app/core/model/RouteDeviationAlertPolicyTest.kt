@@ -88,7 +88,7 @@ class RouteDeviationAlertPolicyTest {
 
         val decision = RouteDeviationAlertPolicy.evaluate(
             status = LocationBackedHikeStatus.ON_ROUTE,
-            fix = reliableFix(crossTrackErrorMeters = 18.0),
+            fix = reliableFix(crossTrackErrorMeters = 18.0).copy(timestampEpochMillis = 90_000L),
             state = state,
             nowEpochMillis = 90_000L
         )
@@ -103,7 +103,7 @@ class RouteDeviationAlertPolicyTest {
 
         val repeated = RouteDeviationAlertPolicy.evaluate(
             status = LocationBackedHikeStatus.ON_ROUTE,
-            fix = reliableFix(crossTrackErrorMeters = 12.0),
+            fix = reliableFix(crossTrackErrorMeters = 12.0).copy(timestampEpochMillis = 95_000L),
             state = decision.nextState,
             nowEpochMillis = 95_000L
         )
@@ -173,6 +173,79 @@ class RouteDeviationAlertPolicyTest {
     }
 
     @Test
+    fun staleOffRouteFixWaitsForReliableFixWithoutAlert() {
+        val decision = RouteDeviationAlertPolicy.evaluate(
+            status = LocationBackedHikeStatus.CHECK_ROUTE,
+            fix = reliableFix(crossTrackErrorMeters = 112.0).copy(timestampEpochMillis = 1_000L),
+            state = RouteDeviationAlertState(),
+            nowEpochMillis = 62_000L
+        )
+
+        assertEquals(RouteDeviationAlertKind.WAIT_FOR_RELIABLE_FIX, decision.kind)
+        assertFalse(decision.shouldNotify)
+        assertFalse(decision.shouldVibrate)
+        assertEquals("等待定位稳定", decision.title)
+        assertFalse(decision.nextState.activeEpisode)
+    }
+
+    @Test
+    fun invalidOffRouteFixWaitsForReliableFixWithoutAlert() {
+        val invalidFixes = listOf(
+            reliableFix(crossTrackErrorMeters = 112.0).copy(
+                distanceAlongRouteKm = Double.NaN,
+                timestampEpochMillis = NOW_EPOCH_MILLIS
+            ),
+            reliableFix(crossTrackErrorMeters = Double.NaN).copy(timestampEpochMillis = NOW_EPOCH_MILLIS),
+            reliableFix(crossTrackErrorMeters = 112.0).copy(
+                horizontalAccuracyMeters = Double.POSITIVE_INFINITY,
+                timestampEpochMillis = NOW_EPOCH_MILLIS
+            ),
+            reliableFix(crossTrackErrorMeters = 112.0).copy(
+                horizontalAccuracyMeters = -1.0,
+                timestampEpochMillis = NOW_EPOCH_MILLIS
+            ),
+            reliableFix(crossTrackErrorMeters = 112.0).copy(timestampEpochMillis = 0L)
+        )
+
+        invalidFixes.forEach { fix ->
+            val decision = RouteDeviationAlertPolicy.evaluate(
+                status = LocationBackedHikeStatus.CHECK_ROUTE,
+                fix = fix,
+                state = RouteDeviationAlertState(),
+                nowEpochMillis = NOW_EPOCH_MILLIS
+            )
+
+            assertEquals(RouteDeviationAlertKind.WAIT_FOR_RELIABLE_FIX, decision.kind)
+            assertFalse(decision.shouldNotify)
+            assertFalse(decision.shouldVibrate)
+            assertEquals("等待定位稳定", decision.title)
+            assertFalse(decision.nextState.activeEpisode)
+        }
+    }
+
+    @Test
+    fun futureRejoinFixPreservesActiveEpisode() {
+        val state = RouteDeviationAlertState(
+            activeEpisode = true,
+            lastAlertEpochMillis = 10_000L,
+            lastAlertCrossTrackErrorMeters = 112.0,
+            rejoinNoticeEmitted = false
+        )
+
+        val decision = RouteDeviationAlertPolicy.evaluate(
+            status = LocationBackedHikeStatus.ON_ROUTE,
+            fix = reliableFix(crossTrackErrorMeters = 18.0).copy(timestampEpochMillis = NOW_EPOCH_MILLIS + 1L),
+            state = state,
+            nowEpochMillis = NOW_EPOCH_MILLIS
+        )
+
+        assertEquals(RouteDeviationAlertKind.WAIT_FOR_RELIABLE_FIX, decision.kind)
+        assertFalse(decision.shouldNotify)
+        assertFalse(decision.shouldVibrate)
+        assertEquals(state, decision.nextState)
+    }
+
+    @Test
     fun unreliableFixPreservesActiveEpisodeUntilReliableRejoin() {
         val state = RouteDeviationAlertState(
             activeEpisode = true,
@@ -195,7 +268,7 @@ class RouteDeviationAlertPolicyTest {
 
         val rejoined = RouteDeviationAlertPolicy.evaluate(
             status = LocationBackedHikeStatus.ON_ROUTE,
-            fix = reliableFix(crossTrackErrorMeters = 18.0),
+            fix = reliableFix(crossTrackErrorMeters = 18.0).copy(timestampEpochMillis = 90_000L),
             state = unreliable.nextState,
             nowEpochMillis = 90_000L
         )
@@ -213,4 +286,8 @@ class RouteDeviationAlertPolicyTest {
             horizontalAccuracyMeters = 8.0,
             timestampEpochMillis = 1_000L
         )
+
+    private companion object {
+        const val NOW_EPOCH_MILLIS = 1_700_000_060_000L
+    }
 }
