@@ -127,6 +127,7 @@ import com.trailmate.app.core.map.AmapTargetRouteRegion
 import com.trailmate.app.core.map.AmapTargetRouteRegionReader
 import com.trailmate.app.core.map.MapScreenPoint
 import com.trailmate.app.core.map.MapLibrePmTilesBundledStyleAssetManifestResolver
+import com.trailmate.app.core.map.MapLibrePmTilesStyleAssetReadiness
 import com.trailmate.app.core.map.MapLibrePmTilesStyleAssetReadinessEngine
 import com.trailmate.app.core.map.MapLibreSdkAvailability
 import com.trailmate.app.core.map.PmTilesArchiveHeaderParser
@@ -1379,6 +1380,7 @@ fun RouteDetailScreen(
             hikeSession = hikeSession,
             liveGuidance = liveCheckpointGuidance,
             mapReadiness = mapReadiness,
+            pmTilesStyleAssetReadiness = mapLibrePmTilesStyleAssetReadiness,
             offlineRoutePackReady = offlineRoutePackReady,
             offlineBaseMapRegionCount = effectiveOfflineBaseMapDepartureState.downloadedRegionCount,
             offlineBaseMapCoversTargetRoute = effectiveOfflineBaseMapDepartureState.coversTargetRoute,
@@ -1722,6 +1724,7 @@ internal fun RouteCockpitTabContent(
     hikeSession: HikeSessionState,
     liveGuidance: LiveCheckpointGuidance,
     mapReadiness: TrailMapReadiness,
+    pmTilesStyleAssetReadiness: MapLibrePmTilesStyleAssetReadiness? = null,
     offlineRoutePackReady: Boolean,
     offlineBaseMapRegionCount: Int? = null,
     offlineBaseMapCoversTargetRoute: Boolean = false,
@@ -1785,7 +1788,8 @@ internal fun RouteCockpitTabContent(
         TrailMateDeviceDiagnosticsReportFormatter.format(
             launchDiagnostics = diagnostics,
             deviceIdentity = TrailMateDeviceIdentity.from(context),
-            locationSnapshot = locationSnapshot
+            locationSnapshot = locationSnapshot,
+            pmTilesStyleAssetReadiness = pmTilesStyleAssetReadiness
         )
     }
     LaunchedEffect(amapLaunchDiagnostics?.statusLabel, locationSnapshot.status) {
