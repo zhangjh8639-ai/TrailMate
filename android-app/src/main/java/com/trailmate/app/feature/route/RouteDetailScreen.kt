@@ -179,6 +179,7 @@ import com.trailmate.app.core.model.DaylightReturnWatchPresentation
 import com.trailmate.app.core.model.DaylightReturnWatchTone
 import com.trailmate.app.core.model.DepartureBriefPlan
 import com.trailmate.app.core.model.DepartureBriefShareDetail
+import com.trailmate.app.core.model.DepartureBriefShareActionEngine
 import com.trailmate.app.core.model.DepartureBriefShareEngine
 import com.trailmate.app.core.model.DepartureBriefSharePresentation
 import com.trailmate.app.core.model.DepartureReadinessPrimaryAction
@@ -4141,13 +4142,14 @@ private fun GpsTrackPanel(
         trackRecording = trackRecording,
         nowEpochMillis = returnEtaNowEpochMillis
     )
+    val departureBriefPlan = DepartureBriefPlan(
+        routeName = route.routeName,
+        distanceKm = route.distanceKm,
+        ascentMeters = route.ascentMeters,
+        estimatedDurationMinutes = plannedDurationMinutes
+    )
     val departureBriefShare = DepartureBriefShareEngine.present(
-        plan = DepartureBriefPlan(
-            routeName = route.routeName,
-            distanceKm = route.distanceKm,
-            ascentMeters = route.ascentMeters,
-            estimatedDurationMinutes = plannedDurationMinutes
-        ),
+        plan = departureBriefPlan,
         trackRecording = trackRecording,
         routeSessionCompleted = hikeSession.status == HikeSessionStatus.COMPLETED,
         nowEpochMillis = returnEtaNowEpochMillis
@@ -4264,8 +4266,13 @@ private fun GpsTrackPanel(
             DepartureBriefSharePanel(
                 presentation = departureBriefShare,
                 onPrimaryAction = {
-                    departureBriefShare.shareText?.let { text ->
-                        onShareTrailMateText(text, departureBriefShare.chooserTitle ?: "发送出发报备")
+                    val action = DepartureBriefShareActionEngine.resolveShareAction(
+                        plan = departureBriefPlan,
+                        trackRecording = trackRecording,
+                        routeSessionCompleted = hikeSession.status == HikeSessionStatus.COMPLETED
+                    )
+                    action.shareText?.let { text ->
+                        onShareTrailMateText(text, action.chooserTitle ?: "发送出发报备")
                     }
                 }
             )
