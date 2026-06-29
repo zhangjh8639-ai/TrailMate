@@ -126,6 +126,7 @@ import com.trailmate.app.core.map.AmapSdkAvailability
 import com.trailmate.app.core.map.AmapTargetRouteRegion
 import com.trailmate.app.core.map.AmapTargetRouteRegionReader
 import com.trailmate.app.core.map.MapScreenPoint
+import com.trailmate.app.core.map.MapLibrePmTilesBundledStyleAssetManifestResolver
 import com.trailmate.app.core.map.MapLibreSdkAvailability
 import com.trailmate.app.core.map.PmTilesArchiveHeaderParser
 import com.trailmate.app.core.map.PmTilesLatLngBounds
@@ -6504,6 +6505,13 @@ internal fun ReferenceRouteSurface(
         mutableStateOf(mapSurfaceMode == TrailMapSurfaceMode.LOCAL_CANVAS)
     }
     var mapLoadElapsedMillis by remember(route.sessionKey(), mapSurfaceMode) { mutableStateOf(0L) }
+    val mapLibrePmTilesStyleAssetManifest = remember(context) {
+        MapLibrePmTilesBundledStyleAssetManifestResolver.resolve { assetPath ->
+            runCatching {
+                context.assets.open(assetPath).use { true }
+            }.getOrDefault(false)
+        }
+    }
 
     LaunchedEffect(route.sessionKey(), mapSurfaceMode, nativeMapLoaded) {
         onAmapBaseMapRenderedChange(false)
@@ -6532,6 +6540,7 @@ internal fun ReferenceRouteSurface(
                 plan = plan,
                 trackRecording = trackRecording,
                 pmTilesFile = context.pmTilesBasemapDirectory().resolve("${route.offlineRoutePackKey()}.pmtiles"),
+                styleAssetManifest = mapLibrePmTilesStyleAssetManifest,
                 onMapLoaded = { nativeMapLoaded = true },
                 modifier = Modifier.fillMaxSize()
             )

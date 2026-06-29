@@ -83,6 +83,7 @@ class MapLibrePmTilesStyleFactoryTest {
         )
         assertTrue(styleJson.contains("\"sprite\":\"asset://trailmate/maplibre/protomaps/sprite\""))
         assertTrue(styleJson.contains("\"text-field\""))
+        assertTrue(styleJson.contains("\"text-font\":[\"Noto Sans Regular\"]"))
         assertTrue(styleJson.contains("\"icon-image\""))
         assertFalse(styleJson.contains("https://"))
         assertFalse(styleJson.contains("http://"))
