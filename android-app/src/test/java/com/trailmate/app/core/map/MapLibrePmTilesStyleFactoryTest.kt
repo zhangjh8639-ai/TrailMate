@@ -45,4 +45,75 @@ class MapLibrePmTilesStyleFactoryTest {
         assertFalse(styleJson.contains("\"glyphs\""))
         assertFalse(styleJson.contains("\"sprite\""))
     }
+
+    @Test
+    fun incompleteAssetsKeepGeometryOnlyStyle() {
+        val file = File("/data/user/0/com.trailmate.app/files/pmtiles-basemaps/longjing.pmtiles")
+        val styleJson = MapLibrePmTilesStyleFactory.buildStyleJson(
+            file = file,
+            styleAssets = MapLibrePmTilesStyleAssetReadinessEngine.resolve(
+                MapLibrePmTilesStyleAssetManifest(
+                    glyphsUrl = null,
+                    spriteJsonUrl = "asset://trailmate/maplibre/protomaps/sprite.json",
+                    spriteImageUrl = "asset://trailmate/maplibre/protomaps/sprite.png"
+                )
+            )
+        )
+
+        assertTrue(styleJson.contains("\"source-layer\":\"water\""))
+        assertTrue(styleJson.contains("\"source-layer\":\"roads\""))
+        assertFalse(styleJson.contains("\"text-field\""))
+        assertFalse(styleJson.contains("\"icon-image\""))
+        assertFalse(styleJson.contains("\"glyphs\""))
+        assertFalse(styleJson.contains("\"sprite\""))
+    }
+
+    @Test
+    fun completeAssetsBuildLabeledOfflineStyle() {
+        val file = File("/data/user/0/com.trailmate.app/files/pmtiles-basemaps/longjing.pmtiles")
+        val styleJson = MapLibrePmTilesStyleFactory.buildStyleJson(
+            file = file,
+            styleAssets = MapLibrePmTilesStyleAssetReadinessEngine.resolve(completeManifest())
+        )
+
+        assertTrue(
+            styleJson.contains(
+                "\"glyphs\":\"asset://trailmate/maplibre/protomaps/glyphs/{fontstack}/{range}.pbf\""
+            )
+        )
+        assertTrue(styleJson.contains("\"sprite\":\"asset://trailmate/maplibre/protomaps/sprite\""))
+        assertTrue(styleJson.contains("\"text-field\""))
+        assertTrue(styleJson.contains("\"icon-image\""))
+        assertFalse(styleJson.contains("https://"))
+        assertFalse(styleJson.contains("http://"))
+    }
+
+    @Test
+    fun networkAssetsKeepGeometryOnlyStyle() {
+        val file = File("/data/user/0/com.trailmate.app/files/pmtiles-basemaps/longjing.pmtiles")
+        val styleJson = MapLibrePmTilesStyleFactory.buildStyleJson(
+            file = file,
+            styleAssets = MapLibrePmTilesStyleAssetReadinessEngine.resolve(
+                MapLibrePmTilesStyleAssetManifest(
+                    glyphsUrl = "https://cdn.example.com/glyphs/{fontstack}/{range}.pbf",
+                    spriteJsonUrl = "https://cdn.example.com/sprite.json",
+                    spriteImageUrl = "https://cdn.example.com/sprite.png"
+                )
+            )
+        )
+
+        assertFalse(styleJson.contains("\"glyphs\""))
+        assertFalse(styleJson.contains("\"sprite\""))
+        assertFalse(styleJson.contains("\"text-field\""))
+        assertFalse(styleJson.contains("\"icon-image\""))
+        assertFalse(styleJson.contains("https://"))
+        assertFalse(styleJson.contains("http://"))
+    }
+
+    private fun completeManifest(): MapLibrePmTilesStyleAssetManifest =
+        MapLibrePmTilesStyleAssetManifest(
+            glyphsUrl = "asset://trailmate/maplibre/protomaps/glyphs/{fontstack}/{range}.pbf",
+            spriteJsonUrl = "asset://trailmate/maplibre/protomaps/sprite.json",
+            spriteImageUrl = "asset://trailmate/maplibre/protomaps/sprite.png"
+        )
 }
