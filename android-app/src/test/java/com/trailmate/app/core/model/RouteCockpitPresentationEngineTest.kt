@@ -473,7 +473,7 @@ class RouteCockpitPresentationEngineTest {
     }
 
     @Test
-    fun keepsRecordingControlPrimaryWhenOffRoute() {
+    fun prioritizesRecoveryAdviceOverRecordingControlWhenOffRoute() {
         val presentation = RouteCockpitPresentationEngine.build(
             route = sampleRoute,
             plan = samplePlan,
@@ -487,9 +487,48 @@ class RouteCockpitPresentationEngineTest {
             wasRecentlyOffRoute = false
         )
 
-        assertEquals(RouteCockpitPrimaryActionKind.PAUSE_RECORDING, presentation.primaryAction.kind)
-        assertEquals("暂停", presentation.primaryAction.label)
+        assertEquals(RouteCockpitPrimaryActionKind.VIEW_RECOVERY, presentation.primaryAction.kind)
+        assertEquals("查看恢复建议", presentation.primaryAction.label)
         assertEquals("需核对路线", presentation.routeMatchLabel)
+    }
+
+    @Test
+    fun prioritizesRecoveryAdviceOverRecordingControlAfterRecentRejoin() {
+        val presentation = RouteCockpitPresentationEngine.build(
+            route = sampleRoute,
+            plan = samplePlan,
+            session = HikeSessionState(status = HikeSessionStatus.ACTIVE, reachedCheckpointIndex = 1),
+            liveGuidance = sampleGuidance,
+            mapReadiness = mapReadiness(gpsEnabled = true, offlineRoutePackReady = true),
+            departureReadiness = departureReadiness(gpsEnabled = true, offlineRoutePackReady = true),
+            locationSnapshot = locatedSnapshot,
+            locationGuidanceStatus = LocationBackedHikeStatus.ON_ROUTE,
+            trackRecording = TrackRecordingState(status = TrackRecordingStatus.RECORDING),
+            wasRecentlyOffRoute = true
+        )
+
+        assertEquals(RouteCockpitPrimaryActionKind.VIEW_RECOVERY, presentation.primaryAction.kind)
+        assertEquals("查看恢复建议", presentation.primaryAction.label)
+        assertEquals("需核对路线", presentation.routeMatchLabel)
+    }
+
+    @Test
+    fun keepsDepartureGatePrimaryBeforeHikeStartsEvenIfRouteStatusNeedsCheck() {
+        val presentation = RouteCockpitPresentationEngine.build(
+            route = sampleRoute,
+            plan = samplePlan,
+            session = HikeSessionState(status = HikeSessionStatus.READY, reachedCheckpointIndex = 0),
+            liveGuidance = sampleGuidance,
+            mapReadiness = mapReadiness(gpsEnabled = false, offlineRoutePackReady = false),
+            departureReadiness = departureReadiness(gpsEnabled = false, offlineRoutePackReady = false),
+            locationSnapshot = TrailMateLocationSnapshot.permissionRequired(),
+            locationGuidanceStatus = LocationBackedHikeStatus.CHECK_ROUTE,
+            trackRecording = TrackRecordingState(status = TrackRecordingStatus.IDLE),
+            wasRecentlyOffRoute = false
+        )
+
+        assertEquals(RouteCockpitPrimaryActionKind.SAVE_OFFLINE_ROUTE_PACK, presentation.primaryAction.kind)
+        assertEquals("保存离线路线", presentation.primaryAction.label)
     }
 
     @Test

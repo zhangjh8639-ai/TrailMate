@@ -126,6 +126,15 @@ object RouteCockpitPresentationEngine {
         wasRecentlyOffRoute: Boolean,
         nowEpochMillis: Long
     ): RouteCockpitPrimaryAction {
+        if (session.isInField() &&
+            (locationGuidanceStatus == LocationBackedHikeStatus.CHECK_ROUTE || wasRecentlyOffRoute)
+        ) {
+            return RouteCockpitPrimaryAction(
+                label = "查看恢复建议",
+                kind = RouteCockpitPrimaryActionKind.VIEW_RECOVERY
+            )
+        }
+
         when (trackRecording.status) {
             TrackRecordingStatus.RECORDING -> return RouteCockpitPrimaryAction(
                 label = "暂停",
@@ -163,13 +172,6 @@ object RouteCockpitPresentationEngine {
                     label = "查看轨迹回顾",
                     kind = RouteCockpitPrimaryActionKind.REVIEW_TRACK
                 )
-        }
-
-        if (locationGuidanceStatus == LocationBackedHikeStatus.CHECK_ROUTE || wasRecentlyOffRoute) {
-            return RouteCockpitPrimaryAction(
-                label = "查看恢复建议",
-                kind = RouteCockpitPrimaryActionKind.VIEW_RECOVERY
-            )
         }
 
         return when (trackRecording.status) {
@@ -238,6 +240,9 @@ object RouteCockpitPresentationEngine {
                 kind = RouteCockpitPrimaryActionKind.REVIEW_TRACK
             )
         }
+
+    private fun HikeSessionState.isInField(): Boolean =
+        status == HikeSessionStatus.ACTIVE || status == HikeSessionStatus.PAUSED
 
     private fun readinessItems(
         departureReadiness: DepartureReadinessSummary,
