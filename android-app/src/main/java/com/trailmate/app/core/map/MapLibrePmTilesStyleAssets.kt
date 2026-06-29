@@ -13,7 +13,16 @@ data class MapLibrePmTilesStyleAssetManifest(
     val glyphsUrl: String?,
     val spriteJsonUrl: String?,
     val spriteImageUrl: String?
-)
+) {
+    companion object {
+        fun unavailable(): MapLibrePmTilesStyleAssetManifest =
+            MapLibrePmTilesStyleAssetManifest(
+                glyphsUrl = null,
+                spriteJsonUrl = null,
+                spriteImageUrl = null
+            )
+    }
+}
 
 data class MapLibrePmTilesStyleAssetReadiness(
     val status: MapLibrePmTilesStyleAssetStatus,
