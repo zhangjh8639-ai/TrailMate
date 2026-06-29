@@ -61,7 +61,9 @@ object TrackRecordingRouteMonitorEngine {
     }
 
     private fun RecordedTrackPoint.isFresh(nowEpochMillis: Long): Boolean =
-        (nowEpochMillis - timestampEpochMillis).coerceAtLeast(0L) <=
+        timestampEpochMillis > 0L &&
+            timestampEpochMillis <= nowEpochMillis &&
+            nowEpochMillis - timestampEpochMillis <=
             TrailMateLocationFixReliability.MAX_RELIABLE_FIX_AGE_MILLIS
 
     private fun none(): RouteDeviationAlertDecision =
