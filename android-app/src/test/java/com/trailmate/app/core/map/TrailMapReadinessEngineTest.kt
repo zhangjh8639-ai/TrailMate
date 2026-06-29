@@ -33,6 +33,76 @@ class TrailMapReadinessEngineTest {
     }
 
     @Test
+    fun reportsMissingPmtilesStyleAssetsWithoutBlockingReadyBasemap() {
+        val readiness = TrailMapReadinessEngine.resolve(
+            hasAmapKey = false,
+            mapLibreRuntimeAvailable = true,
+            pmTilesBasemapPackReady = true,
+            offlineRoutePackReady = true,
+            gpsEnabled = true,
+            locationReadyForFieldUse = true,
+            routePointCount = 1858,
+            pmTilesStyleAssetReadiness = MapLibrePmTilesStyleAssetReadinessEngine.resolve(
+                MapLibrePmTilesStyleAssetManifest.unavailable()
+            )
+        )
+
+        assertEquals(TrailMapProvider.MAPLIBRE_PMTILES, readiness.provider)
+        assertTrue(readiness.isProductionMapReady)
+        assertEquals("待补齐", readiness.setupSteps.first { it.label == "地图标注" }.value)
+        assertEquals(
+            TrailMapReadinessStepStatus.NEEDS_ACTION,
+            readiness.setupSteps.first { it.label == "地图标注" }.status
+        )
+    }
+
+    @Test
+    fun reportsReadyPmtilesStyleAssetsWhenGlyphsAndSpritesAreComplete() {
+        val readiness = TrailMapReadinessEngine.resolve(
+            hasAmapKey = false,
+            mapLibreRuntimeAvailable = true,
+            pmTilesBasemapPackReady = true,
+            offlineRoutePackReady = true,
+            gpsEnabled = true,
+            locationReadyForFieldUse = true,
+            routePointCount = 1858,
+            pmTilesStyleAssetReadiness = MapLibrePmTilesStyleAssetReadinessEngine.resolve(
+                MapLibrePmTilesStyleAssetManifest(
+                    glyphsUrl = "asset://trailmate/maplibre/protomaps/glyphs/{fontstack}/{range}.pbf",
+                    spriteJsonUrl = "asset://trailmate/maplibre/protomaps/sprite.json",
+                    spriteImageUrl = "asset://trailmate/maplibre/protomaps/sprite.png"
+                )
+            )
+        )
+
+        assertEquals(TrailMapProvider.MAPLIBRE_PMTILES, readiness.provider)
+        assertEquals("已就绪", readiness.setupSteps.first { it.label == "地图标注" }.value)
+        assertEquals(
+            TrailMapReadinessStepStatus.READY,
+            readiness.setupSteps.first { it.label == "地图标注" }.status
+        )
+    }
+
+    @Test
+    fun doesNotReportPmtilesStyleAssetsWhenRouteGeometryForcesLocalPreview() {
+        val readiness = TrailMapReadinessEngine.resolve(
+            hasAmapKey = false,
+            mapLibreRuntimeAvailable = true,
+            pmTilesBasemapPackReady = true,
+            offlineRoutePackReady = true,
+            gpsEnabled = true,
+            locationReadyForFieldUse = true,
+            routePointCount = 1,
+            pmTilesStyleAssetReadiness = MapLibrePmTilesStyleAssetReadinessEngine.resolve(
+                MapLibrePmTilesStyleAssetManifest.unavailable()
+            )
+        )
+
+        assertEquals(TrailMapProvider.LOCAL_GPX_PREVIEW, readiness.provider)
+        assertFalse(readiness.setupSteps.any { it.label == "地图标注" })
+    }
+
+    @Test
     fun fallsBackToLocalPreviewWhenPmtilesPackIsMissing() {
         val readiness = TrailMapReadinessEngine.resolve(
             hasAmapKey = false,

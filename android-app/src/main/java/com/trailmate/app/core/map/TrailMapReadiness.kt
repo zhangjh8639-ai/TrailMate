@@ -88,6 +88,8 @@ object TrailMapReadinessEngine {
         amapPrivacyConsentAccepted: Boolean = false,
         mapLibreRuntimeAvailable: Boolean = false,
         pmTilesBasemapPackReady: Boolean = false,
+        pmTilesStyleAssetReadiness: MapLibrePmTilesStyleAssetReadiness =
+            MapLibrePmTilesStyleAssetReadinessEngine.resolve(MapLibrePmTilesStyleAssetManifest.unavailable()),
         offlineRoutePackReady: Boolean,
         gpsEnabled: Boolean,
         locationReadyForFieldUse: Boolean = gpsEnabled,
@@ -107,7 +109,8 @@ object TrailMapReadinessEngine {
             locationReadyForFieldUse = locationReadyForFieldUse,
             routePointCount = routePointCount,
             pmTilesReady = pmTilesReady,
-            amapReady = amapReady
+            amapReady = amapReady,
+            pmTilesStyleAssetReadiness = pmTilesStyleAssetReadiness
         )
         val routeGeometryChip = if (routePointCount > 0) {
             "$routePointCount 点"
@@ -222,9 +225,10 @@ object TrailMapReadinessEngine {
         locationReadyForFieldUse: Boolean,
         routePointCount: Int,
         pmTilesReady: Boolean,
-        amapReady: Boolean
-    ): List<TrailMapReadinessStep> =
-        listOf(
+        amapReady: Boolean,
+        pmTilesStyleAssetReadiness: MapLibrePmTilesStyleAssetReadiness
+    ): List<TrailMapReadinessStep> {
+        val baseSteps = listOf(
             TrailMapReadinessStep(
                 label = "路线",
                 value = if (routePointCount >= 2) "$routePointCount 点" else "缺少轨迹点",
@@ -271,4 +275,19 @@ object TrailMapReadinessEngine {
                 }
             )
         )
+
+        if (routePointCount < 2 || !pmTilesReady) {
+            return baseSteps
+        }
+
+        return baseSteps + TrailMapReadinessStep(
+            label = "地图标注",
+            value = if (pmTilesStyleAssetReadiness.readyForLabels) "已就绪" else "待补齐",
+            status = if (pmTilesStyleAssetReadiness.readyForLabels) {
+                TrailMapReadinessStepStatus.READY
+            } else {
+                TrailMapReadinessStepStatus.NEEDS_ACTION
+            }
+        )
+    }
 }
