@@ -6318,6 +6318,7 @@ private fun RouteDeviationRecoveryAction.glyph(): TrailMateGlyph =
     when (kind) {
         RouteDeviationRecoveryActionKind.STOP_AND_CONFIRM -> TrailMateGlyph.Warning
         RouteDeviationRecoveryActionKind.RETURN_TO_ROUTE -> TrailMateGlyph.Route
+        RouteDeviationRecoveryActionKind.REVIEW_SAFE_EXIT -> TrailMateGlyph.Map
         RouteDeviationRecoveryActionKind.SHARE_LOCATION -> TrailMateGlyph.Location
         RouteDeviationRecoveryActionKind.WAIT_FOR_GPS -> TrailMateGlyph.Location
         RouteDeviationRecoveryActionKind.CONTINUE_NAVIGATION -> TrailMateGlyph.Compass
