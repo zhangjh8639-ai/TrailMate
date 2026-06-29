@@ -1,5 +1,6 @@
 package com.trailmate.app.core.model
 
+import com.trailmate.app.core.location.TrailMateLocationFixReliability
 import java.util.Locale
 
 data class RouteExitGuidanceOption(
@@ -29,7 +30,8 @@ object RouteExitGuidanceEngine {
         plan: HikePlanSummary,
         locationStatus: LocationBackedHikeStatus,
         fix: HikeLocationFix?,
-        trackRecording: TrackRecordingState
+        trackRecording: TrackRecordingState,
+        nowEpochMillis: Long = System.currentTimeMillis()
     ): RouteExitGuidancePresentation {
         if (locationStatus == LocationBackedHikeStatus.FINISHED) {
             return finished(trackRecording = trackRecording)
@@ -41,7 +43,8 @@ object RouteExitGuidanceEngine {
 
         if (locationStatus == LocationBackedHikeStatus.LOW_ACCURACY ||
             locationStatus == LocationBackedHikeStatus.WAITING ||
-            fix == null
+            fix == null ||
+            !fix.isReliable(nowEpochMillis)
         ) {
             return lowConfidence(trackRecording = trackRecording)
         }
@@ -173,5 +176,19 @@ object RouteExitGuidanceEngine {
     private fun Double.formatKm(): String =
         String.format(Locale.US, "%.1f km", this)
 
+    private fun HikeLocationFix.isReliable(nowEpochMillis: Long): Boolean =
+        distanceAlongRouteKm.isFinite() &&
+            distanceAlongRouteKm >= 0.0 &&
+            crossTrackErrorMeters.isFinite() &&
+            crossTrackErrorMeters >= 0.0 &&
+            horizontalAccuracyMeters.isFinite() &&
+            horizontalAccuracyMeters >= 0.0 &&
+            horizontalAccuracyMeters <= MAX_EXIT_GUIDANCE_ACCURACY_METERS &&
+            timestampEpochMillis > 0L &&
+            timestampEpochMillis <= nowEpochMillis &&
+            nowEpochMillis - timestampEpochMillis <=
+            TrailMateLocationFixReliability.MAX_RELIABLE_FIX_AGE_MILLIS
+
     private const val NEXT_REFERENCE_EPSILON_KM = 0.05
+    private const val MAX_EXIT_GUIDANCE_ACCURACY_METERS = 50.0
 }
