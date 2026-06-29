@@ -117,6 +117,45 @@ class TrailMateDeviceDiagnosticsReportFormatterTest {
     }
 
     @Test
+    fun formatsMissingPmtilesStyleAssetsForPhysicalDeviceDiagnostics() {
+        val report = TrailMateDeviceDiagnosticsReportFormatter.format(
+            launchDiagnostics = baseLaunchDiagnostics(locationItems = emptyList()),
+            locationSnapshot = emptyLocationSnapshot(TrailMateLocationStatus.LOCATED),
+            pmTilesStyleAssetReadiness = MapLibrePmTilesStyleAssetReadinessEngine.resolve(
+                MapLibrePmTilesStyleAssetManifest.unavailable()
+            )
+        )
+
+        assertTrue(report.contains("pmTilesStyleAssetStatus=MISSING_GLYPHS"))
+        assertTrue(report.contains("pmTilesLabelsReady=false"))
+        assertTrue(report.contains("pmTilesStyleAssetCaption=标注资源缺失时将暂不显示文字或图标标注，路线几何和底图上下文仍可查看。"))
+        assertFalse(report.contains("pmTilesGlyphsUrl="))
+        assertFalse(report.contains("pmTilesSpriteUrl="))
+    }
+
+    @Test
+    fun formatsReadyPmtilesStyleAssetsForPhysicalDeviceDiagnostics() {
+        val report = TrailMateDeviceDiagnosticsReportFormatter.format(
+            launchDiagnostics = baseLaunchDiagnostics(locationItems = emptyList()),
+            locationSnapshot = emptyLocationSnapshot(TrailMateLocationStatus.LOCATED),
+            pmTilesStyleAssetReadiness = MapLibrePmTilesStyleAssetReadinessEngine.resolve(
+                MapLibrePmTilesStyleAssetManifest(
+                    glyphsUrl = "asset://trailmate/maplibre/protomaps/glyphs/{fontstack}/{range}.pbf",
+                    spriteJsonUrl = "asset://trailmate/maplibre/protomaps/sprite.json",
+                    spriteImageUrl = "asset://trailmate/maplibre/protomaps/sprite.png"
+                )
+            )
+        )
+
+        assertTrue(report.contains("pmTilesStyleAssetStatus=READY"))
+        assertTrue(report.contains("pmTilesLabelsReady=true"))
+        assertTrue(report.contains("pmTilesGlyphsUrl=asset://trailmate/maplibre/protomaps/glyphs/{fontstack}/{range}.pbf"))
+        assertTrue(report.contains("pmTilesSpriteUrl=asset://trailmate/maplibre/protomaps/sprite"))
+        assertFalse(report.contains("https://"))
+        assertFalse(report.contains("http://"))
+    }
+
+    @Test
     fun formatsTargetOfflineBaseMapRegionAndVerificationStep() {
         val report = TrailMateDeviceDiagnosticsReportFormatter.format(
             launchDiagnostics = AmapLaunchDiagnostics(

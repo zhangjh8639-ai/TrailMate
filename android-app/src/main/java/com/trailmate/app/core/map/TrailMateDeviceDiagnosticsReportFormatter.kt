@@ -10,7 +10,8 @@ object TrailMateDeviceDiagnosticsReportFormatter {
         launchDiagnostics: AmapLaunchDiagnostics,
         deviceIdentity: TrailMateDeviceIdentity = TrailMateDeviceIdentity.unknown(),
         locationSnapshot: TrailMateLocationSnapshot,
-        offlineDownloadDiagnostic: AmapOfflineDownloadQaDiagnostic? = null
+        offlineDownloadDiagnostic: AmapOfflineDownloadQaDiagnostic? = null,
+        pmTilesStyleAssetReadiness: MapLibrePmTilesStyleAssetReadiness? = null
     ): String =
         buildString {
             appendLine("TrailMate 真机诊断")
@@ -64,6 +65,17 @@ object TrailMateDeviceDiagnosticsReportFormatter {
                 appendLine("locationRecoveryAction=${plan.action}")
                 plan.steps.forEach { step ->
                     appendLine("locationRecoveryStep=$step")
+                }
+            }
+            if (pmTilesStyleAssetReadiness != null) {
+                appendLine("pmTilesStyleAssetStatus=${pmTilesStyleAssetReadiness.status.name}")
+                appendLine("pmTilesLabelsReady=${pmTilesStyleAssetReadiness.readyForLabels}")
+                appendLine("pmTilesStyleAssetCaption=${pmTilesStyleAssetReadiness.caption}")
+                pmTilesStyleAssetReadiness.glyphsUrl?.let { glyphsUrl ->
+                    appendLine("pmTilesGlyphsUrl=$glyphsUrl")
+                }
+                pmTilesStyleAssetReadiness.spriteUrl?.let { spriteUrl ->
+                    appendLine("pmTilesSpriteUrl=$spriteUrl")
                 }
             }
             if (offlineDownloadDiagnostic != null) {
