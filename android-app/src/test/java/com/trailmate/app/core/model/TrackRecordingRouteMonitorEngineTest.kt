@@ -166,6 +166,40 @@ class TrackRecordingRouteMonitorEngineTest {
     }
 
     @Test
+    fun matchingRouteWithFutureTimestampPointWaitsForReliableFix() {
+        val decision = TrackRecordingRouteMonitorEngine.evaluate(
+            route = route(),
+            recordingRouteName = RouteName,
+            recordingRouteKey = route().offlineRoutePackKey(),
+            point = point(longitude = 120.0010, timestampEpochMillis = 10_001L),
+            state = RouteDeviationAlertState(),
+            nowEpochMillis = 10_000L
+        )
+
+        assertEquals(RouteDeviationAlertKind.WAIT_FOR_RELIABLE_FIX, decision.kind)
+        assertFalse(decision.shouldNotify)
+        assertFalse(decision.shouldVibrate)
+        assertEquals(RouteDeviationAlertState(), decision.nextState)
+    }
+
+    @Test
+    fun matchingRouteWithZeroTimestampPointWaitsForReliableFix() {
+        val decision = TrackRecordingRouteMonitorEngine.evaluate(
+            route = route(),
+            recordingRouteName = RouteName,
+            recordingRouteKey = route().offlineRoutePackKey(),
+            point = point(longitude = 120.0010, timestampEpochMillis = 0L),
+            state = RouteDeviationAlertState(),
+            nowEpochMillis = 10_000L
+        )
+
+        assertEquals(RouteDeviationAlertKind.WAIT_FOR_RELIABLE_FIX, decision.kind)
+        assertFalse(decision.shouldNotify)
+        assertFalse(decision.shouldVibrate)
+        assertEquals(RouteDeviationAlertState(), decision.nextState)
+    }
+
+    @Test
     fun staleNearRoutePointDuringActiveEpisodeDoesNotEmitRejoinedNotice() {
         val activeState = RouteDeviationAlertState(
             activeEpisode = true,
