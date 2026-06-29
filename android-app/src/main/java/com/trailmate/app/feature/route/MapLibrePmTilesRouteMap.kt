@@ -15,7 +15,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.trailmate.app.core.map.MapLibreCheckpointOverlay
-import com.trailmate.app.core.map.MapLibrePmTilesStyleFactory
+import com.trailmate.app.core.map.MapLibrePmTilesRouteStylePolicy
+import com.trailmate.app.core.map.MapLibrePmTilesStyleAssetManifest
 import com.trailmate.app.core.map.MapLibreRouteGeoPoint
 import com.trailmate.app.core.map.MapLibreRouteOverlay
 import com.trailmate.app.core.map.MapLibreRouteOverlayProjector
@@ -39,6 +40,7 @@ internal fun MapLibrePmTilesRouteMap(
     plan: HikePlanSummary,
     trackRecording: TrackRecordingState,
     pmTilesFile: File,
+    styleAssetManifest: MapLibrePmTilesStyleAssetManifest = MapLibrePmTilesStyleAssetManifest.unavailable(),
     onMapLoaded: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -57,7 +59,7 @@ internal fun MapLibrePmTilesRouteMap(
     }
     val currentOverlay by rememberUpdatedState(overlay)
     val currentOnMapLoaded by rememberUpdatedState(onMapLoaded)
-    var styleLoaded by remember(pmTilesFile.path) { mutableStateOf(false) }
+    var styleLoaded by remember(pmTilesFile.path, styleAssetManifest) { mutableStateOf(false) }
     var routeBoundsFitted by remember(pmTilesFile.path, route.routeName) { mutableStateOf(false) }
 
     DisposableEffect(lifecycle, mapView) {
@@ -95,7 +97,12 @@ internal fun MapLibrePmTilesRouteMap(
                     }
                 } else {
                     map.setStyle(
-                        Style.Builder().fromJson(MapLibrePmTilesStyleFactory.buildStyleJson(pmTilesFile))
+                        Style.Builder().fromJson(
+                            MapLibrePmTilesRouteStylePolicy.buildStyleJson(
+                                pmTilesFile = pmTilesFile,
+                                styleAssetManifest = styleAssetManifest
+                            )
+                        )
                     ) {
                         styleLoaded = true
                         map.applyRouteOverlay(
