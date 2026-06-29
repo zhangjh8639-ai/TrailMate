@@ -143,6 +143,32 @@ class TrailMateLocationReliabilityEngineTest {
     }
 
     @Test
+    fun presentsInvalidLocatedTimestampAsCalibrationCaution() {
+        val presentation = TrailMateLocationReliabilityEngine.present(
+            snapshot = TrailMateLocationSnapshot(
+                status = TrailMateLocationStatus.LOCATED,
+                latitude = 30.25,
+                longitude = 120.15,
+                elevationMeters = 142.0,
+                horizontalAccuracyMeters = 8.4,
+                timestampEpochMillis = NOW_EPOCH_MILLIS + 1L
+            ),
+            routePointCount = 52,
+            guidanceStatus = LocationBackedHikeStatus.ON_ROUTE,
+            guidanceCaption = "已对齐「补给检查」，路线进度 3.1 km。",
+            nowEpochMillis = NOW_EPOCH_MILLIS
+        )
+
+        assertEquals("定位时间异常", presentation.title)
+        assertEquals("需校准", presentation.statusLabel)
+        assertEquals(LocationReliabilityLevel.CAUTION, presentation.level)
+        assertEquals("定位点时间无效或来自未来，请等待新的定位点。", presentation.caption)
+        assertEquals("继续校准", presentation.actionLabel)
+        assertEquals("时间异常", presentation.details[2].value)
+        assertChinese(presentation)
+    }
+
+    @Test
     fun presentsProviderDisabledAsBlockedAction() {
         val presentation = TrailMateLocationReliabilityEngine.present(
             snapshot = TrailMateLocationSnapshot.providerDisabled(),
@@ -181,5 +207,9 @@ class TrailMateLocationReliabilityEngineTest {
         assertTrue(text.any { character -> character in '\u4e00'..'\u9fff' })
         assertFalse(text.contains("Location"))
         assertFalse(text.contains("GPS accuracy is low"))
+    }
+
+    private companion object {
+        const val NOW_EPOCH_MILLIS = 1_700_000_060_000L
     }
 }

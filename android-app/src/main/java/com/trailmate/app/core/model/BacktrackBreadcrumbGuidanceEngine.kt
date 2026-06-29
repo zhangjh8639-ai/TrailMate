@@ -50,7 +50,11 @@ object BacktrackBreadcrumbGuidanceEngine {
         }
 
         val latestPoint = trackRecording.points.last()
-        val latestAgeMillis = (nowEpochMillis - latestPoint.timestampEpochMillis).coerceAtLeast(0L)
+        if (!latestPoint.hasValidTimestamp(nowEpochMillis)) {
+            return invalidLatestPoint(trackRecording, nowEpochMillis)
+        }
+
+        val latestAgeMillis = nowEpochMillis - latestPoint.timestampEpochMillis
         if (latestAgeMillis > STALE_BREADCRUMB_MILLIS) {
             return stale(trackRecording, nowEpochMillis)
         }
@@ -93,6 +97,20 @@ object BacktrackBreadcrumbGuidanceEngine {
             title = "原路参照",
             statusLabel = "轨迹已停更",
             caption = "最近实走轨迹已停更；先刷新定位，并核对离线地图、路标和可见路径后再判断是否原路返回。",
+            primaryActionLabel = "刷新定位",
+            tone = BacktrackBreadcrumbGuidanceTone.ALERT,
+            details = trackRecording.details(nowEpochMillis)
+        )
+
+    private fun invalidLatestPoint(
+        trackRecording: TrackRecordingState,
+        nowEpochMillis: Long
+    ): BacktrackBreadcrumbGuidancePresentation =
+        BacktrackBreadcrumbGuidancePresentation(
+            visible = true,
+            title = "原路参照",
+            statusLabel = "轨迹时间异常",
+            caption = "最近实走轨迹时间异常；先刷新定位，并核对离线地图、路标和现场路径后再判断是否原路返回。",
             primaryActionLabel = "刷新定位",
             tone = BacktrackBreadcrumbGuidanceTone.ALERT,
             details = trackRecording.details(nowEpochMillis)
@@ -158,13 +176,21 @@ object BacktrackBreadcrumbGuidanceEngine {
 
     private fun TrackRecordingState.latestPointAgeLabel(nowEpochMillis: Long): String {
         val latestPoint = points.lastOrNull() ?: return "无"
-        val ageMillis = (nowEpochMillis - latestPoint.timestampEpochMillis).coerceAtLeast(0L)
+        if (!latestPoint.hasValidTimestamp(nowEpochMillis)) {
+            return "时间异常"
+        }
+
+        val ageMillis = nowEpochMillis - latestPoint.timestampEpochMillis
         return if (ageMillis < MILLIS_PER_MINUTE) {
             "刚刚"
         } else {
             "${ageMillis / MILLIS_PER_MINUTE} 分钟前"
         }
     }
+
+    private fun RecordedTrackPoint.hasValidTimestamp(nowEpochMillis: Long): Boolean =
+        timestampEpochMillis > 0L &&
+            timestampEpochMillis <= nowEpochMillis
 
     private fun Double.formatKm(): String =
         String.format(Locale.US, "%.1f km", this)

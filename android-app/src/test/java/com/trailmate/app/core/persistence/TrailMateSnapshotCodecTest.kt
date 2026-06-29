@@ -90,7 +90,8 @@ class TrailMateSnapshotCodecTest {
                     elevationMeters = 100.0,
                     horizontalAccuracyMeters = 8.0,
                     timestampEpochMillis = 1_100L
-                )
+                ),
+                nowEpochMillis = 1_100L
             ),
             savedOfflineRoutePackKeys = setOf("west-ridge.gpx|West Ridge|8.4|540|64"),
             offlineBaseMapTileProofs = listOf(

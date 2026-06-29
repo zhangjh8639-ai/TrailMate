@@ -84,6 +84,24 @@ class BacktrackBreadcrumbGuidanceEngineTest {
     }
 
     @Test
+    fun futureLatestPointDoesNotMakeBreadcrumbReady() {
+        val presentation = BacktrackBreadcrumbGuidanceEngine.present(
+            trackRecording = recording(
+                totalDistanceKm = 0.42,
+                points = listOf(pointAt(10_000L), pointAt(NOW_EPOCH_MILLIS + 1L))
+            ),
+            nowEpochMillis = NOW_EPOCH_MILLIS
+        )
+
+        assertTrue(presentation.visible)
+        assertEquals("轨迹时间异常", presentation.statusLabel)
+        assertEquals(BacktrackBreadcrumbGuidanceTone.ALERT, presentation.tone)
+        assertTrue(presentation.caption.contains("时间异常"))
+        assertTrue(presentation.details.any { detail -> detail.label == "最近轨迹" && detail.value == "时间异常" })
+        assertNoUnsafeClaims(presentation)
+    }
+
+    @Test
     fun pausedRecordingStatesBreadcrumbOnlyCoversRecordedSection() {
         val presentation = BacktrackBreadcrumbGuidanceEngine.present(
             trackRecording = recording(
@@ -179,5 +197,9 @@ class BacktrackBreadcrumbGuidanceEngineTest {
         assertFalse(text.contains("自动救援"))
         assertFalse(text.contains("保证安全"))
         assertFalse(text.contains("医学"))
+    }
+
+    private companion object {
+        const val NOW_EPOCH_MILLIS = 1_700_000_060_000L
     }
 }

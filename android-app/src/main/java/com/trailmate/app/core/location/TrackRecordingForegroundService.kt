@@ -281,7 +281,8 @@ class TrackRecordingForegroundService : Service() {
         val point = location.toRecordedTrackPoint()
         val updated = TrackRecordingEngine.appendLocation(
             state = current,
-            point = point
+            point = point,
+            nowEpochMillis = System.currentTimeMillis()
         )
         if (updated != current) {
             deliverRouteDeviationAlertFromService(
@@ -520,7 +521,7 @@ class TrackRecordingForegroundService : Service() {
             longitude = longitude,
             elevationMeters = if (hasAltitude()) altitude else null,
             horizontalAccuracyMeters = if (hasAccuracy()) accuracy.toDouble() else Double.POSITIVE_INFINITY,
-            timestampEpochMillis = time.takeIf { it > 0L } ?: System.currentTimeMillis()
+            timestampEpochMillis = TrailMateLocationTimestampPolicy.fromAndroidProvider(time)
         )
 
     private fun TrackRecordingState.notificationCaption(): String {

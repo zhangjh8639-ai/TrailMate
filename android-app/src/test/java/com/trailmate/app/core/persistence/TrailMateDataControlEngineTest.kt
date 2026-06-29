@@ -66,7 +66,8 @@ class TrailMateDataControlEngineTest {
                         elevationMeters = 100.0,
                         horizontalAccuracyMeters = 8.0,
                         timestampEpochMillis = 1_000L
-                    )
+                    ),
+                    nowEpochMillis = 1_000L
                 ),
                 point = RecordedTrackPoint(
                     latitude = 30.01,
@@ -74,8 +75,9 @@ class TrailMateDataControlEngineTest {
                     elevationMeters = 120.0,
                     horizontalAccuracyMeters = 8.0,
                     timestampEpochMillis = 421_000L
-                )
+                ),
+                nowEpochMillis = 421_000L
             ),
-            nowEpochMillis = 3_000L
+            nowEpochMillis = 422_000L
         )
 }

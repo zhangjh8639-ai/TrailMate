@@ -191,7 +191,8 @@ class RouteFieldStatusEngineTest {
                     elevationMeters = 100.0,
                     horizontalAccuracyMeters = 8.0,
                     timestampEpochMillis = 2_000L
-                )
+                ),
+                nowEpochMillis = 2_000L
             ),
             point = RecordedTrackPoint(
                 latitude = 30.01,
@@ -199,7 +200,8 @@ class RouteFieldStatusEngineTest {
                 elevationMeters = 120.0,
                 horizontalAccuracyMeters = 8.0,
                 timestampEpochMillis = 422_000L
-            )
+            ),
+            nowEpochMillis = 422_000L
         )
 
         return when (status) {

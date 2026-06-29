@@ -147,7 +147,7 @@ class AndroidLocationTracker(context: Context) {
             longitude = longitude,
             elevationMeters = if (hasAltitude()) altitude else null,
             horizontalAccuracyMeters = accuracy,
-            timestampEpochMillis = time.takeIf { it > 0L } ?: System.currentTimeMillis()
+            timestampEpochMillis = TrailMateLocationTimestampPolicy.fromAndroidProvider(time)
         )
     }
 

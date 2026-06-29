@@ -97,6 +97,23 @@ class GpsSignalLossWatchEngineTest {
     }
 
     @Test
+    fun invalidLocatedTimestampWhileRecordingShowsTimestampWarning() {
+        val presentation = GpsSignalLossWatchEngine.present(
+            snapshot = locatedAt(timestamp = NOW_EPOCH_MILLIS + 1L),
+            trackRecording = recording(),
+            nowEpochMillis = NOW_EPOCH_MILLIS
+        )
+
+        assertTrue(presentation.visible)
+        assertEquals("定位时间异常", presentation.title)
+        assertEquals("需重新定位", presentation.statusLabel)
+        assertEquals(GpsSignalLossWatchTone.ALERT, presentation.tone)
+        assertTrue(presentation.caption.contains("定位点时间无效或来自未来"))
+        assertTrue(presentation.details.any { detail -> detail.label == "定位时间" && detail.value == "时间异常" })
+        assertPolicyBoundaries(presentation)
+    }
+
+    @Test
     fun blockedLocationWhileRecordingShowsAlert() {
         val blockedStatuses = listOf(
             TrailMateLocationStatus.DISABLED,
@@ -198,5 +215,9 @@ class GpsSignalLossWatchEngineTest {
         assertFalse(text.contains("自动救援"))
         assertFalse(text.contains("保证安全"))
         assertFalse(text.contains("医学"))
+    }
+
+    private companion object {
+        const val NOW_EPOCH_MILLIS = 1_700_000_060_000L
     }
 }

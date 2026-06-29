@@ -22,7 +22,8 @@ class RecordedTrackGpxExporterTest {
                 elevationMeters = 100.0,
                 horizontalAccuracyMeters = 8.0,
                 timestampEpochMillis = 1_000L
-            )
+            ),
+            nowEpochMillis = 1_000L
         )
         val second = TrackRecordingEngine.appendLocation(
             state = first,
@@ -32,9 +33,10 @@ class RecordedTrackGpxExporterTest {
                 elevationMeters = null,
                 horizontalAccuracyMeters = 8.0,
                 timestampEpochMillis = 421_000L
-            )
+            ),
+            nowEpochMillis = 421_000L
         )
-        val finished = TrackRecordingEngine.finish(second, nowEpochMillis = 3_000L)
+        val finished = TrackRecordingEngine.finish(second, nowEpochMillis = 422_000L)
 
         val gpx = RecordedTrackGpxExporter.export(finished)
 

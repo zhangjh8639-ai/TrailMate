@@ -121,7 +121,16 @@ object TrailMateLocationReliabilityEngine {
         details: List<LocationReliabilityDetail>,
         nowEpochMillis: Long
     ): LocationReliabilityPresentation =
-        if (!TrailMateLocationFixReliability.isFresh(snapshot = this, nowEpochMillis = nowEpochMillis)) {
+        if (!TrailMateLocationFixReliability.hasValidTimestamp(snapshot = this, nowEpochMillis = nowEpochMillis)) {
+            LocationReliabilityPresentation(
+                title = "定位时间异常",
+                statusLabel = "需校准",
+                caption = "定位点时间无效或来自未来，请等待新的定位点。",
+                level = LocationReliabilityLevel.CAUTION,
+                details = details,
+                actionLabel = "继续校准"
+            )
+        } else if (!TrailMateLocationFixReliability.isFresh(snapshot = this, nowEpochMillis = nowEpochMillis)) {
             LocationReliabilityPresentation(
                 title = "定位已过期",
                 statusLabel = "需校准",
@@ -197,6 +206,9 @@ object TrailMateLocationReliabilityEngine {
     private fun TrailMateLocationSnapshot.lastUpdatedLabel(nowEpochMillis: Long): String {
         if (latitude == null || longitude == null) {
             return "未定位"
+        }
+        if (!TrailMateLocationFixReliability.hasValidTimestamp(snapshot = this, nowEpochMillis = nowEpochMillis)) {
+            return "时间异常"
         }
 
         val elapsedMillis = (nowEpochMillis - timestampEpochMillis).coerceAtLeast(0L)

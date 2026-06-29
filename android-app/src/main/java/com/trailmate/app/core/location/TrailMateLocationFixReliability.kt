@@ -17,11 +17,23 @@ object TrailMateLocationFixReliability {
         snapshot: TrailMateLocationSnapshot,
         nowEpochMillis: Long
     ): Boolean =
-        fixAgeMillis(snapshot = snapshot, nowEpochMillis = nowEpochMillis) <= MAX_RELIABLE_FIX_AGE_MILLIS
+        hasValidTimestamp(snapshot = snapshot, nowEpochMillis = nowEpochMillis) &&
+            fixAgeMillis(snapshot = snapshot, nowEpochMillis = nowEpochMillis) <= MAX_RELIABLE_FIX_AGE_MILLIS
+
+    fun hasValidTimestamp(
+        snapshot: TrailMateLocationSnapshot,
+        nowEpochMillis: Long
+    ): Boolean =
+        snapshot.timestampEpochMillis > 0L &&
+            snapshot.timestampEpochMillis <= nowEpochMillis
 
     fun fixAgeMillis(
         snapshot: TrailMateLocationSnapshot,
         nowEpochMillis: Long
     ): Long =
-        (nowEpochMillis - snapshot.timestampEpochMillis).coerceAtLeast(0L)
+        if (!hasValidTimestamp(snapshot = snapshot, nowEpochMillis = nowEpochMillis)) {
+            MAX_RELIABLE_FIX_AGE_MILLIS + 1L
+        } else {
+            nowEpochMillis - snapshot.timestampEpochMillis
+        }
 }
