@@ -610,6 +610,9 @@ fun HomeScreen(
                     onClearLocalData = onClearLocalData
                 )
             }
+            if (!routeNavigationFullscreen) {
+                Spacer(modifier = Modifier.height(24.dp))
+            }
         }
     }
 }

@@ -113,12 +113,14 @@ fun GearMatchScreen(
             selected = selectedTab.label,
             onSelected = { label -> selectedTabLabel = label }
         )
-        GearCatalogSourceStatusPanel(
-            label = catalogStatusLabel,
-            caption = catalogStatusCaption,
-            isLoading = catalogIsLoading,
-            onRetryCatalogLoad = onRetryCatalogLoad
-        )
+        if (selectedTab == GearMatchTab.RouteNeeds) {
+            GearCatalogSourceStatusPanel(
+                label = catalogStatusLabel,
+                caption = catalogStatusCaption,
+                isLoading = catalogIsLoading,
+                onRetryCatalogLoad = onRetryCatalogLoad
+            )
+        }
         when (selectedTab) {
             GearMatchTab.RouteNeeds -> RouteGearChecklistTab(
                 recommendations = routeGearRecommendations,
@@ -134,7 +136,9 @@ fun GearMatchScreen(
                     catalogItems = catalogItems,
                     catalogStatusLabel = catalogStatusLabel,
                     catalogStatusCaption = catalogStatusCaption,
+                    catalogIsLoading = catalogIsLoading,
                     onCatalogQueryChange = { catalogQuery = it },
+                    onRetryCatalogLoad = onRetryCatalogLoad,
                     onBackToRouteNeeds = { selectedTabLabel = GearMatchTab.RouteNeeds.label },
                     onOpenCatalogItem = { item ->
                         selectedCatalogItemId = item.catalogItemId
@@ -577,7 +581,9 @@ private fun CatalogGearCandidateRow(
             }
             Button(
                 onClick = onOpenDetails,
-                modifier = Modifier.height(38.dp)
+                modifier = Modifier
+                    .height(38.dp)
+                    .testTag("gear-catalog-candidate-details")
             ) {
                 Text(
                     text = "详情",
@@ -596,7 +602,9 @@ private fun SelectCatalogGearPanel(
     catalogItems: List<GearCatalogItem>,
     catalogStatusLabel: String,
     catalogStatusCaption: String,
+    catalogIsLoading: Boolean,
     onCatalogQueryChange: (String) -> Unit,
+    onRetryCatalogLoad: (() -> Unit)?,
     onBackToRouteNeeds: () -> Unit,
     onOpenCatalogItem: (GearCatalogItem) -> Unit
 ) {
@@ -619,31 +627,19 @@ private fun SelectCatalogGearPanel(
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        shape = RoundedCornerShape(18.dp),
         color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 10.dp,
-        tonalElevation = 8.dp
+        shadowElevation = 4.dp,
+        tonalElevation = 2.dp
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .size(width = 54.dp, height = 5.dp)
-                    .clip(RoundedCornerShape(100.dp))
-                    .background(MaterialTheme.colorScheme.outlineVariant)
-            )
             Text(
                 text = "品牌候选装备",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "从服务端品牌装备库获取候选，并匹配本次路线需求。",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Surface(
                 modifier = Modifier.fillMaxWidth(),
@@ -678,17 +674,43 @@ private fun SelectCatalogGearPanel(
                     singleLine = true
                 )
             }
-            Text(
-                text = catalogStatusLabel,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = catalogStatusCaption,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    Text(
+                        text = if (catalogIsLoading) "同步中" else catalogStatusLabel,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = catalogStatusCaption,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2
+                    )
+                }
+                if (onRetryCatalogLoad != null) {
+                    OutlinedButton(
+                        onClick = onRetryCatalogLoad,
+                        modifier = Modifier
+                            .height(38.dp)
+                            .testTag("gear-catalog-retry")
+                    ) {
+                        Text(
+                            text = "重试",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
             if (visibleCatalogItems.isEmpty()) {
                 CatalogEmptyMatchState(
                     category = categoryLabel,
