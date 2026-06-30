@@ -9,8 +9,8 @@ data class GearCatalogSourceUiState(
     companion object {
         fun localPreview(): GearCatalogSourceUiState =
             GearCatalogSourceUiState(
-                label = "品牌库缓存",
-                caption = "服务端品牌库缓存已离线可用；联网后会刷新品牌、型号和缩略图。",
+                label = "离线品牌库",
+                caption = "随 App 打包的品牌库种子已离线可用；联网版本会自动刷新品牌、型号和缩略图。",
                 isLoading = false,
                 canRetry = false
             )
