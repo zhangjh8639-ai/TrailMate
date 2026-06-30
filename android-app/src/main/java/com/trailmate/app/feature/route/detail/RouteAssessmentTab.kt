@@ -64,7 +64,7 @@ internal fun RouteAssessmentTab(
             items = listOf(
                 "距离" to String.format(Locale.US, "%.1f km", route.distanceKm),
                 "累计爬升" to "+${route.ascentMeters} m",
-                "预计用时" to assessment.estimatedDurationRange
+                "预计用时" to RouteAssessmentMetricFormatter.durationRangeForMetric(assessment.estimatedDurationRange)
             )
         )
         RiskSummaryCard(assessment = assessment)

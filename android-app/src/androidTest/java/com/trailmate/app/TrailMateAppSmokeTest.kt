@@ -541,6 +541,22 @@ class TrailMateAppSmokeTest {
     }
 
     @Test
+    fun routeDetailCompactsDurationRangeMetric() {
+        compose.setContent {
+            TrailMateTheme {
+                RouteDetailTestHost(
+                    routeAssessment = TrailMateSampleData.routeAssessment.copy(
+                        estimatedDurationRange = "12:14-19:26"
+                    )
+                )
+            }
+        }
+
+        compose.onNodeWithText("12-20h").assertExists()
+        compose.onAllNodesWithText("12:14-19:26").assertCountEquals(0)
+    }
+
+    @Test
     fun routeReadinessCanSaveOfflineRoutePack() {
         compose.setContent {
             TrailMateTheme {
@@ -1010,7 +1026,8 @@ class TrailMateAppSmokeTest {
                     elevationMeters = 100.0,
                     horizontalAccuracyMeters = 8.0,
                     timestampEpochMillis = 1_100L
-                )
+                ),
+                nowEpochMillis = 1_100L
             ),
             point = RecordedTrackPoint(
                 latitude = 30.01,
@@ -1018,7 +1035,8 @@ class TrailMateAppSmokeTest {
                 elevationMeters = 110.0,
                 horizontalAccuracyMeters = 8.0,
                 timestampEpochMillis = 421_100L
-            )
+            ),
+            nowEpochMillis = 421_100L
         )
 
         compose.setContent {
@@ -1641,7 +1659,8 @@ class TrailMateAppSmokeTest {
                         elevationMeters = 100.0,
                         horizontalAccuracyMeters = 8.0,
                         timestampEpochMillis = 1_000L
-                    )
+                    ),
+                    nowEpochMillis = 1_000L
                 ),
                 point = RecordedTrackPoint(
                     latitude = 30.01,
@@ -1649,7 +1668,8 @@ class TrailMateAppSmokeTest {
                     elevationMeters = 120.0,
                     horizontalAccuracyMeters = 8.0,
                     timestampEpochMillis = 421_000L
-                )
+                ),
+                nowEpochMillis = 421_000L
             ),
             nowEpochMillis = 421_000L
         )
