@@ -67,6 +67,21 @@ class RouteDetailOfflineBasemapActionTest {
     }
 
     @Test
+    fun visiblePrepareOfflineBasemapActionUsesPmTilesImport() {
+        val readiness = localRouteReadiness(
+            actionLabel = "使用本地路线",
+            basemapStepValue = "待接入"
+        )
+
+        assertTrue(
+            shouldOpenPmTilesImport(
+                readiness = readiness,
+                visibleActionLabel = "准备离线底图"
+            )
+        )
+    }
+
+    @Test
     fun flightModeVerificationDoesNotOpenPmTilesImport() {
         val readiness = localRouteReadiness(
             actionLabel = "使用本地路线",

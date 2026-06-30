@@ -151,7 +151,8 @@ object RouteCockpitPresentationEngine {
         val departureAction = DepartureReadinessPrimaryActionEngine.resolve(departureReadiness)
         if (
             session.status == HikeSessionStatus.READY &&
-            departureAction.kind != DepartureReadinessPrimaryActionKind.START_HIKE_AND_RECORD
+            departureAction.kind != DepartureReadinessPrimaryActionKind.START_HIKE_AND_RECORD &&
+            departureAction.kind != DepartureReadinessPrimaryActionKind.OPEN_OFFLINE_BASE_MAP
         ) {
             return departureAction.toRouteCockpitPrimaryAction()
         }

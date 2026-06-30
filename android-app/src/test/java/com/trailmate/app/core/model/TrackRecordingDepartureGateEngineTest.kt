@@ -12,10 +12,10 @@ class TrackRecordingDepartureGateEngineTest {
             hikeSessionStatus = HikeSessionStatus.READY,
             trackRecordingStatus = TrackRecordingStatus.IDLE,
             currentTrackActionLabel = "开始记录",
-            departureReadiness = departureReadiness(primaryActionLabel = "导入离线地图包")
+            departureReadiness = departureReadiness(primaryActionLabel = "准备离线底图")
         )
 
-        assertEquals("导入离线地图包", action.label)
+        assertEquals("准备离线底图", action.label)
         assertEquals(TrackRecordingDepartureGateActionKind.OPEN_OFFLINE_BASE_MAP, action.kind)
         assertTrue(action.enabled)
     }
@@ -110,7 +110,7 @@ class TrackRecordingDepartureGateEngineTest {
             hikeSessionStatus = HikeSessionStatus.READY,
             trackRecordingStatus = TrackRecordingStatus.PAUSED,
             currentTrackActionLabel = "继续记录",
-            departureReadiness = departureReadiness(primaryActionLabel = "导入离线地图包")
+            departureReadiness = departureReadiness(primaryActionLabel = "准备离线底图")
         )
 
         assertEquals("继续记录", action.label)

@@ -1611,7 +1611,7 @@ private fun RouteReadinessStrip(
                     .testTag("route-readiness-offline-route-pack")
             )
             RouteReadinessTile(
-                title = if (offlineBasemapReady) "离线地图包：已导入" else "导入离线地图包",
+                title = if (offlineBasemapReady) "离线地图包：已导入" else "准备离线底图",
                 value = offlineBasemapStep?.value ?: "待导入",
                 glyph = if (offlineBasemapReady) TrailMateGlyph.Check else TrailMateGlyph.Map,
                 active = offlineBasemapReady,
@@ -2018,7 +2018,6 @@ internal fun RouteCockpitTabContent(
             hikeSession = hikeSession,
             presentation = cockpitPresentation,
             mapReadiness = mapReadiness,
-            safetyShareShortcut = safetyShareShortcut,
             trackRecording = trackRecording,
             showUserLocationOnAmap = gpsEnabled,
             locationSnapshot = locationSnapshot,
@@ -2028,7 +2027,6 @@ internal fun RouteCockpitTabContent(
             onPrimaryAction = handlePrimaryAction,
             onSaveOfflineRoutePack = onOfflineRoutePackToggle,
             onOpenOfflineBaseMap = handleOfflineBaseMapAction,
-            onSafetyShare = handleSafetyShareShortcut,
             onEnterFullscreen = { onNavigationFullscreenChange(true) },
             onAmapBaseMapRenderedChange = onAmapBaseMapRenderedChange
         )
@@ -2043,7 +2041,8 @@ internal fun RouteCockpitTabContent(
         ProgressSafetyWatchPanel(
             presentation = progressSafetyWatch,
             safetyShareShortcut = safetyShareShortcut,
-            onPrimaryAction = handleFieldSafetyWatchAction
+            onPrimaryAction = handleFieldSafetyWatchAction,
+            showPrimaryAction = false
         )
         RouteDirectionWatchPanel(
             presentation = routeDirectionWatch,
@@ -2052,7 +2051,8 @@ internal fun RouteCockpitTabContent(
         DaylightReturnWatchPanel(
             presentation = daylightReturnWatch,
             safetyShareShortcut = safetyShareShortcut,
-            onPrimaryAction = handleFieldSafetyWatchAction
+            onPrimaryAction = handleFieldSafetyWatchAction,
+            showPrimaryAction = false
         )
         RouteCockpitDiagnosticsDisclosure(
             plan = plan,
@@ -2080,6 +2080,7 @@ internal fun RouteCockpitTabContent(
                 notificationPermissionGranted = notificationPermissionGranted,
                 trackActionLabel = gatedTrackAction.label,
                 trackActionEnabled = gatedTrackAction.enabled,
+                showFieldControls = false,
                 onRequestLocation = onRequestLocation,
                 onStopLocationUpdates = onStopLocationUpdates,
                 onShareSafetyText = onShareSafetyText,
@@ -2093,7 +2094,7 @@ internal fun RouteCockpitTabContent(
             MapLayerLegendPanel(legend = mapLayerLegend)
             MapSetupHintPanel(
                 hint = mapReadiness.setupHint,
-                actionLabel = if (mapReadiness.shouldShowPmTilesSetupAction()) "导入离线地图包" else null,
+                actionLabel = if (mapReadiness.shouldShowPmTilesSetupAction()) "准备离线底图" else null,
                 onAction = onImportPmTilesBasemap
             )
             pmTilesImportMessage?.let { message ->
@@ -2118,24 +2119,23 @@ internal fun RouteCockpitTabContent(
                     offlineBaseMapManagerReturnMessage = offlineBaseMapManagerReturnMessage
                 )
             }
-            DepartureReadinessPanel(
-                summary = departureReadiness,
-                primaryAction = departureReadinessPrimaryAction,
-                onPrimaryAction = {
-                    when (departureReadinessPrimaryAction.kind) {
-                        DepartureReadinessPrimaryActionKind.START_HIKE_AND_RECORD -> {
-                            onSessionChange(HikeSessionEngine.start(hikeSession))
-                            onTrackAction()
+            if (departureReadinessPrimaryAction.kind != DepartureReadinessPrimaryActionKind.START_HIKE_AND_RECORD) {
+                DepartureReadinessPanel(
+                    summary = departureReadiness,
+                    primaryAction = departureReadinessPrimaryAction,
+                    onPrimaryAction = {
+                        when (departureReadinessPrimaryAction.kind) {
+                            DepartureReadinessPrimaryActionKind.START_HIKE_AND_RECORD -> Unit
+                            DepartureReadinessPrimaryActionKind.SAVE_OFFLINE_ROUTE_PACK -> onOfflineRoutePackToggle()
+                            DepartureReadinessPrimaryActionKind.OPEN_OFFLINE_BASE_MAP -> handleOfflineBaseMapAction()
+                            DepartureReadinessPrimaryActionKind.REQUEST_LOCATION,
+                            DepartureReadinessPrimaryActionKind.OPEN_LOCATION_SETTINGS -> onRequestLocation()
+                            DepartureReadinessPrimaryActionKind.SHOW_GEAR -> onShowGearTab()
+                            DepartureReadinessPrimaryActionKind.BLOCKED -> Unit
                         }
-                        DepartureReadinessPrimaryActionKind.SAVE_OFFLINE_ROUTE_PACK -> onOfflineRoutePackToggle()
-                        DepartureReadinessPrimaryActionKind.OPEN_OFFLINE_BASE_MAP -> handleOfflineBaseMapAction()
-                        DepartureReadinessPrimaryActionKind.REQUEST_LOCATION,
-                        DepartureReadinessPrimaryActionKind.OPEN_LOCATION_SETTINGS -> onRequestLocation()
-                        DepartureReadinessPrimaryActionKind.SHOW_GEAR -> onShowGearTab()
-                        DepartureReadinessPrimaryActionKind.BLOCKED -> Unit
                     }
-                }
-            )
+                )
+            }
         }
     }
 }
@@ -2448,6 +2448,7 @@ private fun RouteNavigationFullscreenDock(
                     modifier = Modifier
                         .weight(1f)
                         .height(42.dp)
+                        .testTag("route-navigation-fullscreen-safety-action")
                 ) {
                     Text(safetyShareShortcut.label, maxLines = 1)
                 }
@@ -2716,7 +2717,6 @@ private fun RouteCockpitSection(
     hikeSession: HikeSessionState,
     presentation: RouteCockpitPresentation,
     mapReadiness: TrailMapReadiness,
-    safetyShareShortcut: RouteSafetyShareShortcutPresentation,
     trackRecording: TrackRecordingState,
     showUserLocationOnAmap: Boolean,
     locationSnapshot: TrailMateLocationSnapshot,
@@ -2726,7 +2726,6 @@ private fun RouteCockpitSection(
     onPrimaryAction: () -> Unit,
     onSaveOfflineRoutePack: () -> Unit,
     onOpenOfflineBaseMap: () -> Unit,
-    onSafetyShare: () -> Unit,
     onEnterFullscreen: () -> Unit,
     onAmapBaseMapRenderedChange: (Boolean) -> Unit = {}
 ) {
@@ -2762,8 +2761,6 @@ private fun RouteCockpitSection(
             onPrimaryAction = onPrimaryAction,
             onSaveOfflineRoutePack = onSaveOfflineRoutePack,
             onOpenOfflineBaseMap = onOpenOfflineBaseMap,
-            safetyShareShortcut = safetyShareShortcut,
-            onSafetyShare = onSafetyShare,
             onEnterFullscreen = onEnterFullscreen
         )
     }
@@ -2838,8 +2835,6 @@ private fun RouteCockpitActionDrawer(
     onPrimaryAction: () -> Unit,
     onSaveOfflineRoutePack: () -> Unit,
     onOpenOfflineBaseMap: () -> Unit,
-    safetyShareShortcut: RouteSafetyShareShortcutPresentation,
-    onSafetyShare: () -> Unit,
     onEnterFullscreen: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -2991,7 +2986,7 @@ private fun RouteCockpitActionDrawer(
                         } else if (presentation.primaryAction.kind == RouteCockpitPrimaryActionKind.OPEN_OFFLINE_BASE_MAP) {
                             "离线地图包"
                         } else {
-                            "导入离线地图包"
+                            "准备离线底图"
                         },
                         value = offlineBaseMapItem.value,
                         glyph = TrailMateGlyph.Map,
@@ -3020,52 +3015,8 @@ private fun RouteCockpitActionDrawer(
                 )
             }
             if (showFullscreenShortcut) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = onEnterFullscreen,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(42.dp)
-                    ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            TrailMateLineIcon(
-                                glyph = TrailMateGlyph.Compass,
-                                contentDescription = null,
-                                modifier = Modifier.size(17.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Text("全屏导航", maxLines = 1)
-                        }
-                    }
-                    OutlinedButton(
-                        onClick = onSafetyShare,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(42.dp)
-                    ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            TrailMateLineIcon(
-                                glyph = TrailMateGlyph.Location,
-                                contentDescription = null,
-                                modifier = Modifier.size(17.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Text(safetyShareShortcut.label, maxLines = 1)
-                        }
-                    }
-                }
-            } else {
                 OutlinedButton(
-                    onClick = onSafetyShare,
+                    onClick = onEnterFullscreen,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(42.dp)
@@ -3075,12 +3026,12 @@ private fun RouteCockpitActionDrawer(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         TrailMateLineIcon(
-                            glyph = TrailMateGlyph.Location,
+                            glyph = TrailMateGlyph.Compass,
                             contentDescription = null,
                             modifier = Modifier.size(17.dp),
                             tint = MaterialTheme.colorScheme.primary
                         )
-                        Text(safetyShareShortcut.label, maxLines = 1)
+                        Text("全屏导航", maxLines = 1)
                     }
                 }
             }
@@ -3286,10 +3237,10 @@ private fun RouteCockpitPrimaryActionKind.primaryActionGlyph(): TrailMateGlyph =
 
 internal fun RouteCockpitPrimaryActionKind.opensFullscreenFromCockpit(): Boolean =
     when (this) {
+        RouteCockpitPrimaryActionKind.START_HIKE,
         RouteCockpitPrimaryActionKind.START_RECORDING,
         RouteCockpitPrimaryActionKind.PAUSE_RECORDING,
         RouteCockpitPrimaryActionKind.RESUME_RECORDING -> true
-        RouteCockpitPrimaryActionKind.START_HIKE,
         RouteCockpitPrimaryActionKind.REQUEST_LOCATION,
         RouteCockpitPrimaryActionKind.OPEN_LOCATION_SETTINGS,
         RouteCockpitPrimaryActionKind.SAVE_OFFLINE_ROUTE_PACK,
@@ -4050,6 +4001,7 @@ private fun GpsTrackPanel(
     notificationPermissionGranted: Boolean,
     trackActionLabel: String,
     trackActionEnabled: Boolean,
+    showFieldControls: Boolean,
     onRequestLocation: () -> Unit,
     onStopLocationUpdates: () -> Unit,
     onShareSafetyText: (String) -> Unit,
@@ -4113,6 +4065,17 @@ private fun GpsTrackPanel(
         presentation = deviationRecovery,
         safetyShareTextAvailable = recoverySafetyShare.shareText != null
     )
+    val routeDeviationRecoveryButton = if (
+        showFieldControls ||
+        deviationRecoveryButton.kind != RouteDeviationRecoveryPanelActionKind.SHARE_LOCATION
+    ) {
+        deviationRecoveryButton
+    } else {
+        deviationRecoveryButton.copy(
+            visible = false,
+            kind = RouteDeviationRecoveryPanelActionKind.NONE
+        )
+    }
     val exitGuidance = RouteExitGuidanceEngine.present(
         route = route,
         plan = plan,
@@ -4131,6 +4094,17 @@ private fun GpsTrackPanel(
         currentTrackActionLabel = trackActionLabel,
         trackActionEnabled = trackActionEnabled
     )
+    val backtrackBreadcrumbButton = if (
+        showFieldControls ||
+        breadcrumbButton.kind != BacktrackBreadcrumbGuidancePanelActionKind.CONTINUE_RECORDING
+    ) {
+        breadcrumbButton
+    } else {
+        breadcrumbButton.copy(
+            visible = false,
+            kind = BacktrackBreadcrumbGuidancePanelActionKind.NONE
+        )
+    }
     val handleBacktrackBreadcrumbAction: () -> Unit = {
         when (breadcrumbButton.kind) {
             BacktrackBreadcrumbGuidancePanelActionKind.VIEW_TRACK -> onOpenTrackDataRequested()
@@ -4233,9 +4207,9 @@ private fun GpsTrackPanel(
             if (deviationRecovery.visible) {
                 RouteDeviationRecoveryPanel(
                     presentation = deviationRecovery,
-                    button = deviationRecoveryButton,
+                    button = routeDeviationRecoveryButton,
                     onPrimaryAction = {
-                        when (deviationRecoveryButton.kind) {
+                        when (routeDeviationRecoveryButton.kind) {
                             RouteDeviationRecoveryPanelActionKind.ACKNOWLEDGE_REJOIN -> onAcknowledgeRouteRejoin()
                             RouteDeviationRecoveryPanelActionKind.REQUEST_LOCATION -> onRequestLocation()
                             RouteDeviationRecoveryPanelActionKind.SHARE_LOCATION -> {
@@ -4257,13 +4231,14 @@ private fun GpsTrackPanel(
             )
             BacktrackBreadcrumbGuidancePanel(
                 presentation = breadcrumbGuidance,
-                button = breadcrumbButton,
+                button = backtrackBreadcrumbButton,
                 onPrimaryAction = handleBacktrackBreadcrumbAction
             )
             ReturnEtaWatchPanel(
                 presentation = returnEtaWatch,
                 safetyShareShortcut = safetyShareShortcut,
-                onPrimaryAction = handleReturnEtaWatchAction
+                onPrimaryAction = handleReturnEtaWatchAction,
+                showPrimaryAction = showFieldControls
             )
             TrailMatePanel(
                 title = "轨迹记录",
@@ -4283,6 +4258,7 @@ private fun GpsTrackPanel(
             )
             DepartureBriefSharePanel(
                 presentation = departureBriefShare,
+                showPrimaryAction = showFieldControls,
                 onPrimaryAction = {
                     val action = DepartureBriefShareActionEngine.resolveShareAction(
                         plan = departureBriefPlan,
@@ -4296,6 +4272,7 @@ private fun GpsTrackPanel(
             )
             OfflineEmergencyInfoPanel(
                 presentation = offlineEmergencyInfo,
+                showPrimaryAction = showFieldControls,
                 onPrimaryAction = {
                     val action = OfflineEmergencyInfoActionEngine.resolveShareAction(
                         route = offlineEmergencyRoute,
@@ -4306,36 +4283,38 @@ private fun GpsTrackPanel(
                     onShareTrailMateText(action.shareText, action.chooserTitle)
                 }
             )
-            SafetySharePanel(
-                presentation = safetyShare,
-                onPrimaryAction = {
-                    SafetyShareActionEngine.resolveShareAction(
-                        routeName = route.routeName,
-                        location = safetyShareLocation,
-                        trackRecording = trackRecording,
-                        routePlan = safetyShareRoutePlan
-                    ).shareText?.let(onShareSafetyText) ?: onRequestLocation()
-                }
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Button(
-                    onClick = onTrackAction,
-                    modifier = Modifier.weight(1f),
-                    enabled = trackActionEnabled
+            if (showFieldControls) {
+                SafetySharePanel(
+                    presentation = safetyShare,
+                    onPrimaryAction = {
+                        SafetyShareActionEngine.resolveShareAction(
+                            routeName = route.routeName,
+                            location = safetyShareLocation,
+                            trackRecording = trackRecording,
+                            routePlan = safetyShareRoutePlan
+                        ).shareText?.let(onShareSafetyText) ?: onRequestLocation()
+                    }
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(trackActionLabel)
-                }
-                OutlinedButton(
-                    onClick = onFinishTrack,
-                    modifier = Modifier.weight(1f),
-                    enabled = trackRecording.status == TrackRecordingStatus.RECORDING ||
-                        trackRecording.status == TrackRecordingStatus.PAUSED
-                ) {
-                    Text("结束记录")
+                    Button(
+                        onClick = onTrackAction,
+                        modifier = Modifier.weight(1f),
+                        enabled = trackActionEnabled
+                    ) {
+                        Text(trackActionLabel)
+                    }
+                    OutlinedButton(
+                        onClick = onFinishTrack,
+                        modifier = Modifier.weight(1f),
+                        enabled = trackRecording.status == TrackRecordingStatus.RECORDING ||
+                            trackRecording.status == TrackRecordingStatus.PAUSED
+                    ) {
+                        Text("结束记录")
+                    }
                 }
             }
         }
@@ -4581,6 +4560,7 @@ private fun LocationReliabilityDetailList(details: List<LocationReliabilityDetai
 @Composable
 private fun DepartureBriefSharePanel(
     presentation: DepartureBriefSharePresentation,
+    showPrimaryAction: Boolean = true,
     onPrimaryAction: () -> Unit
 ) {
     val button = DepartureBriefSharePanelButtonPresentationEngine.present(presentation)
@@ -4641,7 +4621,7 @@ private fun DepartureBriefSharePanel(
                     DepartureBriefShareDetailList(details = presentation.details)
                 }
             }
-            if (button.visible) {
+            if (showPrimaryAction && button.visible) {
                 OutlinedButton(onClick = onPrimaryAction) {
                     Text(button.label)
                 }
@@ -4680,6 +4660,7 @@ private fun DepartureBriefShareDetailList(details: List<DepartureBriefShareDetai
 @Composable
 private fun OfflineEmergencyInfoPanel(
     presentation: OfflineEmergencyInfoPresentation,
+    showPrimaryAction: Boolean = true,
     onPrimaryAction: () -> Unit
 ) {
     Surface(
@@ -4743,11 +4724,13 @@ private fun OfflineEmergencyInfoPanel(
             if (presentation.details.isNotEmpty()) {
                 OfflineEmergencyInfoDetailList(details = presentation.details)
             }
-            OutlinedButton(
-                onClick = onPrimaryAction,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(presentation.primaryActionLabel)
+            if (showPrimaryAction) {
+                OutlinedButton(
+                    onClick = onPrimaryAction,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(presentation.primaryActionLabel)
+                }
             }
         }
     }
@@ -4968,7 +4951,8 @@ private fun RouteDeviationAlertBanner(
 private fun ReturnEtaWatchPanel(
     presentation: ReturnEtaWatchPresentation,
     safetyShareShortcut: RouteSafetyShareShortcutPresentation,
-    onPrimaryAction: (ReturnEtaWatchPanelActionKind) -> Unit
+    onPrimaryAction: (ReturnEtaWatchPanelActionKind) -> Unit,
+    showPrimaryAction: Boolean = true
 ) {
     val button = ReturnEtaWatchPanelButtonPresentationEngine.present(
         primaryActionLabel = presentation.primaryActionLabel,
@@ -5046,7 +5030,7 @@ private fun ReturnEtaWatchPanel(
             label = button.manualGuidanceLabel,
             contentColor = contentColor
         )
-        if (button.visible) {
+        if (showPrimaryAction && button.visible) {
             OutlinedButton(
                 onClick = { onPrimaryAction(button.kind) },
                 modifier = Modifier.fillMaxWidth()
@@ -5109,7 +5093,8 @@ private fun ReturnEtaWatchDetailList(details: List<ReturnEtaWatchDetail>) {
 private fun DaylightReturnWatchPanel(
     presentation: DaylightReturnWatchPresentation,
     safetyShareShortcut: RouteSafetyShareShortcutPresentation,
-    onPrimaryAction: (FieldSafetyWatchPanelActionKind) -> Unit
+    onPrimaryAction: (FieldSafetyWatchPanelActionKind) -> Unit,
+    showPrimaryAction: Boolean = true
 ) {
     if (!presentation.visible) {
         return
@@ -5182,7 +5167,7 @@ private fun DaylightReturnWatchPanel(
             label = button.manualGuidanceLabel,
             contentColor = contentColor
         )
-        if (button.visible) {
+        if (showPrimaryAction && button.visible) {
             OutlinedButton(
                 onClick = { onPrimaryAction(button.kind) },
                 modifier = Modifier.fillMaxWidth()
@@ -5318,7 +5303,8 @@ private fun GpsSignalLossWatchPanel(
 private fun ProgressSafetyWatchPanel(
     presentation: ProgressSafetyWatchPresentation,
     safetyShareShortcut: RouteSafetyShareShortcutPresentation,
-    onPrimaryAction: (FieldSafetyWatchPanelActionKind) -> Unit
+    onPrimaryAction: (FieldSafetyWatchPanelActionKind) -> Unit,
+    showPrimaryAction: Boolean = true
 ) {
     if (!presentation.visible) {
         return
@@ -5391,7 +5377,7 @@ private fun ProgressSafetyWatchPanel(
             label = button.manualGuidanceLabel,
             contentColor = contentColor
         )
-        if (button.visible) {
+        if (showPrimaryAction && button.visible) {
             OutlinedButton(
                 onClick = { onPrimaryAction(button.kind) },
                 modifier = Modifier.fillMaxWidth()
@@ -6860,6 +6846,7 @@ private fun TrailMapReadiness.shouldShowPmTilesSetupAction(): Boolean =
 
 private fun String.isPmTilesBasemapImportAction(): Boolean =
     this == "导入离线地图包" ||
+        this == "准备离线底图" ||
         this == "导入底图" ||
         this == "下载底图" ||
         this == "下载离线底图" ||

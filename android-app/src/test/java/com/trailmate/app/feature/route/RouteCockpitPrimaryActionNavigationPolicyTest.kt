@@ -13,8 +13,8 @@ class RouteCockpitPrimaryActionNavigationPolicyTest {
     }
 
     @Test
-    fun startHikeStaysInCockpitInsteadOfEnteringFullscreenImmediately() {
-        assertFalse(RouteCockpitPrimaryActionKind.START_HIKE.opensFullscreenFromCockpit())
+    fun startHikeEntersFullscreenFromCockpit() {
+        assertTrue(RouteCockpitPrimaryActionKind.START_HIKE.opensFullscreenFromCockpit())
     }
 
     @Test
