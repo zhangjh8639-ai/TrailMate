@@ -7,13 +7,13 @@ import org.junit.Test
 
 class GearCatalogSourceUiStateTest {
     @Test
-    fun localPreviewDescribesOfflineServerCatalogCache() {
+    fun localPreviewDescribesOfflinePackagedCatalogSeed() {
         val state = GearCatalogSourceUiState.localPreview()
 
-        assertEquals("品牌库缓存", state.label)
-        assertTrue(state.caption.contains("服务端品牌库"))
+        assertEquals("离线品牌库", state.label)
         assertTrue(state.caption.contains("离线可用"))
-        assertFalse(state.caption.contains("接入服务端后"))
+        assertTrue(state.caption.contains("联网版本"))
+        assertFalse(state.caption.contains("服务端品牌库缓存"))
         assertFalse(state.isLoading)
         assertFalse(state.canRetry)
     }

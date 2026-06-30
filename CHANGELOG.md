@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Clarified the Android gear tab's unconfigured catalog source state as an offline packaged seed instead of a server-synced cache.
 - Clarified the Android gear tab's offline server-catalog cache copy so it no longer reads like an unimplemented prototype state.
 - Added an Android Compose prototype scaffold for TrailMate direction D.
 - Added first client iteration for onboarding baseline profile, light route navigation, and AI gear checklist UI backed by sample gear data.
