@@ -10,7 +10,7 @@ data class GearCatalogSourceUiState(
         fun localPreview(): GearCatalogSourceUiState =
             GearCatalogSourceUiState(
                 label = "品牌库缓存",
-                caption = "当前使用内置品牌库预览；接入服务端后会同步品牌、型号和缩略图。",
+                caption = "服务端品牌库缓存已离线可用；联网后会刷新品牌、型号和缩略图。",
                 isLoading = false,
                 canRetry = false
             )
