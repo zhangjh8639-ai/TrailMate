@@ -43,8 +43,10 @@ import com.trailmate.app.core.persistence.TrailMateSessionRepository
 import com.trailmate.app.core.network.TrailMateHttpAuthApiClient
 import com.trailmate.app.core.network.TrailMateGearCatalogApi
 import com.trailmate.app.core.network.TrailMateHttpGearCatalogApiClient
+import com.trailmate.app.core.network.TrailMateHttpGearAdviceApiClient
 import com.trailmate.app.core.network.TrailMateHttpOfflineBasemapCatalogApiClient
 import com.trailmate.app.core.network.TrailMateHttpUserProfileApiClient
+import com.trailmate.app.core.network.TrailMateGearAdviceApi
 import com.trailmate.app.core.network.TrailMateOfflineBasemapCatalogApi
 import com.trailmate.app.core.network.TrailMateUserProfileApi
 import com.trailmate.app.feature.home.HomeScreen
@@ -86,6 +88,10 @@ fun TrailMateApp(
         }
         mutableStateOf(recoveredSession)
     }
+    val gearAdviceApi = rememberTrailMateGearAdviceApi(
+        accessToken = appSession.snapshot.authSession?.accessToken,
+        userId = appSession.snapshot.authSession?.userId
+    )
     var screen by rememberSaveable {
         mutableStateOf(
             if (appSession.isReadyForHome) {
@@ -193,7 +199,9 @@ fun TrailMateApp(
                 initialAmapPrivacyConsent = appSession.snapshot.amapPrivacyConsent,
                 initialOfflineRoutePackKeys = appSession.snapshot.savedOfflineRoutePackKeys,
                 initialOfflineBaseMapTileProofs = appSession.snapshot.offlineBaseMapTileProofs,
+                initialAiGearAdvisorResponse = appSession.snapshot.aiGearAdvisorResponse,
                 gearCatalogApi = gearCatalogApi,
+                gearAdviceApi = gearAdviceApi,
                 offlineBasemapCatalogApi = offlineBasemapCatalogApi,
                 onRouteImported = { route ->
                     appSession = appSession.withImportedRoute(route)
@@ -218,6 +226,10 @@ fun TrailMateApp(
                 onOfflineBaseMapTileProofsChanged = { proofs ->
                     appSession = appSession.withOfflineBaseMapTileProofs(proofs)
                     activeSessionRepository.saveOfflineBaseMapTileProofs(proofs)
+                },
+                onAiGearAdvisorResponseChanged = { response ->
+                    appSession = appSession.withAiGearAdvisorResponse(response)
+                    activeSessionRepository.saveAiGearAdvisorResponse(response)
                 },
                 onLogout = {
                     val manager = authSessionManager
@@ -260,6 +272,25 @@ private fun rememberTrailMateAuthSessionManager(
             authenticationService = TrailMateAuthenticationService(
                 TrailMateHttpAuthApiClient(baseUrl = backendBaseUrl)
             )
+        )
+    }
+}
+
+@Composable
+private fun rememberTrailMateGearAdviceApi(
+    accessToken: String?,
+    userId: String?
+): TrailMateGearAdviceApi? {
+    val backendBaseUrl = BuildConfig.TRAILMATE_SERVER_BASE_URL.trim()
+    if (backendBaseUrl.isBlank() || accessToken.isNullOrBlank()) {
+        return null
+    }
+
+    return remember(backendBaseUrl, accessToken, userId) {
+        TrailMateHttpGearAdviceApiClient(
+            baseUrl = backendBaseUrl,
+            accessTokenProvider = { accessToken },
+            userIdProvider = { userId }
         )
     }
 }

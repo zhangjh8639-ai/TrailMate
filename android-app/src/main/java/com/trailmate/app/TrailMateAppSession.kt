@@ -4,6 +4,7 @@ import com.trailmate.app.core.auth.TrailMateAuthSession
 import com.trailmate.app.core.gpx.GpxImportQueue
 import com.trailmate.app.core.map.AmapOfflineBaseMapTileProof
 import com.trailmate.app.core.map.AmapPrivacyConsent
+import com.trailmate.app.core.model.AiGearAdvisorResponse
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.HistoricalActivity
 import com.trailmate.app.core.model.ImportedRoute
@@ -55,6 +56,9 @@ data class TrailMateAppSession(
 
     fun withOfflineBaseMapTileProofs(proofs: List<AmapOfflineBaseMapTileProof>): TrailMateAppSession =
         copy(snapshot = snapshot.copy(offlineBaseMapTileProofs = proofs))
+
+    fun withAiGearAdvisorResponse(response: AiGearAdvisorResponse?): TrailMateAppSession =
+        copy(snapshot = snapshot.copy(aiGearAdvisorResponse = response))
 
     fun recoverInterruptedGpxImports(
         nowEpochMillis: Long,

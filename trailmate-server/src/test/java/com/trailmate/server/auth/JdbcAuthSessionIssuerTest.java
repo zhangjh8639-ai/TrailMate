@@ -54,8 +54,25 @@ class JdbcAuthSessionIssuerTest {
 
         assertEquals("access-1", session.accessToken());
         assertEquals("refresh-1", session.refreshToken());
+        assertNotEquals("access-1", storedAccessTokenHash("token-row-1-access"));
         assertNotEquals("refresh-1", storedTokenHash("token-row-1"));
         assertEquals("phone", storedProvider("token-row-1"));
+    }
+
+    @Test
+    void verifyAccessTokenReturnsStoredUserOnlyBeforeExpiry() {
+        AuthSessionResponse session = issuer.issueSession(
+            new AuthAccount("usr_1", "+8613800138000", null, null),
+            AuthProvider.PHONE,
+            clock.instant()
+        );
+
+        AuthenticatedUser user = issuer.verifyAccessToken(session.accessToken(), clock.instant().plusSeconds(60));
+
+        assertEquals("usr_1", user.userId());
+        assertThrows(IllegalArgumentException.class, () ->
+            issuer.verifyAccessToken(session.accessToken(), clock.instant().plusSeconds(7201))
+        );
     }
 
     @Test
@@ -96,6 +113,14 @@ class JdbcAuthSessionIssuerTest {
     private String storedTokenHash(String id) {
         return jdbcTemplate.queryForObject(
             "select token_hash from auth_refresh_token where id = ?",
+            String.class,
+            id
+        );
+    }
+
+    private String storedAccessTokenHash(String id) {
+        return jdbcTemplate.queryForObject(
+            "select token_hash from auth_access_token where id = ?",
             String.class,
             id
         );
@@ -157,6 +182,7 @@ class JdbcAuthSessionIssuerTest {
     }
 
     private void createSchema() {
+        jdbcTemplate.execute("drop table if exists auth_access_token");
         jdbcTemplate.execute("drop table if exists auth_refresh_token");
         jdbcTemplate.execute("drop table if exists user_phone_identity");
         jdbcTemplate.execute("drop table if exists app_user");
@@ -180,6 +206,17 @@ class JdbcAuthSessionIssuerTest {
                 verified_at timestamp not null,
                 created_at timestamp not null,
                 updated_at timestamp not null,
+                revoked_at timestamp
+            )
+            """);
+        jdbcTemplate.execute("""
+            create table auth_access_token (
+                id varchar(80) primary key,
+                user_id varchar(80) not null references app_user(id),
+                provider varchar(20) not null,
+                token_hash varchar(128) not null unique,
+                issued_at timestamp not null,
+                expires_at timestamp not null,
                 revoked_at timestamp
             )
             """);

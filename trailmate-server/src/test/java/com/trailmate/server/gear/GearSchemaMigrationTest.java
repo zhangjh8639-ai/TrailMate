@@ -29,6 +29,9 @@ class GearSchemaMigrationTest {
     private static final Path DROP_PERSONAL_INVENTORY_MIGRATION = Path.of(
         "src/main/resources/db/migration/V9__drop_personal_gear_inventory.sql"
     );
+    private static final Path GEAR_ADVICE_ARTIFACT_MIGRATION = Path.of(
+        "src/main/resources/db/migration/V10__create_gear_advice_artifact.sql"
+    );
     private static final Path HOSTED_THUMBNAILS = Path.of(
         "src/main/resources/static/gear-thumbnails"
     );
@@ -134,6 +137,22 @@ class GearSchemaMigrationTest {
         String sql = Files.readString(DROP_PERSONAL_INVENTORY_MIGRATION);
 
         assertTrue(sql.contains("drop table if exists user_gear_inventory"));
+    }
+
+    @Test
+    void migrationCreatesGearAdviceArtifactTable() throws Exception {
+        assertTrue(
+            Files.exists(GEAR_ADVICE_ARTIFACT_MIGRATION),
+            "AI gear advice checklist artifacts need a durable migration."
+        );
+        String sql = Files.readString(GEAR_ADVICE_ARTIFACT_MIGRATION);
+
+        assertTrue(sql.contains("create table gear_advice_artifact"));
+        assertTrue(sql.contains("user_id text not null references app_user(id)"));
+        assertTrue(sql.contains("plan_id text not null"));
+        assertTrue(sql.contains("assessment_fingerprint text not null"));
+        assertTrue(sql.contains("recommendations_payload text not null"));
+        assertTrue(sql.contains("idx_gear_advice_artifact_user_plan_created"));
     }
 
     @Test

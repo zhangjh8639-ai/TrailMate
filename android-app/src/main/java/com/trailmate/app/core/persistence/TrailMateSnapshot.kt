@@ -4,6 +4,7 @@ import com.trailmate.app.core.auth.TrailMateAuthSession
 import com.trailmate.app.core.gpx.GpxImportQueue
 import com.trailmate.app.core.map.AmapOfflineBaseMapTileProof
 import com.trailmate.app.core.map.AmapPrivacyConsent
+import com.trailmate.app.core.model.AiGearAdvisorResponse
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.HistoricalActivity
 import com.trailmate.app.core.model.ImportedRoute
@@ -18,6 +19,7 @@ data class TrailMateSnapshot(
     val latestTrackRecording: TrackRecordingState = TrackRecordingState(),
     val savedOfflineRoutePackKeys: Set<String> = emptySet(),
     val offlineBaseMapTileProofs: List<AmapOfflineBaseMapTileProof> = emptyList(),
+    val aiGearAdvisorResponse: AiGearAdvisorResponse? = null,
     val amapPrivacyConsent: AmapPrivacyConsent = AmapPrivacyConsent()
 ) {
     companion object {
@@ -31,6 +33,7 @@ data class TrailMateSnapshot(
                 latestTrackRecording = TrackRecordingState(),
                 savedOfflineRoutePackKeys = emptySet(),
                 offlineBaseMapTileProofs = emptyList(),
+                aiGearAdvisorResponse = null,
                 amapPrivacyConsent = AmapPrivacyConsent()
             )
     }
