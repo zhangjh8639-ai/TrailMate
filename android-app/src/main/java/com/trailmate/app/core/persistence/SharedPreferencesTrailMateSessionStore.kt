@@ -5,6 +5,7 @@ import com.trailmate.app.core.auth.TrailMateAuthSession
 import com.trailmate.app.core.gpx.GpxImportQueue
 import com.trailmate.app.core.map.AmapOfflineBaseMapTileProof
 import com.trailmate.app.core.map.AmapPrivacyConsent
+import com.trailmate.app.core.model.AiGearAdvisorResponse
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.HistoricalActivity
 import com.trailmate.app.core.model.ImportedRoute
@@ -59,6 +60,10 @@ class SharedPreferencesTrailMateSessionStore(context: Context) : TrailMateSessio
 
     override fun saveOfflineBaseMapTileProofs(proofs: List<AmapOfflineBaseMapTileProof>) {
         update { snapshot -> snapshot.copy(offlineBaseMapTileProofs = proofs) }
+    }
+
+    override fun saveAiGearAdvisorResponse(response: AiGearAdvisorResponse?) {
+        update { snapshot -> snapshot.copy(aiGearAdvisorResponse = response) }
     }
 
     override fun clear() {

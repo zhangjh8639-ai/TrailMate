@@ -83,6 +83,9 @@ import com.trailmate.app.core.gpx.TargetRouteImportQueueState
 import com.trailmate.app.core.gpx.TargetRouteImporter
 import com.trailmate.app.core.map.AmapOfflineBaseMapTileProof
 import com.trailmate.app.core.map.AmapPrivacyConsent
+import com.trailmate.app.core.model.AiGearAdvisorBackendResult
+import com.trailmate.app.core.model.AiGearAdvisorContract
+import com.trailmate.app.core.model.AiGearAdvisorResponse
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.CapabilityProfileSummary
 import com.trailmate.app.core.model.GearCatalogItem
@@ -100,6 +103,8 @@ import com.trailmate.app.core.model.TrackRecordingState
 import com.trailmate.app.core.model.offlineRoutePackKey
 import com.trailmate.app.core.model.summaryLabel
 import com.trailmate.app.core.network.TrailMateApiResult
+import com.trailmate.app.core.network.TrailMateBackendGearAdvisorClient
+import com.trailmate.app.core.network.TrailMateGearAdviceApi
 import com.trailmate.app.core.network.TrailMateGearCatalogApi
 import com.trailmate.app.core.network.TrailMateGearCatalogItemDto
 import com.trailmate.app.core.network.TrailMateOfflineBasemapCatalogApi
@@ -124,7 +129,9 @@ fun HomeScreen(
     initialAmapPrivacyConsent: AmapPrivacyConsent = AmapPrivacyConsent(),
     initialOfflineRoutePackKeys: Set<String> = emptySet(),
     initialOfflineBaseMapTileProofs: List<AmapOfflineBaseMapTileProof> = emptyList(),
+    initialAiGearAdvisorResponse: AiGearAdvisorResponse? = null,
     gearCatalogApi: TrailMateGearCatalogApi? = null,
+    gearAdviceApi: TrailMateGearAdviceApi? = null,
     offlineBasemapCatalogApi: TrailMateOfflineBasemapCatalogApi? = null,
     showSampleRouteAction: Boolean = false,
     onRouteImported: (ImportedRoute) -> Unit = {},
@@ -133,6 +140,7 @@ fun HomeScreen(
     onTrackRecordingChanged: (TrackRecordingState) -> Unit = {},
     onOfflineRoutePackKeysChanged: (Set<String>) -> Unit = {},
     onOfflineBaseMapTileProofsChanged: (List<AmapOfflineBaseMapTileProof>) -> Unit = {},
+    onAiGearAdvisorResponseChanged: (AiGearAdvisorResponse?) -> Unit = {},
     onLogout: () -> Unit = {},
     onClearLocalData: () -> Unit = {}
 ) {
@@ -163,6 +171,9 @@ fun HomeScreen(
     }
     var offlineBaseMapTileProofs by remember {
         mutableStateOf(initialOfflineBaseMapTileProofs)
+    }
+    var aiGearAdvisorResponse by remember {
+        mutableStateOf(initialAiGearAdvisorResponse)
     }
     val savedOfflineRoutePackKeys = offlineRoutePackKeys.toSet()
     val updateOfflineRoutePackKeys: (Set<String>) -> Unit = { keys ->
@@ -206,7 +217,7 @@ fun HomeScreen(
             historicalActivities = historicalActivities
         )
     }
-    val routeGearRecommendations = if (importedRoute?.readyForAssessment() == true && routeAssessment != null) {
+    val fallbackRouteGearRecommendations = if (importedRoute?.readyForAssessment() == true && routeAssessment != null) {
         RouteGearCatalogReadinessEngine.resolve(
             route = importedRoute,
             assessment = routeAssessment,
@@ -214,6 +225,53 @@ fun HomeScreen(
         )
     } else {
         emptyList()
+    }
+    val aiGearAdvisorRequest = if (importedRoute?.readyForAssessment() == true && routeAssessment != null) {
+        AiGearAdvisorContract.buildRequest(
+            route = importedRoute,
+            profile = profile,
+            assessment = routeAssessment,
+            fallbackRecommendations = fallbackRouteGearRecommendations
+        )
+    } else {
+        null
+    }
+    val aiGearAdvisorPresentation = aiGearAdvisorRequest?.let { request ->
+        AiGearAdvisorContract.resolvePresentation(
+            request = request,
+            response = aiGearAdvisorResponse
+        )
+    }
+    val routeGearRecommendations = aiGearAdvisorPresentation?.recommendations
+        ?: fallbackRouteGearRecommendations
+    LaunchedEffect(
+        gearAdviceApi,
+        importedRoute?.offlineRoutePackKey(),
+        aiGearAdvisorRequest?.assessmentFingerprint
+    ) {
+        val request = aiGearAdvisorRequest ?: return@LaunchedEffect
+        val api = gearAdviceApi ?: return@LaunchedEffect
+        val route = importedRoute ?: return@LaunchedEffect
+        if (aiGearAdvisorResponse?.assessmentFingerprint == request.assessmentFingerprint) {
+            return@LaunchedEffect
+        }
+
+        val result = withContext(Dispatchers.IO) {
+            TrailMateBackendGearAdvisorClient(
+                planId = route.offlineRoutePackKey(),
+                api = api
+            ).requestAdvice(request)
+        }
+        if (result is AiGearAdvisorBackendResult.Success) {
+            val validatedPresentation = AiGearAdvisorContract.resolvePresentation(
+                request = request,
+                response = result.response
+            )
+            if (!validatedPresentation.isFallbackActive) {
+                aiGearAdvisorResponse = result.response
+                onAiGearAdvisorResponseChanged(result.response)
+            }
+        }
     }
     val mainScrollState = rememberScrollState()
     LaunchedEffect(selectedTab, isRouteDetailOpen) {
@@ -225,6 +283,8 @@ fun HomeScreen(
     val applyImportState: (TargetRouteImportState) -> Unit = { state ->
         routeImportQueue = routeImportQueue.complete(state)
         if (state is TargetRouteImportState.Imported) {
+            aiGearAdvisorResponse = null
+            onAiGearAdvisorResponseChanged(null)
             onRouteImported(state.route)
         }
     }
@@ -514,6 +574,7 @@ fun HomeScreen(
                             offlineBasemapCatalogApi = offlineBasemapCatalogApi,
                             routeAssessment = assessment,
                             gearRecommendations = routeGearRecommendations,
+                            aiGearAdvisorResponse = aiGearAdvisorResponse,
                             initialTrackRecording = initialTrackRecording,
                             initialOfflineRoutePackReady = offlineRoutePackKey in savedOfflineRoutePackKeys,
                             initialOfflineBaseMapTileProofs = offlineBaseMapTileProofs,

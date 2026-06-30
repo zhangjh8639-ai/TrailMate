@@ -6,7 +6,10 @@ import com.trailmate.app.core.gpx.GpxImportQueue
 import com.trailmate.app.core.gpx.GpxImportJobKind
 import com.trailmate.app.core.map.AmapOfflineBaseMapTileProof
 import com.trailmate.app.core.map.AmapPrivacyConsent
+import com.trailmate.app.core.model.AiGearAdvisorResponse
 import com.trailmate.app.core.model.BaselineProfile
+import com.trailmate.app.core.model.GearRecommendation
+import com.trailmate.app.core.model.GearStatus
 import com.trailmate.app.core.model.HistoricalActivity
 import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.TrailMateSampleData
@@ -75,6 +78,18 @@ class LocalTrailMateSessionRepositoryTest {
             )
         )
         repository.saveOfflineBaseMapTileProofs(offlineBaseMapTileProofs)
+        val aiGearAdvisorResponse = AiGearAdvisorResponse(
+            assessmentFingerprint = "fingerprint-1",
+            recommendations = listOf(
+                GearRecommendation(
+                    category = "头灯",
+                    status = GearStatus.CHECK,
+                    rationale = "确认电量。",
+                    matchedGearItemId = "cat_headlamp_bd_spot_400"
+                )
+            )
+        )
+        repository.saveAiGearAdvisorResponse(aiGearAdvisorResponse)
 
         assertEquals(authSession, store.snapshot.authSession)
         assertEquals(TrailMateSampleData.baselineProfile, store.snapshot.profile)
@@ -85,6 +100,7 @@ class LocalTrailMateSessionRepositoryTest {
         assertEquals(amapPrivacyConsent, store.snapshot.amapPrivacyConsent)
         assertEquals(offlineRoutePackKeys, store.snapshot.savedOfflineRoutePackKeys)
         assertEquals(offlineBaseMapTileProofs, store.snapshot.offlineBaseMapTileProofs)
+        assertEquals(aiGearAdvisorResponse, store.snapshot.aiGearAdvisorResponse)
     }
 
     @Test
@@ -179,6 +195,10 @@ private class FakeTrailMateSessionStore(
 
     override fun saveOfflineBaseMapTileProofs(proofs: List<AmapOfflineBaseMapTileProof>) {
         snapshot = snapshot.copy(offlineBaseMapTileProofs = proofs)
+    }
+
+    override fun saveAiGearAdvisorResponse(response: AiGearAdvisorResponse?) {
+        snapshot = snapshot.copy(aiGearAdvisorResponse = response)
     }
 
     override fun clear() {

@@ -75,6 +75,29 @@ class TrailMateBackendGearAdvisorClientTest {
         assertTrue(result is AiGearAdvisorBackendResult.Unavailable)
     }
 
+    @Test
+    fun networkTimeoutMapsUnifiedBackendApiErrorToRetryableTimeout() {
+        val api = FakeGearAdviceApi(
+            result = TrailMateApiResult.Failure(
+                TrailMateApiError(
+                    status = 0,
+                    code = "NETWORK_TIMEOUT",
+                    message = "Timed out while requesting AI gear advice.",
+                    traceId = null
+                )
+            )
+        )
+        val client = TrailMateBackendGearAdvisorClient(
+            planId = "plan-123",
+            api = api
+        )
+
+        val result = client.requestAdvice(request)
+
+        assertEquals(listOf("plan-123" to request), api.calls)
+        assertTrue(result is AiGearAdvisorBackendResult.Timeout)
+    }
+
     private class FakeGearAdviceApi(
         private val result: TrailMateApiResult<AiGearAdvisorResponse>
     ) : TrailMateGearAdviceApi {

@@ -8,10 +8,13 @@ import com.trailmate.app.core.auth.TrailMateAuthProvider
 import com.trailmate.app.core.auth.TrailMateAuthSession
 import com.trailmate.app.core.map.AmapOfflineBaseMapTileProof
 import com.trailmate.app.core.map.AmapPrivacyConsent
+import com.trailmate.app.core.model.AiGearAdvisorResponse
 import com.trailmate.app.core.model.AscentExperience
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.ExerciseFrequency
 import com.trailmate.app.core.model.ExperienceLevel
+import com.trailmate.app.core.model.GearRecommendation
+import com.trailmate.app.core.model.GearStatus
 import com.trailmate.app.core.model.HistoricalActivity
 import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.RouteImportStatus
@@ -205,6 +208,32 @@ class TrailMateSnapshotCodecTest {
         val decoded = TrailMateSnapshotCodec.decode(TrailMateSnapshotCodec.encode(snapshot))
 
         assertEquals(session, decoded.authSession)
+    }
+
+    @Test
+    fun snapshotRoundTripPreservesLatestAiGearAdviceArtifact() {
+        val response = AiGearAdvisorResponse(
+            assessmentFingerprint = "longjing#15.2#860#CAUTION#LOW",
+            recommendations = listOf(
+                GearRecommendation(
+                    category = "头灯",
+                    status = GearStatus.CHECK,
+                    rationale = "预计耗时较长，确认电量并准备备用照明。",
+                    matchedGearItemId = "cat_headlamp_bd_spot_400"
+                ),
+                GearRecommendation(
+                    category = "登山杖",
+                    status = GearStatus.MISSING,
+                    rationale = "累计爬升较高，下坡段需要稳定支撑。",
+                    matchedGearItemId = "cat_poles_leki_legacy_lite"
+                )
+            )
+        )
+        val snapshot = TrailMateSnapshot(aiGearAdvisorResponse = response)
+
+        val decoded = TrailMateSnapshotCodec.decode(TrailMateSnapshotCodec.encode(snapshot))
+
+        assertEquals(response, decoded.aiGearAdvisorResponse)
     }
 
     @Test

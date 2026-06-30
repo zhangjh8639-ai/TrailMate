@@ -8,17 +8,19 @@ import org.springframework.stereotype.Component;
 
 @Component
 @ConditionalOnProperty(prefix = "trailmate.auth.persistence", name = "mode", havingValue = "memory", matchIfMissing = true)
-public class RandomAuthSessionIssuer implements AuthSessionIssuer {
+public class RandomAuthSessionIssuer implements AuthSessionIssuer, AuthAccessTokenVerifier {
     private static final long ACCESS_TOKEN_TTL_SECONDS = 7200;
     private final ConcurrentHashMap<String, RefreshSessionState> refreshSessions = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, AccessSessionState> accessSessions = new ConcurrentHashMap<>();
 
     @Override
     public AuthSessionResponse issueSession(AuthAccount account, AuthProvider provider, Instant now) {
+        String accessToken = token("access");
         String refreshToken = token("refresh");
         AuthSessionResponse response = new AuthSessionResponse(
             account.userId(),
             provider,
-            token("access"),
+            accessToken,
             refreshToken,
             now.plusSeconds(ACCESS_TOKEN_TTL_SECONDS).toString(),
             account.phoneNumber(),
@@ -26,6 +28,7 @@ public class RandomAuthSessionIssuer implements AuthSessionIssuer {
             account.displayName()
         );
         refreshSessions.put(refreshToken, new RefreshSessionState(account, provider));
+        accessSessions.put(accessToken, new AccessSessionState(account.userId(), now.plusSeconds(ACCESS_TOKEN_TTL_SECONDS)));
         return response;
     }
 
@@ -43,10 +46,22 @@ public class RandomAuthSessionIssuer implements AuthSessionIssuer {
         refreshSessions.remove(refreshToken);
     }
 
+    @Override
+    public AuthenticatedUser verifyAccessToken(String accessToken, Instant now) {
+        AccessSessionState sessionState = accessSessions.get(accessToken);
+        if (sessionState == null || !sessionState.expiresAt().isAfter(now)) {
+            throw new IllegalArgumentException("Invalid access token.");
+        }
+        return new AuthenticatedUser(sessionState.userId());
+    }
+
     private String token(String prefix) {
         return prefix + "_" + UUID.randomUUID();
     }
 
     private record RefreshSessionState(AuthAccount account, AuthProvider provider) {
+    }
+
+    private record AccessSessionState(String userId, Instant expiresAt) {
     }
 }

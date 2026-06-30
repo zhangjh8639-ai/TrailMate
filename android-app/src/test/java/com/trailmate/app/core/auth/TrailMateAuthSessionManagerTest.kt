@@ -3,6 +3,7 @@ package com.trailmate.app.core.auth
 import com.trailmate.app.core.gpx.GpxImportQueue
 import com.trailmate.app.core.map.AmapOfflineBaseMapTileProof
 import com.trailmate.app.core.map.AmapPrivacyConsent
+import com.trailmate.app.core.model.AiGearAdvisorResponse
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.HistoricalActivity
 import com.trailmate.app.core.model.ImportedRoute
@@ -252,6 +253,7 @@ class TrailMateAuthSessionManagerTest {
         override fun saveAmapPrivacyConsent(consent: AmapPrivacyConsent) = Unit
         override fun saveOfflineRoutePackKeys(keys: Set<String>) = Unit
         override fun saveOfflineBaseMapTileProofs(proofs: List<AmapOfflineBaseMapTileProof>) = Unit
+        override fun saveAiGearAdvisorResponse(response: AiGearAdvisorResponse?) = Unit
 
         override fun clearLocalData() {
             snapshot = TrailMateSnapshot.empty()

@@ -76,8 +76,14 @@ public class AuthProviderConfiguration {
 
     @Bean
     @ConditionalOnProperty(prefix = "trailmate.auth.persistence", name = "mode", havingValue = "jdbc")
-    public AuthSessionIssuer jdbcAuthSessionIssuer(JdbcTemplate jdbcTemplate) {
+    public JdbcAuthSessionIssuer jdbcAuthSessionIssuer(JdbcTemplate jdbcTemplate) {
         return new JdbcAuthSessionIssuer(jdbcTemplate);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(AuthAccessTokenVerifier.class)
+    public AuthAccessTokenVerifier rejectingAuthAccessTokenVerifier() {
+        return new RejectingAuthAccessTokenVerifier();
     }
 
     @Bean

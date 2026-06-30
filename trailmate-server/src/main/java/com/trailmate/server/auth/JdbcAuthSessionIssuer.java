@@ -9,7 +9,7 @@ import java.util.HexFormat;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-public class JdbcAuthSessionIssuer implements AuthSessionIssuer {
+public class JdbcAuthSessionIssuer implements AuthSessionIssuer, AuthAccessTokenVerifier {
     private static final long ACCESS_TOKEN_TTL_SECONDS = 7200;
     private static final long REFRESH_TOKEN_TTL_SECONDS = 60L * 60L * 24L * 60L;
     private final JdbcTemplate jdbcTemplate;
@@ -74,6 +74,20 @@ public class JdbcAuthSessionIssuer implements AuthSessionIssuer {
     ) {
         String accessToken = tokenGenerator.nextToken("access");
         String refreshToken = tokenGenerator.nextToken("refresh");
+        Instant accessTokenExpiresAt = now.plusSeconds(ACCESS_TOKEN_TTL_SECONDS);
+        jdbcTemplate.update(
+            """
+                insert into auth_access_token (
+                    id, user_id, provider, token_hash, issued_at, expires_at
+                ) values (?, ?, ?, ?, ?, ?)
+                """,
+            tokenId + "-access",
+            account.userId(),
+            providerValue(provider),
+            hash(accessToken),
+            Timestamp.from(now),
+            Timestamp.from(accessTokenExpiresAt)
+        );
         jdbcTemplate.update(
             """
                 insert into auth_refresh_token (
@@ -96,11 +110,33 @@ public class JdbcAuthSessionIssuer implements AuthSessionIssuer {
             provider,
             accessToken,
             refreshToken,
-            now.plusSeconds(ACCESS_TOKEN_TTL_SECONDS).toString(),
+            accessTokenExpiresAt.toString(),
             account.phoneNumber(),
             account.wechatOpenId(),
             account.displayName()
         );
+    }
+
+    @Override
+    public AuthenticatedUser verifyAccessToken(String accessToken, Instant now) {
+        try {
+            return jdbcTemplate.queryForObject(
+                """
+                    select t.user_id
+                    from auth_access_token t
+                    join app_user u on u.id = t.user_id
+                    where t.token_hash = ?
+                      and t.revoked_at is null
+                      and t.expires_at > ?
+                      and u.status = 'active'
+                    """,
+                (rs, rowNum) -> new AuthenticatedUser(rs.getString("user_id")),
+                hash(accessToken),
+                Timestamp.from(now)
+            );
+        } catch (EmptyResultDataAccessException ignored) {
+            throw new IllegalArgumentException("Invalid access token.");
+        }
     }
 
     private StoredRefreshToken findActiveRefreshToken(String refreshToken, Instant now) {

@@ -11,6 +11,10 @@ class TrailMateBackendGearAdvisorClient(
     override fun requestAdvice(request: AiGearAdvisorRequest): AiGearAdvisorBackendResult =
         when (val result = api.requestGearAdvice(planId = planId, request = request)) {
             is TrailMateApiResult.Success -> AiGearAdvisorBackendResult.Success(result.value)
-            is TrailMateApiResult.Failure -> AiGearAdvisorBackendResult.Unavailable
+            is TrailMateApiResult.Failure -> if (result.error.code == "NETWORK_TIMEOUT") {
+                AiGearAdvisorBackendResult.Timeout
+            } else {
+                AiGearAdvisorBackendResult.Unavailable
+            }
         }
 }

@@ -13,6 +13,9 @@ class AuthSchemaMigrationTest {
     private static final Path MIGRATION = Path.of(
         "src/main/resources/db/migration/V1__create_auth_schema.sql"
     );
+    private static final Path ACCESS_TOKEN_MIGRATION = Path.of(
+        "src/main/resources/db/migration/V11__create_auth_access_token.sql"
+    );
 
     @Test
     void migrationCreatesAuthSourceOfTruthTables() throws Exception {
@@ -65,5 +68,17 @@ class AuthSchemaMigrationTest {
         assertTrue(sql.contains("token_hash text not null"));
         assertTrue(sql.contains("phone_e164_hash text"));
         assertTrue(sql.contains("wechat_open_id_hash text"));
+    }
+
+    @Test
+    void migrationCreatesHashedAccessTokenLookupTable() throws Exception {
+        assertTrue(Files.exists(ACCESS_TOKEN_MIGRATION), "Access token verifier migration must exist.");
+        String sql = Files.readString(ACCESS_TOKEN_MIGRATION);
+
+        assertTrue(sql.contains("create table auth_access_token"));
+        assertTrue(sql.contains("user_id text not null references app_user(id)"));
+        assertTrue(sql.contains("token_hash text not null"));
+        assertTrue(sql.contains("constraint uq_auth_access_token_hash unique (token_hash)"));
+        assertFalse(sql.contains("access_token text"), "Plain access tokens must not be durable columns.");
     }
 }

@@ -8,10 +8,13 @@ import com.trailmate.app.core.gpx.GpxImportJobStatus
 import com.trailmate.app.core.gpx.GpxImportQueue
 import com.trailmate.app.core.map.AmapOfflineBaseMapTileProof
 import com.trailmate.app.core.map.AmapPrivacyConsent
+import com.trailmate.app.core.model.AiGearAdvisorResponse
 import com.trailmate.app.core.model.AscentExperience
 import com.trailmate.app.core.model.BaselineProfile
 import com.trailmate.app.core.model.ExerciseFrequency
 import com.trailmate.app.core.model.ExperienceLevel
+import com.trailmate.app.core.model.GearRecommendation
+import com.trailmate.app.core.model.GearStatus
 import com.trailmate.app.core.model.HistoricalActivity
 import com.trailmate.app.core.model.ImportedRoute
 import com.trailmate.app.core.model.RecordedTrackPoint
@@ -134,6 +137,19 @@ object TrailMateSnapshotCodec {
             properties["$prefix.tileVisible"] = proof.tileVisible.toString()
         }
 
+        snapshot.aiGearAdvisorResponse?.let { response ->
+            properties["aiGear.present"] = "true"
+            properties["aiGear.assessmentFingerprint"] = response.assessmentFingerprint
+            properties["aiGear.recommendation.count"] = response.recommendations.size.toString()
+            response.recommendations.forEachIndexed { index, recommendation ->
+                val prefix = "aiGear.recommendation.$index"
+                properties["$prefix.category"] = recommendation.category
+                properties["$prefix.status"] = recommendation.status.name
+                properties["$prefix.rationale"] = recommendation.rationale
+                properties["$prefix.matchedGearItemId"] = recommendation.matchedGearItemId.orEmpty()
+            }
+        }
+
         properties["amapPrivacy.accepted"] = snapshot.amapPrivacyConsent.accepted.toString()
         properties["amapPrivacy.acceptedAtEpochMillis"] =
             snapshot.amapPrivacyConsent.acceptedAtEpochMillis?.toString().orEmpty()
@@ -164,6 +180,7 @@ object TrailMateSnapshotCodec {
                 latestTrackRecording = properties.decodeTrackRecording(),
                 savedOfflineRoutePackKeys = properties.decodeOfflineRoutePackKeys(),
                 offlineBaseMapTileProofs = properties.decodeOfflineBaseMapTileProofs(),
+                aiGearAdvisorResponse = properties.decodeAiGearAdvisorResponse(),
                 amapPrivacyConsent = properties.decodeAmapPrivacyConsent()
             )
         }.getOrDefault(TrailMateSnapshot())
@@ -374,6 +391,36 @@ object TrailMateSnapshotCodec {
                 tileVisible = getProperty("$prefix.tileVisible")?.toBooleanStrictOrNull() ?: false
             )
         }
+    }
+
+    private fun Properties.decodeAiGearAdvisorResponse(): AiGearAdvisorResponse? {
+        if (getProperty("aiGear.present") != "true") {
+            return null
+        }
+
+        val fingerprint = getProperty("aiGear.assessmentFingerprint")?.takeIf { it.isNotBlank() } ?: return null
+        val count = getProperty("aiGear.recommendation.count")?.toIntOrNull() ?: return null
+        val recommendations = (0 until count).mapNotNull { index ->
+            val prefix = "aiGear.recommendation.$index"
+            val category = getProperty("$prefix.category")?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            val status = enumValue<GearStatus>("$prefix.status") ?: return@mapNotNull null
+            val rationale = getProperty("$prefix.rationale")?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+
+            GearRecommendation(
+                category = category,
+                status = status,
+                rationale = rationale,
+                matchedGearItemId = getProperty("$prefix.matchedGearItemId").orEmpty().ifBlank { null }
+            )
+        }
+        if (recommendations.size != count || recommendations.isEmpty()) {
+            return null
+        }
+
+        return AiGearAdvisorResponse(
+            assessmentFingerprint = fingerprint,
+            recommendations = recommendations
+        )
     }
 
     private fun Properties.decodeAmapPrivacyConsent(): AmapPrivacyConsent =
