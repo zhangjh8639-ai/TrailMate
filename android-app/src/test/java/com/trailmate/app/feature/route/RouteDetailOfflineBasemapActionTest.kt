@@ -37,6 +37,32 @@ class RouteDetailOfflineBasemapActionTest {
     }
 
     @Test
+    fun importsPmTilesWhenReadinessUsesOfflineBasemapPreparationCopy() {
+        val readiness = TrailMapReadiness(
+            provider = TrailMapProvider.LOCAL_GPX_PREVIEW,
+            title = "定位与记录",
+            caption = "离线底图待准备，当前使用本地 GPX 路线预览。",
+            layerChips = listOf("GPX 折线"),
+            actionLabel = "准备离线底图",
+            isProductionMapReady = false,
+            setupHint = TrailMapSetupHint(
+                title = "离线底图待准备",
+                caption = "路线页先显示本地 GPX 折线；准备目标区域离线底图后启用完整地图上下文。",
+                statusLabel = "本地预览"
+            ),
+            setupSteps = listOf(
+                TrailMapReadinessStep(
+                    label = "离线底图",
+                    value = "待准备",
+                    status = TrailMapReadinessStepStatus.NEEDS_ACTION
+                )
+            )
+        )
+
+        assertTrue(readiness.shouldImportPmTilesBasemap())
+    }
+
+    @Test
     fun visibleImportBasemapActionUsesPmTilesImportEvenWhenReadinessActionIsLocalRoute() {
         val readiness = localRouteReadiness(
             actionLabel = "使用本地路线",

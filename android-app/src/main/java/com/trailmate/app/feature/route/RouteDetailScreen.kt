@@ -1568,7 +1568,7 @@ private fun Intent?.toRouteBatteryStatus(): RouteBatteryStatus {
 }
 
 private fun TrailMapReadiness.offlineBaseMapStep(): TrailMapReadinessStep? =
-    setupSteps.firstOrNull { it.label == "离线地图包" }
+    setupSteps.firstOrNull { it.isOfflineBaseMapStep() }
 
 private fun TrailMapReadiness.isOfflineBaseMapReady(): Boolean =
     provider == TrailMapProvider.MAPLIBRE_PMTILES && isProductionMapReady
@@ -1611,8 +1611,8 @@ private fun RouteReadinessStrip(
                     .testTag("route-readiness-offline-route-pack")
             )
             RouteReadinessTile(
-                title = if (offlineBasemapReady) "离线地图包：已导入" else "准备离线底图",
-                value = offlineBasemapStep?.value ?: "待导入",
+                title = if (offlineBasemapReady) "离线底图：已准备" else "准备离线底图",
+                value = offlineBasemapStep?.value ?: "待准备",
                 glyph = if (offlineBasemapReady) TrailMateGlyph.Check else TrailMateGlyph.Map,
                 active = offlineBasemapReady,
                 onClick = if (offlineBasemapReady) null else onOfflineBaseMapAction,
@@ -2861,7 +2861,7 @@ private fun RouteCockpitActionDrawer(
         onPrimaryAction
     }
     val offlineRouteItem = presentation.readinessItems.firstOrNull { it.label == "离线路线" }
-    val offlineBaseMapItem = presentation.readinessItems.firstOrNull { it.label == "离线地图包" }
+    val offlineBaseMapItem = presentation.readinessItems.firstOrNull { it.label.isOfflineBaseMapLabel() }
 
     Surface(
         modifier = modifier
@@ -2982,9 +2982,9 @@ private fun RouteCockpitActionDrawer(
                     )
                     RouteCockpitPrepActionButton(
                         label = if (offlineBaseMapItem.tone == RouteCockpitReadinessTone.READY) {
-                            "离线地图已导入"
+                            "离线底图已准备"
                         } else if (presentation.primaryAction.kind == RouteCockpitPrimaryActionKind.OPEN_OFFLINE_BASE_MAP) {
-                            "离线地图包"
+                            "离线底图"
                         } else {
                             "准备离线底图"
                         },
@@ -6829,8 +6829,8 @@ internal fun TrailMapReadiness.shouldImportPmTilesBasemap(): Boolean =
     provider == com.trailmate.app.core.map.TrailMapProvider.LOCAL_GPX_PREVIEW &&
         actionLabel.isPmTilesBasemapImportAction() &&
         setupSteps.any { step ->
-            (step.label == "离线地图包" || step.label == "底图") &&
-                (step.value == "待导入" || step.value == "待下载")
+            step.isOfflineBaseMapStep() &&
+                (step.value == "待导入" || step.value == "待下载" || step.value == "待准备")
         }
 
 internal fun shouldOpenPmTilesImport(
@@ -6842,7 +6842,17 @@ internal fun shouldOpenPmTilesImport(
 
 private fun TrailMapReadiness.shouldShowPmTilesSetupAction(): Boolean =
     !isProductionMapReady &&
-        (setupHint.title.contains("PMTiles") || setupHint.caption.contains("PMTiles"))
+        (shouldImportPmTilesBasemap() ||
+            setupHint.title.contains("PMTiles") ||
+            setupHint.caption.contains("PMTiles") ||
+            setupHint.title.contains("离线底图") ||
+            setupHint.caption.contains("离线底图"))
+
+private fun TrailMapReadinessStep.isOfflineBaseMapStep(): Boolean =
+    label.isOfflineBaseMapLabel() || label == "底图"
+
+private fun String.isOfflineBaseMapLabel(): Boolean =
+    this == "离线底图" || this == "离线地图包"
 
 private fun String.isPmTilesBasemapImportAction(): Boolean =
     this == "导入离线地图包" ||

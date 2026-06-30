@@ -139,14 +139,14 @@ object TrailMapReadinessEngine {
         if (pmTilesReady) {
             return TrailMapReadiness(
                 provider = TrailMapProvider.MAPLIBRE_PMTILES,
-                title = "离线地图包",
-                caption = "PMTiles 本地离线地图包已就绪，可结合 GPX 路线、检查点、定位与实走轨迹使用。",
+                title = "离线底图",
+                caption = "本地离线底图已就绪，可结合 GPX 路线、检查点、定位与实走轨迹使用。",
                 layerChips = baseLayers + "PMTiles 底图",
                 actionLabel = "查看路线辅助",
                 isProductionMapReady = true,
                 setupHint = TrailMapSetupHint(
-                    title = "离线地图包已就绪",
-                    caption = "MapLibre 渲染器和 PMTiles 本地离线地图包已可用；出发前仍需确认 OSM 数据署名、目标区域覆盖和定位状态。",
+                    title = "离线底图已就绪",
+                    caption = "MapLibre 渲染器和本地离线底图已可用；出发前仍需确认 OSM 数据署名、目标区域覆盖和定位状态。",
                     statusLabel = "离线可用"
                 ),
                 setupSteps = setupSteps
@@ -156,9 +156,9 @@ object TrailMapReadinessEngine {
         val fieldReady = offlineRoutePackReady && locationReadyForFieldUse
         val pmTilesSetupCaption = when {
             !mapLibreRuntimeAvailable -> "MapLibre 渲染器待接入，当前使用本地 GPX 路线预览。"
-            mapLibreRuntimeAvailable && !pmTilesBasemapPackReady -> "PMTiles 离线地图包待导入，当前使用本地 GPX 路线预览。"
+            mapLibreRuntimeAvailable && !pmTilesBasemapPackReady -> "离线底图待准备，当前使用本地 GPX 路线预览。"
             gpsEnabled -> "定位正在校准，当前位置尚不能作为实走证据；当前使用本地 GPX 路线预览。"
-            else -> "PMTiles 离线地图包待导入，当前使用本地 GPX 路线预览。"
+            else -> "离线底图待准备，当前使用本地 GPX 路线预览。"
         }
         return TrailMapReadiness(
             provider = TrailMapProvider.LOCAL_GPX_PREVIEW,
@@ -172,7 +172,7 @@ object TrailMapReadinessEngine {
             },
             layerChips = baseLayers,
             actionLabel = when {
-                mapLibreRuntimeAvailable && !pmTilesBasemapPackReady -> "导入离线地图包"
+                mapLibreRuntimeAvailable && !pmTilesBasemapPackReady -> "准备离线底图"
                 fieldReady -> "查看路线辅助"
                 else -> "使用本地路线"
             },
@@ -198,17 +198,17 @@ object TrailMapReadinessEngine {
                 statusLabel = "本地预览"
             )
             !pmTilesBasemapPackReady -> TrailMapSetupHint(
-                title = "PMTiles 地图包待导入",
-                caption = "路线页先显示本地 GPX 折线；导入目标区域 PMTiles 后启用 MapLibre 离线地图上下文。",
+                title = "离线底图待准备",
+                caption = "路线页先显示本地 GPX 折线；准备目标区域离线底图后启用完整地图上下文。",
                 statusLabel = "本地预览"
             )
             fieldReady -> TrailMapSetupHint(
                 title = "离线与定位已可用",
-                caption = "当前可用本地 GPX 预览和实走轨迹记录；PMTiles 地图包导入后会获得完整离线地图上下文。",
+                caption = "当前可用本地 GPX 预览和实走轨迹记录；离线底图准备完成后会获得完整地图上下文。",
                 statusLabel = "实走可用"
             )
             else -> TrailMapSetupHint(
-                title = "PMTiles 地图包待确认",
+                title = "离线底图待确认",
                 caption = "当前继续使用本地 GPX 预览，路线评估和轨迹记录不受影响。",
                 statusLabel = "待确认"
             )
@@ -261,11 +261,11 @@ object TrailMapReadinessEngine {
                 }
             ),
             TrailMapReadinessStep(
-                label = "离线地图包",
+                label = "离线底图",
                 value = when {
-                    pmTilesReady -> "已导入"
+                    pmTilesReady -> "已准备"
                     !mapLibreRuntimeAvailable -> "待接入"
-                    !pmTilesBasemapPackReady -> "待导入"
+                    !pmTilesBasemapPackReady -> "待准备"
                     else -> "待配置"
                 },
                 status = if (pmTilesReady) {
