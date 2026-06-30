@@ -777,7 +777,7 @@ class TrailMateAppSmokeTest {
     }
 
     @Test
-    fun fullscreenNavigationStartsAndAdvancesActiveHike() {
+    fun fullscreenNavigationStartsFromFullscreenAndShowsFieldControls() {
         grantRouteRuntimePermissions()
 
         compose.setContent {
@@ -794,18 +794,41 @@ class TrailMateAppSmokeTest {
 
         compose.onNodeWithTag("segmented-control-路线").performClick()
         compose.onNodeWithTag("route-cockpit").assertExists()
-        compose.onNodeWithText("开始徒步并记录轨迹").assertExists()
+        compose.onAllNodesWithText("开始徒步并记录轨迹").assertCountEquals(0)
+        compose.onNodeWithText("进入导航").assertExists()
+        compose.onAllNodesWithText("安全分享").assertCountEquals(0)
         compose.onAllNodesWithText("全屏导航").assertCountEquals(0)
         compose.onNodeWithTag("route-cockpit-primary-action").performClick()
         compose.waitForIdle()
-        compose.onNodeWithText("全屏导航").performScrollTo().performClick()
         compose.onNodeWithTag("route-navigation-fullscreen").assertExists()
+        compose.onNodeWithText("开始徒步并记录轨迹").assertExists()
+        compose.onNodeWithTag("route-navigation-fullscreen-primary-action").performClick()
+        compose.waitForIdle()
         compose.onNodeWithText("标记点").assertExists()
+        compose.onNodeWithTag("route-navigation-fullscreen-safety-action").assertExists()
         compose.onAllNodesWithText("补给检查", substring = true).onFirst().assertExists()
         compose.onAllNodesWithText("补水、补能量", substring = true).onFirst().assertExists()
+    }
 
-        compose.onNodeWithText("标记点").performClick()
-        compose.onAllNodesWithText("休息判断", substring = true).onFirst().assertExists()
+    @Test
+    fun expandedRouteDetailsDoNotShowDepartureStartControl() {
+        compose.setContent {
+            TrailMateTheme {
+                RouteDetailTestHost(
+                    notificationPermissionGranted = true,
+                    initialLocationSnapshot = locatedTrailSnapshot(),
+                    routeAssessment = nonBlockingAssessment(TrailMateSampleData.importedTargetRoute),
+                    gearRecommendations = coveredDepartureGear(),
+                    initialOfflineRoutePackReady = true,
+                    initiallyExpandRouteDiagnostics = true
+                )
+            }
+        }
+
+        compose.onNodeWithTag("segmented-control-路线").performClick()
+        compose.onNodeWithText("现场详情").assertExists()
+        compose.onAllNodesWithText("下一步：开始徒步并记录轨迹").assertCountEquals(0)
+        compose.onAllNodesWithText("标记点", substring = true).assertCountEquals(0)
     }
 
     @Test
@@ -830,7 +853,7 @@ class TrailMateAppSmokeTest {
         compose.onAllNodesWithText("开始徒步").assertCountEquals(0)
         compose.onAllNodesWithText("标记点").assertCountEquals(0)
         compose.onAllNodesWithText("全屏导航").assertCountEquals(0)
-        compose.onNodeWithText("安全分享").assertExists()
+        compose.onAllNodesWithText("安全分享").assertCountEquals(0)
         compose.onNodeWithText("保存离线路线").assertHasClickAction()
         compose.onAllNodesWithText("地图状态").assertCountEquals(0)
         compose.onAllNodesWithText("地图状态与轻导航").assertCountEquals(0)
@@ -840,9 +863,9 @@ class TrailMateAppSmokeTest {
         compose.onNodeWithText("5 个检查点 · 补给/休息/风险").assertExists()
         compose.onAllNodesWithText("现场状态").assertCountEquals(0)
         compose.onAllNodesWithText("准备轻导航").assertCountEquals(0)
-        compose.onNodeWithText("定位：", substring = true).assertExists()
-        compose.onNodeWithText("记录：", substring = true).assertExists()
-        compose.onNodeWithText("离线路线：", substring = true).assertExists()
+        compose.onAllNodesWithText("定位：", substring = true).assertCountEquals(0)
+        compose.onAllNodesWithText("记录：", substring = true).assertCountEquals(0)
+        compose.onAllNodesWithText("离线路线：", substring = true).assertCountEquals(0)
         compose.onAllNodesWithText("先授权定位；出发前建议保存路线包并允许轨迹通知。").assertCountEquals(0)
         compose.onAllNodesWithText("高德上线检查").assertCountEquals(0)
         compose.onAllNodesWithText("地图图层").assertCountEquals(0)
@@ -870,15 +893,19 @@ class TrailMateAppSmokeTest {
         compose.onAllNodesWithText("未开始").onFirst().assertExists()
         compose.onAllNodesWithText("授权定位").onFirst().assertExists()
         compose.onAllNodesWithText("开始记录").assertCountEquals(0)
+        compose.onAllNodesWithText("暂停记录").assertCountEquals(0)
+        compose.onAllNodesWithText("继续记录").assertCountEquals(0)
+        compose.onAllNodesWithText("结束记录").assertCountEquals(0)
         compose.onNodeWithText("已记录 0.0 km / 0 个点").assertExists()
         compose.onNodeWithText("轨迹通知").assertExists()
         compose.onNodeWithText("允许通知").assertExists()
         compose.onNodeWithText("锁屏或切后台时可看到记录状态", substring = true).assertExists()
         compose.onNodeWithText("前台服务记录", substring = true).assertExists()
         compose.onNodeWithText("前台服务记录真实定位轨迹", substring = true).assertExists()
-        compose.onAllNodesWithText("安全分享").onFirst().assertExists()
-        compose.onNodeWithText("等待定位后分享").assertExists()
-        compose.onNodeWithText("授权定位后可分享当前位置", substring = true).assertExists()
+        compose.onAllNodesWithText("安全分享").assertCountEquals(0)
+        compose.onAllNodesWithText("等待定位后分享").assertCountEquals(0)
+        compose.onAllNodesWithText("授权定位后可分享当前位置", substring = true).assertCountEquals(0)
+        compose.onAllNodesWithText("发送出发报备").assertCountEquals(0)
         compose.onNodeWithText("地图准备").assertExists()
         compose.onNodeWithText("PMTiles 地图包待导入").assertExists()
         compose.onAllNodesWithText("本地 GPX", substring = true).onFirst().assertExists()
@@ -887,11 +914,13 @@ class TrailMateAppSmokeTest {
         compose.onNodeWithText("建议补齐").assertExists()
         compose.onAllNodesWithText("离线路线").onFirst().assertExists()
         compose.onAllNodesWithText("离线地图包").onFirst().assertExists()
+        compose.onAllNodesWithText("导入离线地图包").assertCountEquals(0)
+        compose.onAllNodesWithText("下一步：导入离线地图包").assertCountEquals(0)
         compose.onAllNodesWithText("装备").onFirst().assertExists()
         compose.onAllNodesWithText("路线提示点").onFirst().assertExists()
         compose.onNodeWithText("地图图层").performScrollTo().assertExists()
         compose.onNodeWithText("计划路线").assertExists()
-        compose.onNodeWithText("未记录").assertExists()
+        compose.onAllNodesWithText("未记录").onFirst().assertExists()
         compose.onAllNodesWithText("补给", substring = true).onFirst().assertExists()
         compose.onAllNodesWithText("休息", substring = true).onFirst().assertExists()
         compose.onAllNodesWithText("风险", substring = true).onFirst().assertExists()
@@ -913,11 +942,11 @@ class TrailMateAppSmokeTest {
         }
 
         compose.onNodeWithTag("segmented-control-路线").performClick()
-        compose.onNodeWithText("开始徒步并记录轨迹").assertExists()
+        compose.onAllNodesWithText("开始徒步并记录轨迹").assertCountEquals(0)
+        compose.onNodeWithText("进入导航").assertExists()
         compose.onAllNodesWithText("全屏导航").assertCountEquals(0)
         compose.onNodeWithTag("route-cockpit-primary-action").performClick()
         compose.waitForIdle()
-        compose.onNodeWithText("全屏导航").performScrollTo().performClick()
 
         compose.onNodeWithTag("route-navigation-fullscreen").assertExists()
         compose.onNodeWithTag("route-navigation-fullscreen-primary-action").assertExists()
@@ -927,9 +956,6 @@ class TrailMateAppSmokeTest {
             .getUnclippedBoundsInRoot()
         assertTrue(dockBounds.top < fullscreenBounds.bottom)
         assertTrue(dockBounds.bottom <= fullscreenBounds.bottom)
-        compose.onNodeWithText("安全分享").assertExists()
-        compose.onNodeWithText("标记点").assertExists()
-        compose.onNodeWithText("结束记录").assertExists()
 
         compose.onNodeWithContentDescription("退出全屏导航").performClick()
         compose.onNodeWithTag("route-cockpit").assertExists()
@@ -1140,11 +1166,11 @@ class TrailMateAppSmokeTest {
         }
 
         compose.onNodeWithTag("segmented-control-路线").performClick()
-        compose.onNodeWithText("开始徒步并记录轨迹").assertExists()
+        compose.onAllNodesWithText("开始徒步并记录轨迹").assertCountEquals(0)
+        compose.onNodeWithText("进入导航").assertExists()
         compose.onAllNodesWithText("全屏导航").assertCountEquals(0)
         compose.onNodeWithTag("route-cockpit-primary-action").performClick()
         compose.waitForIdle()
-        compose.onNodeWithText("全屏导航").performScrollTo().performClick()
         compose.onNodeWithTag("route-navigation-fullscreen").assertExists()
         compose.onNodeWithContentDescription("退出全屏导航").performClick()
         compose.onNodeWithTag("route-cockpit").assertExists()

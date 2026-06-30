@@ -156,7 +156,7 @@ object DepartureReadinessEngine {
         ) {
             "飞行模式验证底图"
         } else {
-            "导入离线地图包"
+            "准备离线底图"
         }
 
     private fun TrailMateLocationSnapshot?.locationRepairActionLabel(gpsEnabled: Boolean): String =
