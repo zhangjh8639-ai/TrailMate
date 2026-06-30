@@ -3,6 +3,7 @@ package com.trailmate.app.core.model
 import com.trailmate.app.core.map.TrailMapReadinessEngine
 import com.trailmate.app.core.location.TrailMateLocationSnapshot
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -39,7 +40,8 @@ class DepartureReadinessEngineTest {
         assertTrue(summary.caption.contains("准备离线底图"))
         assertTrue(summary.caption.contains("授权定位"))
         assertTrue(summary.caption.contains("补齐 1 件关键装备"))
-        assertEquals(listOf("路线", "离线路线", "离线地图包", "定位", "装备"), summary.steps.map { it.label })
+        assertEquals(listOf("路线", "离线路线", "离线底图", "定位", "装备"), summary.steps.map { it.label })
+        assertFalse(summary.caption.contains("离线地图包"))
         assertEquals("128 点", summary.steps[0].value)
         assertEquals("待保存", summary.steps[1].value)
         assertEquals("待确认", summary.steps[2].value)
@@ -81,7 +83,7 @@ class DepartureReadinessEngineTest {
         assertEquals("可以出发", summary.statusLabel)
         assertEquals("开始徒步并记录轨迹", summary.primaryActionLabel)
         assertEquals("已保存", summary.steps.first { it.label == "离线路线" }.value)
-        assertEquals("已覆盖目标区域", summary.steps.first { it.label == "离线地图包" }.value)
+        assertEquals("已覆盖目标区域", summary.steps.first { it.label == "离线底图" }.value)
         assertEquals("关键装备已覆盖", summary.steps.first { it.label == "装备" }.value)
     }
 
@@ -105,7 +107,7 @@ class DepartureReadinessEngineTest {
 
         assertEquals("出发检查完成", summary.title)
         assertEquals("开始徒步并记录轨迹", summary.primaryActionLabel)
-        assertEquals("PMTiles 已导入", summary.steps.first { it.label == "离线地图包" }.value)
+        assertEquals("已准备", summary.steps.first { it.label == "离线底图" }.value)
     }
 
     @Test
@@ -129,8 +131,8 @@ class DepartureReadinessEngineTest {
         assertEquals("出发检查完成", summary.title)
         assertEquals("可以出发", summary.statusLabel)
         assertEquals("开始徒步并记录轨迹", summary.primaryActionLabel)
-        assertEquals("建议下载", summary.steps.first { it.label == "离线地图包" }.value)
-        assertTrue(summary.caption.contains("离线地图包建议下载"))
+        assertEquals("建议准备", summary.steps.first { it.label == "离线底图" }.value)
+        assertTrue(summary.caption.contains("离线底图建议准备"))
     }
 
     @Test
@@ -153,7 +155,7 @@ class DepartureReadinessEngineTest {
 
         assertEquals("出发前还差 1 项", summary.title)
         assertEquals("准备离线底图", summary.primaryActionLabel)
-        assertEquals("未下载", summary.steps.first { it.label == "离线地图包" }.value)
+        assertEquals("未下载", summary.steps.first { it.label == "离线底图" }.value)
     }
 
     @Test
@@ -206,7 +208,7 @@ class DepartureReadinessEngineTest {
 
         assertEquals("准备离线底图", summary.primaryActionLabel)
         assertTrue(summary.caption.contains("准备离线底图"))
-        assertEquals("杭州市未下载", summary.steps.first { it.label == "离线地图包" }.value)
+        assertEquals("杭州市未下载", summary.steps.first { it.label == "离线底图" }.value)
     }
 
     @Test
@@ -231,7 +233,7 @@ class DepartureReadinessEngineTest {
         assertEquals("出发前还差 1 项", summary.title)
         assertEquals("建议补齐", summary.statusLabel)
         assertEquals("飞行模式验证底图", summary.primaryActionLabel)
-        assertEquals("已覆盖目标区域，待断网验证", summary.steps.first { it.label == "离线地图包" }.value)
+        assertEquals("已覆盖目标区域，待断网验证", summary.steps.first { it.label == "离线底图" }.value)
     }
 
     @Test
@@ -255,7 +257,8 @@ class DepartureReadinessEngineTest {
         assertEquals("建议补齐", summary.statusLabel)
         assertEquals("准备离线底图", summary.primaryActionLabel)
         assertTrue(summary.caption.contains("准备离线底图"))
-        assertEquals(listOf("路线", "离线路线", "离线地图包", "定位", "装备"), summary.steps.map { it.label })
+        assertEquals(listOf("路线", "离线路线", "离线底图", "定位", "装备"), summary.steps.map { it.label })
+        assertFalse(summary.caption.contains("离线地图包"))
         assertEquals("未下载", summary.steps[2].value)
     }
 

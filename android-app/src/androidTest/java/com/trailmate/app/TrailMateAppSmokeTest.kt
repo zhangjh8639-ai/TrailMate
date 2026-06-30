@@ -214,9 +214,9 @@ class TrailMateAppSmokeTest {
                 .isNotEmpty()
         }
         compose.onNodeWithText("离线路线：已保存", substring = true).assertExists()
-        compose.onNodeWithText("离线地图包").assertExists()
-        compose.onNodeWithText("导入道路、地名和地形背景", substring = true).assertExists()
-        compose.onNodeWithText("导入离线地图包").assertExists()
+        compose.onNodeWithText("离线底图").assertExists()
+        compose.onNodeWithText("补齐道路、地名和地形背景", substring = true).assertExists()
+        compose.onNodeWithText("准备离线底图").assertExists()
         compose.onAllNodesWithText("打开高德离线底图管理").assertCountEquals(0)
         compose.onAllNodesWithText("地图状态与轻导航").assertCountEquals(0)
         compose.onAllNodesWithText("导入状态").assertCountEquals(0)
@@ -242,7 +242,7 @@ class TrailMateAppSmokeTest {
         }
 
         compose.onNodeWithTag("home-tab-路线").performClick()
-        compose.onNodeWithText("导入离线地图包").performScrollTo().performClick()
+        compose.onNodeWithText("准备离线底图").performScrollTo().performClick()
 
         compose.waitUntil(timeoutMillis = 5_000) {
             compose.onAllNodesWithTag("route-cockpit")
@@ -251,8 +251,8 @@ class TrailMateAppSmokeTest {
         }
         compose.onNodeWithTag("route-cockpit").assertExists()
         compose.onNodeWithText("地图图层").performScrollTo().assertExists()
-        compose.onAllNodesWithText("PMTiles 地图包待导入").onFirst().assertExists()
-        compose.onAllNodesWithText("导入离线地图包").onFirst().assertExists()
+        compose.onAllNodesWithText("离线底图待准备").onFirst().assertExists()
+        compose.onAllNodesWithText("准备离线底图").onFirst().assertExists()
         compose.onAllNodesWithText("打开高德离线底图管理").assertCountEquals(0)
     }
 
@@ -907,13 +907,14 @@ class TrailMateAppSmokeTest {
         compose.onAllNodesWithText("授权定位后可分享当前位置", substring = true).assertCountEquals(0)
         compose.onAllNodesWithText("发送出发报备").assertCountEquals(0)
         compose.onNodeWithText("地图准备").assertExists()
-        compose.onNodeWithText("PMTiles 地图包待导入").assertExists()
+        compose.onNodeWithText("离线底图待准备").assertExists()
+        compose.onAllNodesWithText("离线地图包").assertCountEquals(0)
         compose.onAllNodesWithText("本地 GPX", substring = true).onFirst().assertExists()
         compose.onNodeWithText("出发检查").assertExists()
         compose.onAllNodesWithText("出发前还差", substring = true).onFirst().assertExists()
         compose.onNodeWithText("建议补齐").assertExists()
         compose.onAllNodesWithText("离线路线").onFirst().assertExists()
-        compose.onAllNodesWithText("离线地图包").onFirst().assertExists()
+        compose.onAllNodesWithText("离线底图").onFirst().assertExists()
         compose.onAllNodesWithText("导入离线地图包").assertCountEquals(0)
         compose.onAllNodesWithText("下一步：导入离线地图包").assertCountEquals(0)
         compose.onAllNodesWithText("装备").onFirst().assertExists()
@@ -1561,7 +1562,7 @@ class TrailMateAppSmokeTest {
         compose.waitForIdle()
         compose.onAllNodesWithText("启用在线底图").assertCountEquals(0)
         compose.onAllNodesWithText("同意并启用在线底图").assertCountEquals(0)
-        compose.onNodeWithText("PMTiles 地图包待导入").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("离线底图待准备").performScrollTo().assertIsDisplayed()
     }
 
     @Composable

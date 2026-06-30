@@ -134,9 +134,9 @@ private fun RoutePreparationSummary(
                     onAction = onSaveOfflineRoute
                 )
                 RoutePreparationRow(
-                    title = if (offlineBaseMapReady) "离线地图包：已导入" else "离线地图包：待导入",
-                    value = if (offlineBaseMapReady) "地图上下文可用" else "等待导入地图包",
-                    caption = "导入道路、地名和地形背景，辅助判断撤退与岔路。",
+                    title = if (offlineBaseMapReady) "离线底图：已准备" else "离线底图：待准备",
+                    value = if (offlineBaseMapReady) "地图上下文可用" else "等待准备底图",
+                    caption = "补齐道路、地名和地形背景，辅助判断撤退与岔路。",
                     glyph = TrailMateGlyph.Map,
                     active = offlineBaseMapReady
                 )
@@ -522,13 +522,13 @@ private fun RouteWorkspaceActions(
                             verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
                             Text(
-                                text = "离线地图包",
+                                text = "离线底图",
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "导入目标区域 PMTiles 地图包，补齐 OSM 底图上下文。",
+                                text = "准备目标区域离线底图，补齐道路、地名和地形背景。",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -546,7 +546,7 @@ private fun RouteWorkspaceActions(
                             tint = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("导入离线地图包")
+                        Text("准备离线底图")
                     }
                 }
             }

@@ -262,8 +262,8 @@ object RouteCockpitPresentationEngine {
                 blockedActionKind = RouteCockpitReadinessActionKind.SAVE_OFFLINE_ROUTE_PACK
             ),
             departureReadiness.stepReadiness(
-                sourceLabel = "离线地图包",
-                displayLabel = "离线地图包",
+                sourceLabel = "离线底图",
+                displayLabel = "离线底图",
                 fallbackValue = mapReadiness.setupHint.statusLabel,
                 attentionActionKind = RouteCockpitReadinessActionKind.OPEN_OFFLINE_BASE_MAP,
                 blockedActionKind = RouteCockpitReadinessActionKind.OPEN_OFFLINE_BASE_MAP

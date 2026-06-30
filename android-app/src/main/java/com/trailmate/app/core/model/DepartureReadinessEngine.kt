@@ -61,11 +61,11 @@ object DepartureReadinessEngine {
                 ready = offlineRoutePackReady
             ),
             DepartureReadinessStep(
-                label = "离线地图包",
+                label = "离线底图",
                 value = when {
-                    pmTilesOfflineBaseMapReady -> "PMTiles 已导入"
+                    pmTilesOfflineBaseMapReady -> "已准备"
                     offlineBaseMapRequirement == OfflineBaseMapRequirement.RECOMMENDED &&
-                        !offlineBaseMapReady -> "建议下载"
+                        !offlineBaseMapReady -> "建议准备"
                     offlineBaseMapRegionCount == null -> "待确认"
                     offlineBaseMapRegionCount <= 0 -> targetRegionLabel?.let { "${it}未下载" } ?: "未下载"
                     !offlineBaseMapCoversTargetRoute -> "已下载 $offlineBaseMapRegionCount 区域，待匹配目标路线"
@@ -105,9 +105,9 @@ object DepartureReadinessEngine {
                 caption = if (offlineBaseMapRequirement == OfflineBaseMapRequirement.RECOMMENDED &&
                     !offlineBaseMapReady
                 ) {
-                    "路线、离线路线、定位授权和关键装备已就绪；离线地图包建议下载，但不阻断本次推荐路线。"
+                    "路线、离线路线、定位授权和关键装备已就绪；离线底图建议准备，但不阻断本次推荐路线。"
                 } else {
-                    "离线路线、离线地图包、定位授权和关键装备已就绪。"
+                    "离线路线、离线底图、定位授权和关键装备已就绪。"
                 },
                 primaryActionLabel = "开始徒步并记录轨迹",
                 steps = steps
@@ -130,7 +130,7 @@ object DepartureReadinessEngine {
         }
         val offlineBaseMapSafetyReason =
             if (offlineBaseMapBlocksDeparture) {
-                "GPX 路线只保存折线和检查点；离线地图包用于弱网时保留道路、地名、水系、岔路和撤退参照。"
+                "GPX 路线只保存折线和检查点；离线底图用于弱网时保留道路、地名、水系、岔路和撤退参照。"
             } else {
                 ""
             }

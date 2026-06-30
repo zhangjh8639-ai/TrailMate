@@ -143,7 +143,7 @@ class RouteCockpitPresentationEngineTest {
             nowEpochMillis = NOW_EPOCH_MILLIS
         )
 
-        val baseMapItem = presentation.readinessItems.first { it.label == "离线地图包" }
+        val baseMapItem = presentation.readinessItems.first { it.label == "离线底图" }
         assertEquals("未下载", baseMapItem.value)
         assertEquals(RouteCockpitReadinessTone.ATTENTION, baseMapItem.tone)
         assertEquals(RouteCockpitReadinessActionKind.OPEN_OFFLINE_BASE_MAP, baseMapItem.actionKind)
@@ -171,7 +171,7 @@ class RouteCockpitPresentationEngineTest {
 
         assertEquals("开始徒步并记录轨迹", presentation.primaryAction.label)
         assertEquals(RouteCockpitPrimaryActionKind.START_HIKE, presentation.primaryAction.kind)
-        val baseMapItem = presentation.readinessItems.first { it.label == "离线地图包" }
+        val baseMapItem = presentation.readinessItems.first { it.label == "离线底图" }
         assertEquals(RouteCockpitReadinessActionKind.OPEN_OFFLINE_BASE_MAP, baseMapItem.actionKind)
     }
 
@@ -198,7 +198,7 @@ class RouteCockpitPresentationEngineTest {
 
         assertEquals("开始徒步并记录轨迹", presentation.primaryAction.label)
         assertEquals(RouteCockpitPrimaryActionKind.START_HIKE, presentation.primaryAction.kind)
-        val baseMapItem = presentation.readinessItems.first { it.label == "离线地图包" }
+        val baseMapItem = presentation.readinessItems.first { it.label == "离线底图" }
         assertEquals("杭州市未下载", baseMapItem.value)
         assertEquals(RouteCockpitReadinessActionKind.OPEN_OFFLINE_BASE_MAP, baseMapItem.actionKind)
     }
@@ -227,7 +227,7 @@ class RouteCockpitPresentationEngineTest {
 
         assertEquals("开始徒步并记录轨迹", presentation.primaryAction.label)
         assertEquals(RouteCockpitPrimaryActionKind.START_HIKE, presentation.primaryAction.kind)
-        val baseMapItem = presentation.readinessItems.first { it.label == "离线地图包" }
+        val baseMapItem = presentation.readinessItems.first { it.label == "离线底图" }
         assertEquals(RouteCockpitReadinessActionKind.OPEN_OFFLINE_BASE_MAP, baseMapItem.actionKind)
     }
 
@@ -285,7 +285,7 @@ class RouteCockpitPresentationEngineTest {
 
         assertEquals("开始徒步并记录轨迹", presentation.primaryAction.label)
         assertEquals(RouteCockpitPrimaryActionKind.START_HIKE, presentation.primaryAction.kind)
-        assertEquals("建议下载", presentation.readinessItems.first { it.label == "离线地图包" }.value)
+        assertEquals("建议准备", presentation.readinessItems.first { it.label == "离线底图" }.value)
     }
 
     @Test

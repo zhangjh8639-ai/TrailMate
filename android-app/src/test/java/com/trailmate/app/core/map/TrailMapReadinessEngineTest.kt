@@ -21,14 +21,13 @@ class TrailMapReadinessEngineTest {
         )
 
         assertEquals(TrailMapProvider.MAPLIBRE_PMTILES, readiness.provider)
-        assertEquals("离线地图包", readiness.title)
+        assertEquals("离线底图", readiness.title)
         assertEquals("查看路线辅助", readiness.actionLabel)
-        assertTrue(readiness.caption.contains("PMTiles"))
-        assertTrue(readiness.caption.contains("本地离线地图包"))
+        assertTrue(readiness.caption.contains("本地离线底图"))
         assertTrue(readiness.layerChips.contains("PMTiles 底图"))
-        assertEquals("离线地图包已就绪", readiness.setupHint.title)
+        assertEquals("离线底图已就绪", readiness.setupHint.title)
         assertEquals("离线可用", readiness.setupHint.statusLabel)
-        assertEquals("已导入", readiness.setupSteps.first { it.label == "离线地图包" }.value)
+        assertEquals("已准备", readiness.setupSteps.first { it.label == "离线底图" }.value)
         assertTrue(readiness.isProductionMapReady)
     }
 
@@ -117,9 +116,9 @@ class TrailMapReadinessEngineTest {
         assertEquals(TrailMapProvider.LOCAL_GPX_PREVIEW, readiness.provider)
         assertEquals("定位与记录", readiness.title)
         assertTrue(readiness.caption.contains("离线路线已保存"))
-        assertEquals("导入离线地图包", readiness.actionLabel)
-        assertEquals("PMTiles 地图包待导入", readiness.setupHint.title)
-        assertEquals("待导入", readiness.setupSteps.first { it.label == "离线地图包" }.value)
+        assertEquals("准备离线底图", readiness.actionLabel)
+        assertEquals("离线底图待准备", readiness.setupHint.title)
+        assertEquals("待准备", readiness.setupSteps.first { it.label == "离线底图" }.value)
         assertFalse(readiness.isProductionMapReady)
     }
 
@@ -138,7 +137,7 @@ class TrailMapReadinessEngineTest {
         assertEquals(TrailMapProvider.LOCAL_GPX_PREVIEW, readiness.provider)
         assertTrue(readiness.caption.contains("离线路线已保存"))
         assertTrue(readiness.setupHint.caption.contains("MapLibre 渲染器未就绪"))
-        assertEquals("待接入", readiness.setupSteps.first { it.label == "离线地图包" }.value)
+        assertEquals("待接入", readiness.setupSteps.first { it.label == "离线底图" }.value)
         assertFalse(readiness.isProductionMapReady)
     }
 
@@ -206,7 +205,7 @@ class TrailMapReadinessEngineTest {
         assertTrue(readiness.layerChips.contains("GPX 折线"))
         assertTrue(readiness.layerChips.contains("检查点"))
         assertEquals(
-            listOf("路线", "离线路线", "GPS", "离线地图包"),
+            listOf("路线", "离线路线", "GPS", "离线底图"),
             readiness.setupSteps.map { it.label }
         )
         assertEquals(TrailMapReadinessStepStatus.READY, readiness.setupSteps[0].status)
@@ -228,11 +227,11 @@ class TrailMapReadinessEngineTest {
         )
 
         assertEquals(
-            listOf("路线", "离线路线", "GPS", "离线地图包"),
+            listOf("路线", "离线路线", "GPS", "离线底图"),
             readiness.setupSteps.map { it.label }
         )
         assertEquals("待保存", readiness.setupSteps.first { it.label == "离线路线" }.value)
-        assertEquals("待导入", readiness.setupSteps.first { it.label == "离线地图包" }.value)
+        assertEquals("待准备", readiness.setupSteps.first { it.label == "离线底图" }.value)
     }
 
     @Test
