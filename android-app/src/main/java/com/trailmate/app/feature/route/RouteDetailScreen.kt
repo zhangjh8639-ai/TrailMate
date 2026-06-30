@@ -1488,7 +1488,7 @@ fun RouteDetailScreen(
                 selected = RouteDetailTab.entries.first { it.label == label }
             }
         )
-        if (selected == RouteDetailTab.Route || selected == RouteDetailTab.Plan) {
+        if (selected == RouteDetailTab.Plan) {
             RouteReadinessStrip(
                 plan = plan,
                 gearStatusLabel = aiGearAdvisorPresentation.recommendations.routeGearStatusLabel(),
@@ -2748,7 +2748,7 @@ private fun RouteCockpitSection(
                 checkpointDetailFor = checkpointDetailFor,
                 onLocateRequested = onLocateRequested,
                 onCheckpointFocused = onCheckpointFocused,
-                mapHeight = 320.dp,
+                mapHeight = 184.dp,
                 showMapReadinessFloatingCard = false,
                 showAssessmentFloatingCard = false,
                 showCurrentCheckpointMiniCard = false,
@@ -2839,7 +2839,8 @@ private fun RouteCockpitActionDrawer(
     modifier: Modifier = Modifier
 ) {
     val primaryActionOpensFullscreen = presentation.primaryAction.kind.opensFullscreenFromCockpit()
-    val showFullscreenShortcut = presentation.primaryAction.kind.showsFullscreenShortcutInActionDrawer()
+    val showFullscreenShortcut = !primaryActionOpensFullscreen &&
+        presentation.primaryAction.kind.showsFullscreenShortcutInActionDrawer()
     val cockpitPrimaryLabel = when {
         primaryActionOpensFullscreen -> "进入导航"
         presentation.primaryAction.kind == RouteCockpitPrimaryActionKind.SAVE_OFFLINE_ROUTE_PACK -> "保存路线包"
@@ -2978,7 +2979,9 @@ private fun RouteCockpitActionDrawer(
                         glyph = TrailMateGlyph.Folder,
                         enabled = offlineRouteItem.tone != RouteCockpitReadinessTone.READY,
                         onClick = onSaveOfflineRoutePack,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("route-cockpit-offline-route-action")
                     )
                     RouteCockpitPrepActionButton(
                         label = if (offlineBaseMapItem.tone == RouteCockpitReadinessTone.READY) {
@@ -2992,7 +2995,9 @@ private fun RouteCockpitActionDrawer(
                         glyph = TrailMateGlyph.Map,
                         enabled = offlineBaseMapItem.tone != RouteCockpitReadinessTone.READY,
                         onClick = onOpenOfflineBaseMap,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("route-cockpit-offline-basemap-action")
                     )
                 }
             }
@@ -3020,6 +3025,7 @@ private fun RouteCockpitActionDrawer(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(42.dp)
+                        .testTag("route-cockpit-fullscreen-shortcut")
                 ) {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
