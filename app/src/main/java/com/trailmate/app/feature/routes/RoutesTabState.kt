@@ -14,6 +14,8 @@ data class RoutesTabState(
     val searchPlaceholder: String,
     val filters: List<RouteFilterState>,
     val selectedFilter: RouteFilterKey,
+    val importFlowStatus: RouteImportFlowStatus,
+    val importEmptyState: RouteImportEmptyState,
     val importPreview: RouteImportPreviewState?,
     val assets: List<RouteAssetCardState>,
 ) {
@@ -24,6 +26,7 @@ data class RoutesTabState(
             add(importActionLabel)
             add(searchPlaceholder)
             filters.forEach { add(it.label) }
+            addAll(importFlowStatus.visibleText(importEmptyState))
             importPreview?.let { addAll(it.visibleText()) }
             assets.forEach { addAll(it.visibleText()) }
         }
@@ -42,6 +45,19 @@ data class RouteFilterState(
     val label: String,
 )
 
+enum class RouteImportFlowStatus {
+    Idle,
+    Importing,
+    Cancelled,
+    PreviewReady,
+    Failed,
+}
+
+data class RouteImportEmptyState(
+    val title: String = "导入 GPX / KML",
+    val body: String = "选择 GPX/KML 文件后显示解析结果；仅导入轨迹和航点，不包含商业地图底图",
+)
+
 data class RouteImportPreviewState(
     val fileName: String,
     val statusLabel: String,
@@ -53,6 +69,7 @@ data class RouteImportPreviewState(
     val hasElevation: Boolean,
     val qualityNotes: List<String>,
     val routeOnlyCopy: String,
+    val canUseRouteActions: Boolean,
     val saveActionLabel: String = "保存到路线",
     val detailActionLabel: String = "查看详情",
     val startActionLabel: String = "开始轨迹导航",
@@ -67,10 +84,12 @@ data class RouteImportPreviewState(
             waypointCountLabel,
             trackPointCountLabel,
             routeOnlyCopy,
-            saveActionLabel,
-            detailActionLabel,
-            startActionLabel,
-        ) + qualityNotes
+        ) + qualityNotes +
+            if (canUseRouteActions) {
+                listOf(saveActionLabel, detailActionLabel, startActionLabel)
+            } else {
+                listOf("重新选择文件")
+            }
 }
 
 data class RouteAssetCardState(
@@ -108,7 +127,6 @@ data class RouteAssetCardState(
 
 object RoutesTabSampleState {
     fun build(): RoutesTabState {
-        val importPreview = sampleImportPreview()
         return RoutesTabState(
             title = "路线",
             subtitle = "管理已保存、已导入和可离线导航的徒步路线",
@@ -122,9 +140,10 @@ object RoutesTabSampleState {
                 RouteFilterState(RouteFilterKey.Recent, "最近"),
             ),
             selectedFilter = RouteFilterKey.All,
-            importPreview = importPreview,
+            importFlowStatus = RouteImportFlowStatus.Idle,
+            importEmptyState = RouteImportEmptyState(),
+            importPreview = null,
             assets = listOf(
-                importedAsset(importPreview),
                 RouteAssetCardState(
                     name = "九溪十八涧 · 龙井环线",
                     region = "杭州 · 西湖群山",
@@ -154,26 +173,15 @@ object RoutesTabSampleState {
         )
     }
 
-    private fun sampleImportPreview(): RouteImportPreviewState {
-        val result = RouteImportParser.parse(
-            fileName = "longjing-loop.gpx",
-            content = SampleGpx.trimIndent(),
-        )
-        return if (result.geometry == null) {
-            fallbackImportPreview()
-        } else {
-            previewFromImportResult(result)
-        }
-    }
-
     internal fun previewFromImportResult(result: RouteImportResult): RouteImportPreviewState {
         val geometry = result.geometry ?: return rejectedImportPreview(result)
         val qualityNotes = buildList {
             if (result.hasElevation) {
                 add("包含海拔数据")
             } else {
-                add("缺少海拔数据")
+                add("缺少海拔数据，剩余爬升仅作参考")
             }
+            add("未保存，仅本次查看")
             result.warnings.mapNotNullTo(this) { it.qualityLabel() }
         }
 
@@ -188,6 +196,7 @@ object RoutesTabSampleState {
             hasElevation = result.hasElevation,
             qualityNotes = qualityNotes.distinct(),
             routeOnlyCopy = "导入文件只包含路线轨迹和航点，用于轨迹导航、偏航判断和进度计算，不包含商业地图底图。",
+            canUseRouteActions = true,
         )
     }
 
@@ -203,37 +212,60 @@ object RoutesTabSampleState {
             hasElevation = false,
             qualityNotes = result.warnings.map { it.rejectedLabel() }.distinct(),
             routeOnlyCopy = "导入文件只包含路线轨迹和航点，用于轨迹导航、偏航判断和进度计算，不包含商业地图底图。",
-        )
-
-    private fun fallbackImportPreview(): RouteImportPreviewState =
-        RouteImportPreviewState(
-            fileName = "longjing-loop.gpx",
-            statusLabel = "解析完成",
-            routeName = "龙井环线导入轨迹",
-            distanceLabel = "8.6 km",
-            elevationGainLabel = "+430 m",
-            waypointCountLabel = "2",
-            trackPointCountLabel = "6",
-            hasElevation = true,
-            qualityNotes = listOf("包含海拔数据"),
-            routeOnlyCopy = "导入文件只包含路线轨迹和航点，用于轨迹导航、偏航判断和进度计算，不包含商业地图底图。",
-        )
-
-    private fun importedAsset(preview: RouteImportPreviewState): RouteAssetCardState =
-        RouteAssetCardState(
-            name = preview.routeName,
-            region = "杭州 · 西湖群山",
-            sourceLabel = "GPX 导入",
-            offlineStatusLabel = "仅轨迹可用",
-            distanceLabel = preview.distanceLabel,
-            elevationGainLabel = preview.elevationGainLabel,
-            estimatedDurationLabel = "约 3h20m",
-            difficultyLabel = "未验证",
-            confidenceLabel = "可信度待确认",
-            riskTags = listOf("导入轨迹", "仅含轨迹与航点"),
-            lastUsedLabel = "刚刚导入",
+            canUseRouteActions = false,
         )
 }
+
+fun RoutesTabState.withImporting(): RoutesTabState =
+    copy(
+        importFlowStatus = RouteImportFlowStatus.Importing,
+        importPreview = null,
+    )
+
+fun RoutesTabState.withImportCancelled(): RoutesTabState =
+    copy(
+        importFlowStatus = RouteImportFlowStatus.Cancelled,
+        importPreview = null,
+    )
+
+fun RoutesTabState.withImportReadFailure(
+    fileName: String,
+    reason: String,
+): RoutesTabState =
+    copy(
+        importFlowStatus = RouteImportFlowStatus.Failed,
+        importPreview = RouteImportPreviewState(
+            fileName = fileName.ifBlank { "未知文件" },
+            statusLabel = "导入失败",
+            routeName = "未生成路线",
+            distanceLabel = "不可用",
+            elevationGainLabel = "不可用",
+            waypointCountLabel = "0",
+            trackPointCountLabel = "0",
+            hasElevation = false,
+            qualityNotes = listOf(reason),
+            routeOnlyCopy = "导入文件只包含路线轨迹和航点，用于轨迹导航、偏航判断和进度计算，不包含商业地图底图。",
+            canUseRouteActions = false,
+        ),
+    )
+
+fun RoutesTabState.withImportResult(result: RouteImportResult): RoutesTabState {
+    val preview = RoutesTabSampleState.previewFromImportResult(result)
+    val parsed = result.geometry != null
+    return copy(
+        importFlowStatus = if (parsed) RouteImportFlowStatus.PreviewReady else RouteImportFlowStatus.Failed,
+        importPreview = preview,
+    )
+}
+
+private fun RouteImportFlowStatus.visibleText(emptyState: RouteImportEmptyState): List<String> =
+    when (this) {
+        RouteImportFlowStatus.Idle -> listOf(emptyState.title, emptyState.body)
+        RouteImportFlowStatus.Importing -> listOf("正在解析路线文件")
+        RouteImportFlowStatus.Cancelled -> listOf(emptyState.title, "已取消导入")
+        RouteImportFlowStatus.PreviewReady,
+        RouteImportFlowStatus.Failed -> emptyList()
+    }
 
 private fun RouteImportStatus.label(): String =
     when (this) {
@@ -245,9 +277,9 @@ private fun RouteImportStatus.label(): String =
 
 private fun RouteImportWarning.qualityLabel(): String? =
     when (this) {
-        RouteImportWarning.MissingElevation -> "缺少海拔数据"
-        RouteImportWarning.SparseTrack -> "轨迹点偏少"
-        RouteImportWarning.LargePointGap -> "点间距偏大"
+        RouteImportWarning.MissingElevation -> "缺少海拔数据，剩余爬升仅作参考"
+        RouteImportWarning.SparseTrack -> "轨迹点偏少，偏航判断可能不稳定"
+        RouteImportWarning.LargePointGap -> "点间距偏大，进度计算可能不稳定"
         RouteImportWarning.UnsupportedFormat,
         RouteImportWarning.MissingTrackGeometry,
         RouteImportWarning.InvalidXml -> null
@@ -270,30 +302,3 @@ private fun com.trailmate.app.core.model.Elevation.metersLabel(prefixPlus: Boole
     val rounded = meters.roundToInt()
     return if (prefixPlus) "+$rounded m" else "$rounded m"
 }
-
-private const val SampleGpx = """
-<gpx version="1.1" creator="TrailMate">
-  <metadata>
-    <name>龙井环线导入轨迹</name>
-  </metadata>
-  <wpt lat="30.2000" lon="120.0800">
-    <ele>20</ele>
-    <name>起点</name>
-  </wpt>
-  <wpt lat="30.2750" lon="120.0800">
-    <ele>450</ele>
-    <name>终点</name>
-  </wpt>
-  <trk>
-    <name>龙井环线导入轨迹</name>
-    <trkseg>
-      <trkpt lat="30.2000" lon="120.0800"><ele>20</ele></trkpt>
-      <trkpt lat="30.2150" lon="120.0870"><ele>120</ele></trkpt>
-      <trkpt lat="30.2300" lon="120.0900"><ele>240</ele></trkpt>
-      <trkpt lat="30.2450" lon="120.0870"><ele>350</ele></trkpt>
-      <trkpt lat="30.2600" lon="120.0840"><ele>450</ele></trkpt>
-      <trkpt lat="30.2750" lon="120.0800"><ele>450</ele></trkpt>
-    </trkseg>
-  </trk>
-</gpx>
-"""
