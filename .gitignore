@@ -1,0 +1,25 @@
+# Gradle / Android
+.gradle/
+build/
+**/build/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.ap_
+*.aab
+*.dex
+
+# Kotlin / IDE
+.kotlin/
+.idea/
+*.iml
+
+# Local workspaces
+.worktrees/
+worktrees/
+
+# OS
+.DS_Store
+Thumbs.db
