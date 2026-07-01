@@ -2,6 +2,7 @@ package com.trailmate.app.feature.routes
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.CloudDone
+import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Map
@@ -33,6 +35,7 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Terrain
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -53,6 +56,7 @@ private val InfoBlue = Color(0xFF2563EB)
 fun RoutesScreen(
     modifier: Modifier = Modifier,
     state: RoutesTabState = RoutesTabSampleState.build(),
+    onImportClick: () -> Unit = {},
 ) {
     Column(
         modifier = modifier
@@ -63,12 +67,10 @@ fun RoutesScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         RoutesHeader(state)
-        ImportActionButton(state.importActionLabel)
+        ImportActionButton(state.importActionLabel, onImportClick)
         SearchField(state.searchPlaceholder)
         RouteFilterRow(state.filters, state.selectedFilter)
-        state.importPreview?.let { preview ->
-            ImportPreviewCard(preview)
-        }
+        ImportStateContent(state, onImportClick)
         SectionLabel("路线资产")
         state.assets.forEach { asset ->
             RouteAssetCard(asset)
@@ -94,11 +96,15 @@ private fun RoutesHeader(state: RoutesTabState) {
 }
 
 @Composable
-private fun ImportActionButton(label: String) {
+private fun ImportActionButton(
+    label: String,
+    onClick: () -> Unit,
+) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .height(48.dp),
+            .height(48.dp)
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
         color = MaterialTheme.colorScheme.primary,
     ) {
@@ -118,6 +124,103 @@ private fun ImportActionButton(label: String) {
                 color = MaterialTheme.colorScheme.onPrimary,
                 fontWeight = FontWeight.SemiBold,
             )
+        }
+    }
+}
+
+@Composable
+private fun ImportStateContent(
+    state: RoutesTabState,
+    onImportClick: () -> Unit,
+) {
+    when (state.importFlowStatus) {
+        RouteImportFlowStatus.Idle -> ImportEmptyCard(
+            title = state.importEmptyState.title,
+            body = state.importEmptyState.body,
+            tone = MaterialTheme.colorScheme.primary,
+            icon = Icons.Outlined.FileUpload,
+        )
+        RouteImportFlowStatus.Importing -> ImportLoadingCard()
+        RouteImportFlowStatus.Cancelled -> ImportEmptyCard(
+            title = state.importEmptyState.title,
+            body = "已取消导入",
+            tone = MutedText,
+            icon = Icons.Outlined.Info,
+        )
+        RouteImportFlowStatus.PreviewReady,
+        RouteImportFlowStatus.Failed -> {
+            state.importPreview?.let { preview ->
+                ImportPreviewCard(preview, onImportClick)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ImportEmptyCard(
+    title: String,
+    body: String,
+    tone: Color,
+    icon: ImageVector,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, Hairline),
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            StatusIcon(icon, tone)
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = body,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MutedText,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ImportLoadingCard() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, Hairline),
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(34.dp),
+                strokeWidth = 3.dp,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "正在解析路线文件",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = "解析完成后会显示距离、爬升、航点和轨迹点数量。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MutedText,
+                )
+            }
         }
     }
 }
@@ -183,7 +286,13 @@ private fun RouteFilterRow(
 }
 
 @Composable
-private fun ImportPreviewCard(preview: RouteImportPreviewState) {
+private fun ImportPreviewCard(
+    preview: RouteImportPreviewState,
+    onRetryImport: () -> Unit,
+) {
+    val statusTone = if (preview.canUseRouteActions) SuccessGreen else WarningOrange
+    val statusIcon = if (preview.canUseRouteActions) Icons.Outlined.CheckCircle else Icons.Outlined.ErrorOutline
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
@@ -196,7 +305,7 @@ private fun ImportPreviewCard(preview: RouteImportPreviewState) {
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                StatusIcon(Icons.Outlined.CheckCircle, SuccessGreen)
+                StatusIcon(statusIcon, statusTone)
                 Spacer(modifier = Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
@@ -214,23 +323,31 @@ private fun ImportPreviewCard(preview: RouteImportPreviewState) {
             ImportMetricGrid(preview)
             QualityNotes(preview.qualityNotes)
             RouteOnlyNotice(preview.routeOnlyCopy)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StaticSecondaryAction(
-                    label = preview.saveActionLabel,
-                    modifier = Modifier.weight(1f),
+            if (preview.canUseRouteActions) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StaticSecondaryAction(
+                        label = preview.saveActionLabel,
+                        modifier = Modifier.weight(1f),
+                    )
+                    StaticSecondaryAction(
+                        label = preview.detailActionLabel,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                StaticPrimaryAction(
+                    label = preview.startActionLabel,
+                    icon = Icons.Outlined.PlayArrow,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
                 )
+            } else {
                 StaticSecondaryAction(
-                    label = preview.detailActionLabel,
-                    modifier = Modifier.weight(1f),
+                    label = "重新选择文件",
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = onRetryImport,
                 )
             }
-            StaticPrimaryAction(
-                label = preview.startActionLabel,
-                icon = Icons.Outlined.PlayArrow,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-            )
         }
     }
 }
@@ -515,9 +632,18 @@ private fun StaticPrimaryAction(
 private fun StaticSecondaryAction(
     label: String,
     modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
 ) {
+    val actionModifier = if (onClick == null) {
+        modifier.height(42.dp)
+    } else {
+        modifier
+            .height(42.dp)
+            .clickable(onClick = onClick)
+    }
+
     Surface(
-        modifier = modifier.height(42.dp),
+        modifier = actionModifier,
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, Hairline),

@@ -134,6 +134,20 @@ class RouteImportValidationTest {
     }
 
     @Test
+    fun utf8BomPrefixedGpxStillParses() {
+        val result = RouteImportParser.parse(
+            fileName = "bom.gpx",
+            content = "\uFEFF<gpx version=\"1.1\"><trk><trkseg>" +
+                "<trkpt lat=\"30.0000\" lon=\"120.0000\" />" +
+                "<trkpt lat=\"30.0010\" lon=\"120.0010\" />" +
+                "</trkseg></trk></gpx>",
+        )
+
+        assertEquals(RouteImportStatus.Parsed, result.status)
+        assertTrue(result.trackPointCount >= 2)
+    }
+
+    @Test
     fun parsedImportCreatesPrivateTrackOnlyRoute() {
         val result = RouteImportParser.parse(
             fileName = "private.gpx",

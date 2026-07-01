@@ -50,15 +50,21 @@ object RouteImportParser {
         }
 
     private fun parseXml(content: String): Document? {
-        if (DisallowedXmlDeclaration.containsMatchIn(content)) {
+        val normalizedContent = content.removePrefix("\uFEFF")
+
+        if (DisallowedXmlDeclaration.containsMatchIn(normalizedContent)) {
             return null
         }
 
         return runCatching {
             val factory = DocumentBuilderFactory.newInstance()
             factory.isNamespaceAware = true
-            factory.isXIncludeAware = false
-            factory.isExpandEntityReferences = false
+            runCatching {
+                factory.isXIncludeAware = false
+            }
+            runCatching {
+                factory.isExpandEntityReferences = false
+            }
             factory.disableExternalXml()
             factory.newDocumentBuilder()
                 .apply {
@@ -66,7 +72,7 @@ object RouteImportParser {
                         InputSource(StringReader(""))
                     })
                 }
-                .parse(InputSource(StringReader(content)))
+                .parse(InputSource(StringReader(normalizedContent)))
         }.getOrNull()
     }
 }

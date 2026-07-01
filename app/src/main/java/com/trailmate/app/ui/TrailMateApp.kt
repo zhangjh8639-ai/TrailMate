@@ -1,5 +1,7 @@
 package com.trailmate.app.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,21 +29,69 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import com.trailmate.app.core.routeimport.RouteImportParser
+import com.trailmate.app.feature.routes.RouteImportFileReadResult
+import com.trailmate.app.feature.routes.RouteImportFileReader
 import com.trailmate.app.feature.routes.RoutesScreen
+import com.trailmate.app.feature.routes.RoutesTabSampleState
+import com.trailmate.app.feature.routes.RoutesTabState
+import com.trailmate.app.feature.routes.withImportCancelled
+import com.trailmate.app.feature.routes.withImporting
+import com.trailmate.app.feature.routes.withImportReadFailure
+import com.trailmate.app.feature.routes.withImportResult
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun TrailMateApp() {
     var selectedTab by rememberSaveable { mutableStateOf(TrailMateTab.Discover) }
+    var routesState by remember { mutableStateOf(RoutesTabSampleState.build()) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) {
+            routesState = routesState.withImportCancelled()
+            return@rememberLauncherForActivityResult
+        }
+
+        routesState = routesState.withImporting()
+        scope.launch {
+            val readResult = withContext(Dispatchers.IO) {
+                RouteImportFileReader.read(context.contentResolver, uri)
+            }
+            routesState = when (readResult) {
+                is RouteImportFileReadResult.Success -> {
+                    val importResult = withContext(Dispatchers.Default) {
+                        RouteImportParser.parse(
+                            fileName = readResult.fileName,
+                            content = readResult.content,
+                        )
+                    }
+                    routesState.withImportResult(importResult)
+                }
+                is RouteImportFileReadResult.Failed -> routesState.withImportReadFailure(
+                    fileName = readResult.fileName,
+                    reason = readResult.reason,
+                )
+            }
+        }
+    }
 
     Scaffold(
         bottomBar = {
@@ -78,6 +128,10 @@ fun TrailMateApp() {
             TabContent(
                 tab = selectedTab,
                 paddingValues = innerPadding,
+                routesState = routesState,
+                onRouteImportClick = {
+                    importLauncher.launch(RouteImportPickerMimeTypes)
+                },
             )
         }
     }
@@ -87,10 +141,14 @@ fun TrailMateApp() {
 private fun TabContent(
     tab: TrailMateTab,
     paddingValues: PaddingValues,
+    routesState: RoutesTabState,
+    onRouteImportClick: () -> Unit,
 ) {
     if (tab == TrailMateTab.Routes) {
         RoutesScreen(
             modifier = Modifier.padding(paddingValues),
+            state = routesState,
+            onImportClick = onRouteImportClick,
         )
         return
     }
@@ -158,6 +216,16 @@ private fun TabContent(
         }
     }
 }
+
+private val RouteImportPickerMimeTypes = arrayOf(
+    "application/gpx+xml",
+    "application/vnd.google-earth.kml+xml",
+    "application/xml",
+    "text/xml",
+    // Some Android document providers expose GPX/KML as generic binary files.
+    // The reader still validates the selected file by extension or specific route MIME.
+    "*/*",
+)
 
 private fun TrailMateTab.icon(): ImageVector =
     when (this) {
