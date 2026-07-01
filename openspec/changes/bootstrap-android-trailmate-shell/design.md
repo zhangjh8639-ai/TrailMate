@@ -11,7 +11,7 @@ The first Android PR must create a foundation that is safe to extend. It should 
 - Create a Kotlin + Jetpack Compose + Material 3 Android foundation.
 - Provide a runnable app shell with exactly five tabs: `发现`, `路线`, `导航`, `记录`, `我的`.
 - Encode the current information architecture and remove old IA affordances from the shell.
-- Establish foundational packages/modules for later `core.geo`, route import, navigation, tracking, offline data, and safety work.
+- Establish documented package/module boundaries for later `core.geo`, route import, navigation, tracking, offline data, and safety work.
 - Add build and test commands that can run on the local Windows Android environment.
 - Document how Lovable prototype references are used during Android implementation.
 
@@ -27,7 +27,7 @@ The first Android PR must create a foundation that is safe to extend. It should 
 
 ### Decision 1: Start With a Native Android Shell PR
 
-Use a small first PR for Gradle, Compose, Material 3, app identity, package layout, and 5-tab shell.
+Use a small first PR for Gradle, Compose, Material 3, app identity, documented package layout, and 5-tab shell.
 
 Rationale: This gives every later feature PR a reliable target for build/test/install and prevents product scope drift before the project compiles. It also makes code review practical.
 
@@ -44,9 +44,9 @@ Rationale: The Android app must remain Kotlin/Compose-native, and direct web cod
 
 ### Decision 3: Keep Feature Boundaries Aligned With Current IA
 
-Use feature boundaries such as `discover`, `routes`, `navigation`, `records`, `profile`, and `safety`. Do not create `planner`, `equipment`, `community`, or `pretrip_check`.
+Reserve feature boundaries such as `discover`, `routes`, `navigation`, `records`, `profile`, and `safety`. Do not create `planner`, `equipment`, `community`, or `pretrip_check`.
 
-Rationale: Directory names are durable architecture signals. Keeping obsolete names out of the tree reduces future accidental scope expansion.
+Rationale: Directory names are durable architecture signals. Keeping obsolete names out of the tree reduces future accidental scope expansion, and avoiding empty package marker code keeps the first PR clean.
 
 ### Decision 4: Build Verification Before Full Feature Work
 
