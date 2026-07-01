@@ -1,45 +1,183 @@
-# AGENTS.md — Android-first 徒步 App 开发指南
+# AGENTS.md — TrailMate Android-first 开发指南
 
 > 本文件给 Codex / coding agents 使用，建议放在仓库根目录。  
-> 项目暂定名：`TrailTrust`。目标是生产级 **Android 原生徒步 App**，核心能力是可信路线、路线级离线包、离线轨迹导航、轨迹记录、安全与隐私。  
-> 这不是 MVP，不要做成低配高德地图、运动打卡、泛户外社区或一次性 demo。
+> 项目名：`TrailMate`。目标是生产级 **Android 原生徒步轨迹导航 App**。
+> 当前产品主线已经收敛为：发现可信路线 → 管理可导航路线 → 执行轨迹导航 → 处理偏航/原路返回/紧急卡片 → 记录复盘与路况反馈。
+> 不要再实现独立「规划」Tab、复杂出发前检查页、装备推荐、装备系统、社区或商城。
 
 ---
 
 ## 1. 产品北极星
 
-构建一个面向中文徒步用户的 Android App：用户选择平台路线或导入 GPX/KML，下载路线级离线包，在弱网/无网/锁屏场景下沿轨迹导航，获得偏航、岔路、风险点和撤退点提醒，记录自己的轨迹，并默认私密地保存和分享安全信息。
+TrailMate 是面向中文普通徒步用户的 Android 原生 App。用户可以选择平台路线或导入 GPX/KML 轨迹，在弱网、无网、低电量、岔路多、体力下降时，仍能清楚知道：
+
+- 我在哪里；
+- 我是否还在计划轨迹上；
+- 计划路线在哪里，已经走过哪里；
+- 还剩多远、剩余爬升多少、预计还要多久；
+- 下一个航点在哪里；
+- 最近撤退点在哪里；
+- 偏航时最近路线点在什么方向、约多远；
+- 是否应该原路返回；
+- 如何打开紧急卡片并复制求助信息；
+- 结束后如何复盘轨迹并反馈路况。
 
 核心价值：
 
-1. **路线可信**：路线来源、置信度、最近反馈、风险标签、版本清楚。
-2. **离线可用**：无网也能看路线、当前位置、航点、撤退点并继续记录。
-3. **轨迹导航**：沿既定轨迹走，不做高德式任意两点自动算路。
-4. **安全隐私**：行踪轨迹默认私密，分享显式、限时、可撤销。
+1. **轨迹导航可靠**：沿既定平台路线或导入轨迹导航，不做高德式任意两点自动算路。
+2. **离线可用**：无网也能看路线、当前位置、已走轨迹、航点、风险点、撤退点，并继续记录轨迹。
+3. **偏航判断克制**：只提示最近路线点和方向，不承诺安全穿越。
+4. **记录复盘有用**：复盘偏航、停留、计划偏差，并将结构化路况反馈用于路线可信度。
+5. **隐私默认保护**：轨迹、收藏、导入路线、导航 session 默认私密。
 
 ---
 
-## 2. Android-first 总边界
+## 2. 当前信息架构
+
+底部主导航固定为 5 个 Tab：
+
+```text
+发现 / 路线 / 导航 / 记录 / 我的
+```
+
+### 2.1 发现
+
+职责：帮助用户找到一条适合今天走、并且可信的徒步路线。
+
+包含：
+
+- 位置与天气摘要；
+- 今日轻量风险提示；
+- 快捷入口：导入 GPX/KML、附近路线、已下载路线、最近导航；
+- 推荐路线卡：路线名、地区、距离、爬升、预计耗时、难度、可信度、轨迹状态、近期反馈、风险标签。
+
+不包含：社区 Feed、用户头像墙、点赞评论、约伴、装备、商城、复杂编辑器。
+
+### 2.2 路线
+
+职责：用户的路线资产中心。管理所有可以导航的路线。
+
+包含：
+
+- 已离线路线；
+- 导入的 GPX/KML 轨迹；
+- 收藏路线；
+- 最近导航；
+- 导入 GPX/KML 的轻量解析结果；
+- 路线卡的「开始导航」「查看详情」。
+
+重要边界：
+
+- 「路线」取代旧的「规划」；
+- 不要创建「规划」Tab；
+- 不要把路线页做成复杂路线编辑器；
+- GPX/KML 导入只展示紧凑解析结果：文件名、距离、爬升、航点数、轨迹点数、海拔数据、数据质量、开始轨迹导航、保存到路线、查看路线详情；
+- 导入文件只代表路线轨迹和航点，不代表商业地图底图。
+
+### 2.3 导航
+
+职责：执行徒步轨迹导航，是产品最核心页面。
+
+导航页有两种大状态：
+
+1. 未开始导航：展示最近可导航路线、继续上次路线、打开已离线路线、导入 GPX/KML、查看最近记录。
+2. 导航进行中：大面积地图 + 导航状态 + 底部数据面板 + 暂停/结束/原路返回/紧急卡片。
+
+必须支持导航状态：
+
+- 正常导航；
+- 疑似偏航；
+- 确认偏航；
+- 原路返回；
+- 暂停；
+- 已结束。
+
+### 2.4 记录
+
+职责：轨迹复盘与路况反馈，不是运动社交。
+
+包含：
+
+- 最近完成摘要；
+- 实际距离、爬升、用时、偏航次数、停留点、最高海拔；
+- 与计划路线偏差、最大偏离、最慢路段、低电量提醒、天气变化；
+- 历史轨迹列表；
+- 结构化路况反馈：封路、泥泞、补给、危险点、是否适合新手、备注。
+
+不包含：排名、点赞、评论、好友动态、勋章墙。
+
+### 2.5 我的
+
+职责：安全、隐私、离线数据、账号设置。
+
+包含：
+
+- 离线数据：已保存路线、占用空间、最近更新、管理入口；
+- 隐私与数据：轨迹默认私密、起终点自动隐藏、数据导出、删除轨迹；
+- 紧急卡片信息：联系人、常用求助信息；
+- 设备与导航：GPS 权限、后台记录、低功耗导航、电池优化提醒；
+- 账号与反馈。
+
+不包含：我的装备、装备仓库、商城订单、社区主页、粉丝关注、成就墙。
+
+---
+
+## 3. 明确删除和禁止的旧范围
+
+Codex 不得实现或恢复以下旧设计，除非用户在新任务中明确要求：
+
+- 独立「规划」Tab；
+- 独立「出发前检查」页；
+- 出发前逐项检查状态机；
+- 「完成关键检查后开始」按钮置灰逻辑；
+- 通知权限切换模拟流程；
+- 风险确认勾选流程；
+- 装备建议 Bottom Sheet；
+- 本次携带 / 替换 / 忽略装备状态；
+- 我的装备、装备仓库、品牌装备目录、装备商城；
+- 泛户外社区、动态 Feed、点赞评论、约伴活动；
+- 复杂路线规划器；
+- 任意两点自动徒步规划；
+- 偏航后自动重算安全路线；
+- 全国完整离线地图；
+- 高德式连续语音转向导航。
+
+轻量展示可以保留：
+
+- 轨迹已离线；
+- 离线可用；
+- GPS 良好；
+- 电量；
+- 天气摘要；
+- 风险标签；
+- 最近撤退点；
+- 下一个航点。
+
+这些轻量状态只用于让用户判断是否能开始/继续导航，不应发展成复杂准备流程。
+
+---
+
+## 4. Android-first 总边界
 
 - 首发客户端是 **Android 原生 App**。
-- 默认技术栈：**Kotlin + Jetpack Compose + MapLibre Native Android**。
+- 默认技术栈：**Kotlin + Jetpack Compose + Material 3 + MapLibre Native Android**。
 - 除非任务明确要求，Codex 不得引入 React Native、Flutter、WebView 主架构或 iOS 工程。
-- 地图能力以路线级离线包为核心，不做全国完整离线地图。
+- 地图能力以路线级离线包和轨迹导航为核心，不做全国完整离线地图。
 - 轨迹导航以 GPS + 路线轨迹线 + 本地算法实现，不依赖商业地图离线底图。
-- 后台定位、低功耗、轨迹落库、权限流程、前台服务通知、离线包校验都是 P0，不可后补。
+- 后台轨迹记录、低功耗、轨迹落库、权限流程、前台服务通知、离线包校验是生产级能力，不要做成只在页面前台运行的 demo。
 
 绝对禁止：
 
-- 抓取、缓存、离线打包高德/百度/腾讯/天地图/OSM 官方在线瓦片。
-- 默认公开用户轨迹、收藏、计划路线、导航 session 或实时位置。
-- 把“最近路线点方向”说成“安全穿越路线”。
-- 承诺自动救援、无信号实时定位或绝对安全。
-- 在导航、离线、低电量、偏航、SOS 场景插入广告或强会员弹窗。
-- 只在页面打开时记录轨迹；轨迹必须支持锁屏、后台、崩溃恢复。
+- 抓取、缓存、离线打包高德/百度/腾讯/天地图/OSM 官方在线瓦片；
+- 默认公开用户轨迹、收藏、导入路线、导航 session 或实时位置；
+- 把「最近路线点方向」说成「安全穿越路线」；
+- 承诺自动救援、无信号实时定位或绝对安全；
+- 在导航、离线、低电量、偏航、紧急卡片场景插入广告或强会员弹窗；
+- 只在页面打开时记录轨迹；真实轨迹记录必须支持锁屏、后台、断点恢复、崩溃恢复。
 
 ---
 
-## 3. Codex 工作规则
+## 5. Codex 工作规则
 
 每次开始任务前：
 
@@ -70,71 +208,73 @@ Risks / Notes
 
 ---
 
-## 4. 1.0 产品范围
+## 6. 当前 1.0 产品范围
 
-### 4.1 P0 必须有
+### 6.1 P0 必须有
 
 Android App：
 
-- 路线列表、路线搜索、路线详情、收藏。
-- 路线可信信息：来源、置信度、最近验证、近期反馈、风险标签、路线版本。
-- GPX/KML 导入、解析、预览、保存、导航；基础 GPX 导出。
-- 路线级离线包下载、续传、校验、版本管理、删除。
-- 无网查看路线详情、轨迹线、等高线/海拔、关键 POI、撤退点、风险点。
-- MapLibre 渲染本地 PMTiles/MBTiles 或等价路线级矢量包。
-- 沿轨迹导航：当前位置、路线线、已走轨迹、进度、剩余距离、剩余爬升、预计耗时、下一个航点。
-- 偏航提醒：GPS 精度过滤、持续偏离判断、返回路线点提示。
-- 轨迹记录：锁屏继续、后台继续、前台服务通知、断点恢复、崩溃恢复。
-- 原路返回：基于本地已记录轨迹反向展示。
-- 出发前检查：离线包、GPS 权限、精确定位、前台服务、通知、电量、紧急联系人、天气快照。
-- 紧急卡片：路线名、坐标、海拔、电量、最后更新时间、联系人、求助文本。
-- Live Share：显式开启、限时、可撤销、显示最后同步时间。
-- 默认隐私：轨迹、收藏、计划、导航 session 默认 private。
-- 结构化反馈：封路、危险、补给、水源、厕所、岔路、适合新手/雨后等。
-- 离线同步队列：无网产生的数据恢复网络后同步。
+- 5 Tab：发现、路线、导航、记录、我的；
+- 路线列表、路线搜索、路线详情、收藏；
+- 路线可信信息：来源、置信度、近期反馈、风险标签、路线版本；
+- GPX/KML 导入、解析、保存、开始导航；
+- 路线资产中心：已离线、已导入、收藏、最近导航；
+- 路线级离线数据：轨迹线、航点、风险点、撤退点、关键 POI、海拔/爬升数据；
+- MapLibre 渲染本地路线级地图包或静态/矢量地形层；
+- 沿轨迹导航：当前位置、计划路线、已走轨迹、进度、剩余距离、剩余爬升、预计剩余时间、下一个航点、最近撤退点；
+- 偏航提醒：GPS 精度过滤、持续偏离判断、最近路线点方向与距离；
+- 原路返回：基于已记录轨迹反向展示，不重新规划安全路线；
+- 轨迹记录：锁屏继续、后台继续、前台服务通知、断点恢复、崩溃恢复；
+- 紧急卡片：路线名、坐标、海拔、电量、GPS 状态、最后更新时间、最近撤退点、紧急联系人、复制求助信息；
+- 记录复盘：实际距离、爬升、用时、偏航次数、停留点、最大偏离、路线偏差；
+- 结构化路况反馈：封路、泥泞、补给、危险点、是否适合新手、备注；
+- 隐私默认：轨迹、收藏、导入路线、导航 session 默认 private；
+- 本地数据管理：离线路线占用空间、删除、更新；
+- 基础账号与反馈入口。
 
-后端 / Admin / GIS：
+后端 / GIS / Admin：
 
-- 路线 API、路线详情 API、离线包 manifest API。
-- 轨迹、收藏、反馈、Live Share、同步队列基础 API。
-- PostgreSQL + PostGIS 路线与地理对象存储。
-- 离线包生成、发布、回滚、checksum。
-- Admin 路线审核、风险点审核、举报处理、路线下架。
-- 事故/投诉回溯：用户当时看到的路线版本、离线包版本、风险提示版本。
+- 除非用户明确要求，不要在 Android 任务中主动 scaffold 后端/Admin/GIS；
+- 若任务涉及服务端，优先只实现与路线、离线包 manifest、反馈、同步有关的最小接口；
+- 路线数据和轨迹数据应预留 PostGIS/GIS pipeline 的字段模型，但 Android 端不要硬编码服务端实现细节。
 
-### 4.2 P1 上线时最好有
+### 6.2 P1 可以后续做
 
-- 路线置信度评分模型。
-- 路线版本更新提醒。
-- 反向导航。
-- 多路线对比。
-- 撤退点规划。
-- 电量续航估算。
-- 天气快照与过期提醒。
-- 队伍位置共享基础版。
-- 轨迹复盘：计划偏差、停留点、慢速路段、偏航次数。
-- 公开轨迹自动隐藏起终点附近区域。
+- 路线版本更新提醒；
+- 离线包 manifest 版本、checksum、增量更新；
+- 反向导航体验细化；
+- 轨迹复盘详情图；
+- 低功耗导航模式；
+- 天气快照与过期提醒；
+- Live Share：显式开启、限时、可撤销、显示最后同步时间；
+- 公开轨迹自动隐藏起终点附近区域；
+- 路线置信度评分模型；
+- 多路线对比；
+- 设备接入：手表、健康平台、第三方运动平台。
 
-### 4.3 1.0 不做
+### 6.3 暂不做
 
-- 全国完整离线地图。
-- 卫星影像离线。
-- 城市道路完整离线搜索。
-- 公交、驾车、骑行离线路径规划。
-- 任意两点自动徒步规划。
-- 偏航后自动重算路线。
-- 高德式连续语音转向导航。
-- 商城、赛事、跟团交易闭环。
-- 泛信息流社区。
+- 独立规划页；
+- 完整出发前检查；
+- 装备建议、装备系统、装备商城；
+- 全国完整离线地图；
+- 卫星影像离线；
+- 城市道路完整离线搜索；
+- 公交、驾车、骑行离线路径规划；
+- 任意两点自动徒步规划；
+- 偏航后自动重算路线；
+- 高德式连续语音转向导航；
+- 商城、赛事、跟团交易闭环；
+- 泛信息流社区；
 - 攀岩、冰雪、高海拔、洞穴、自驾穿越等专业高风险场景。
 
 ---
 
-## 5. 默认技术选型
+## 7. 默认技术选型
 
 若 repo 已有成熟约定，优先遵循；若为空或早期，按以下实现。
 
-### 5.1 Android
+### 7.1 Android
 
 - 语言：Kotlin only。禁止新增 Java 业务代码，除非第三方 SDK 必须。
 - UI：Jetpack Compose + Material 3。
@@ -146,13 +286,13 @@ Android App：
 - 轻量配置：DataStore。
 - 网络：Retrofit + OkHttp；序列化用 kotlinx.serialization 或 Moshi，跟随现有项目。
 - 地图：MapLibre Native Android。
-- 离线地图：PMTiles / MBTiles / 自定义路线级 package；App 自己管理下载、校验、版本。
-- 定位：以 Android `LocationManager` / GNSS 为 baseline；若接 Google Play Services Fused Location，必须放在 provider abstraction 后，并有无 GMS 降级路径。
+- 离线地图/路线包：PMTiles / MBTiles / 自定义 route package；App 自己管理下载、校验、版本。
+- 定位：通过 location provider abstraction 封装。可用 Android LocationManager / GNSS；若接 Google Play Services Fused Location，必须有无 GMS 降级路径。
 - 活跃导航/记录：Foreground Service + location foreground service type。
 - 后台非实时任务：WorkManager，用于上传、同步、清理、离线包下载续传；不要用 WorkManager 承担连续 GPS 采样。
 - 日志：位置日志必须脱敏；crash report 不上传完整轨迹，除非用户单独同意。
 
-### 5.2 推荐 Android 目录
+### 7.2 推荐 Android 目录
 
 ```text
 apps/android/
@@ -170,15 +310,14 @@ apps/android/
     testing/
   feature/
     discover/
+    routes/
     route_detail/
-    planner/
     gpx_import/
-    offline_packages/
     navigation/
     recording/
-    safety/
     records/
     profile/
+    safety/
   services/
     tracking/
     sync/
@@ -195,18 +334,20 @@ docs/
 scripts/
 ```
 
-### 5.3 Backend / Admin / GIS
+禁止新增旧目录：
 
-- API：Node.js TypeScript，框架用 NestJS / Fastify / Hono，优先现有约定。
-- 数据库：PostgreSQL + PostGIS。
-- 队列：BullMQ / Temporal / cloud queue。
-- 对象存储：S3 compatible，用于 PMTiles/MBTiles/离线包/GPX/图片。
-- Admin：Next.js / React Admin，用于路线审核、风险反馈、离线包发布、举报处理。
-- GIS：Python + CLI 工具，处理 OSM PBF、DEM、GPX/KML、等高线、路线 buffer、离线包 manifest。
+```text
+feature/planner/
+feature/equipment/
+feature/community/
+feature/pretrip_check/
+```
+
+若 repo 已存在这些目录，除非迁移任务明确要求，不要继续扩展它们；新功能应迁移或接入新 IA。
 
 ---
 
-## 6. Android 架构原则
+## 8. Android 架构原则
 
 推荐分层：
 
@@ -219,621 +360,613 @@ UseCase
   ↓
 Repository
   ↓
-LocalDataSource / RemoteDataSource / LocationProvider / MapPackageReader
-  ↓
-Room / DataStore / File System / API / Android Location APIs
+Local DB / Location Provider / Map Package / Remote API
 ```
 
 规则：
 
-- Compose 页面只负责展示和事件，不承载轨迹算法。
-- ViewModel 不直接访问 Location API、大文件系统或网络细节。
-- Foreground Service 与 UI 解耦；退出导航页后 session 仍可继续。
-- navigation session state 必须可序列化和恢复。
-- 轨迹点先本地落库，再异步同步。
-- 所有 domain model 必须能被 JVM unit test 覆盖。
+- UI 不直接访问数据库、网络、定位、文件系统。
+- ViewModel 不写复杂几何算法，调用 `core.geo` use case。
+- 地图渲染与导航算法分离：MapLibre 负责显示，导航 engine 负责进度、偏航、航点和原路返回。
+- 后台 tracking service 不依赖 Compose lifecycle。
+- 所有长任务可取消、可恢复，尤其是离线包下载、GPX 导入、轨迹记录同步。
+- 错误状态必须对用户可解释，例如：GPS 精度差、离线包损坏、轨迹点过稀、海拔数据缺失、低电量。
 
-推荐模块职责：
+---
+
+## 9. UI 与交互规范
+
+### 9.1 视觉方向
+
+- Material 3 + 精致户外工具感。
+- 白底、深森林绿、柔和浅绿、细分割线、克制阴影。
+- 信息密度真实可读，不要营销落地页。
+- 导航页优先地图面积，底部数据面板清楚、稳定、可读。
+- 警告提示专业克制，不制造恐慌。
+
+建议色彩：
 
 ```text
-:core:model       领域模型
-:core:geo         距离、bearing、最近线段匹配、偏航、进度、海拔
-:core:offline     离线包 manifest、checksum、版本、解析
-:core:location    LocationProvider、精度过滤、采样策略
-:core:database    Room entities、DAO、migrations
-:core:network     API client、DTO、同步队列协议
-:core:map         MapLibre 封装、图层管理、本地 source 加载
-:services:tracking Foreground Service、通知 actions、session 生命周期
-:feature:navigation 导航 UI、偏航 UI、紧急卡片入口
+主色：#0F3D2E
+辅助浅绿：#E7F3EC
+背景白：#FFFFFF
+页面浅背景：#F6F8F5
+文本深灰：#1F2933
+次级文本：#687076
+分割线：#E3E7E2
+警告橙：#D97706
+危险红：#B42318
+成功绿：#247A4D
+```
+
+### 9.2 页面规则
+
+- 不要把「我的」做成功能垃圾桶。
+- 不要在「发现」做社区信息流。
+- 不要在「路线」做复杂路线编辑器。
+- 不要在「路线详情」放完整出发前检查。
+- 不要在「导航」放装备、社区、商城、战绩分享。
+- 导航中不要出现广告、强登录、强会员弹窗。
+- 紧急卡片、偏航、低电量等安全状态优先于商业转化。
+
+---
+
+## 10. 核心用户动线
+
+### 10.1 平台路线开始导航
+
+```text
+发现
+→ 推荐路线卡
+→ 路线详情
+→ 开始轨迹导航
+→ 导航页正常状态
+→ 疑似偏航
+→ 确认偏航
+→ 查看最近路线点
+→ 原路返回 / 紧急卡片
+→ 结束导航
+→ 记录复盘
+→ 提交路况反馈
+```
+
+### 10.2 导入 GPX/KML 后导航
+
+```text
+路线
+→ 导入 GPX/KML
+→ 解析结果
+→ 开始轨迹导航
+→ 导航页
+→ 结束导航
+→ 记录复盘
+```
+
+### 10.3 从路线资产中再次导航
+
+```text
+路线
+→ 已离线路线 / 导入轨迹 / 收藏路线 / 最近导航
+→ 开始导航
+→ 导航页
+```
+
+### 10.4 正在导航时快速回到导航
+
+```text
+底部点击导航
+→ 若有进行中的导航，直接回到当前导航页
+→ 若没有进行中的导航，显示未开始导航入口页
 ```
 
 ---
 
-## 7. 地图与离线包策略
+## 11. 导航状态机
 
-### 7.1 路线级离线包
+`NavigationState` 至少包括：
 
-1.0 不做全国离线地图，只做路线级离线包。每个包至少包含：
-
-- 主路线轨迹线。
-- 路线周边 3–5 公里缓冲区步道网络。
-- 简化底图或地形层。
-- 等高线/海拔数据。
-- 起点、终点、停车点、公交点。
-- 水源、厕所、补给、村庄、露营点等关键 POI。
-- 撤退点和备选撤退线。
-- 风险点：岔路、涉水、落石、陡坡、封路、信号弱区。
-- 路线说明、紧急卡片模板、manifest、checksum、版本信息。
-
-### 7.2 数据来源规则
-
-推荐：
-
-- OSM 原始数据，用于自建步道/地形相关图层。
-- DEM 数据，用于等高线、海拔曲线、累计爬升。
-- 自有路线库和人工审核路线。
-- 用户显式授权贡献的匿名化路况反馈。
-- 合作领队/机构提供的路线。
-
-禁止：
-
-- 批量缓存商业地图瓦片。
-- 使用 OSM 官方在线瓦片做离线包。
-- 未授权批量搬运第三方路线、图片、评论。
-- 将用户私密轨迹未经同意转成公开路线。
-
-### 7.3 MapLibre 使用规则
-
-- MapLibre 只负责地图渲染；轨迹导航算法由 App 自己实现。
-- 本地 PMTiles/MBTiles 放在 App 私有目录，通过本地 file path 加载。
-- App 必须自己做下载、续传、checksum、版本、空间不足处理。
-- 不要假设 MapLibre 的 offline pack 能替代本项目路线级离线包系统。
-
-### 7.4 坐标系统
-
-- 自有路线、GPX、离线包、轨迹计算统一用 WGS84 经纬度存储。
-- 地图渲染内部可使用 Web Mercator。
-- 若接中国商业在线底图，GCJ-02/BD-09 转换必须隔离在 map adapter 层。
-- 不得让未转换 WGS84 轨迹直接叠加在 GCJ-02 商业底图上。
-- 坐标转换必须有测试。
-
-### 7.5 离线包目录
-
-```text
-/files/offline_packages/
-  route_{routeId}_{packageVersion}/
-    manifest.json
-    map.pmtiles
-    route_geometry.json
-    route_simplified.json
-    waypoints.json
-    elevation.bin
-    pois.json
-    safety.json
-    style.json
-    checksum.txt
+```kotlin
+enum class NavigationState {
+    Idle,
+    Navigating,
+    SuspectedOffRoute,
+    ConfirmedOffRoute,
+    ReturningOnTrack,
+    Paused,
+    Ended
+}
 ```
 
-Room 只存索引和状态，不存大文件。
+### 11.1 正常导航
 
-### 7.6 状态机
+显示：
 
-```text
-not_downloaded → queued → downloading → downloaded → verifying → verified
-failed 可从 queued/downloading/verifying 进入
-verified → stale → updating → verified
-deleted 只能由用户删除或存储清理进入
-```
+- 状态：路线内；
+- 当前位置已匹配到计划轨迹；
+- 剩余距离；
+- 剩余爬升；
+- 预计剩余时间；
+- 下一个航点；
+- 最近撤退点。
 
-只有 `verified` 状态才允许显示“可离线导航”。
+### 11.2 疑似偏航
 
----
-
-## 8. 轨迹导航算法
-
-### 8.1 1.0 支持
-
-- 平台路线轨迹导航。
-- GPX/KML 导入导航。
-- 离线轨迹线展示。
-- 当前 GPS 定位。
-- 轨迹进度计算。
-- 剩余距离、剩余爬升。
-- 航点、岔路、风险点提醒。
-- 偏航提醒。
-- 原路返回。
-- 实际轨迹记录。
-
-不支持任意两点自动规划、偏航后自动重算、无路区域自动推荐穿越、高德式连续转向语音导航。
-
-### 8.2 导航循环
+文案：
 
 ```text
-raw location
-  ↓
-精度过滤 / 漂移过滤
-  ↓
-投影到路线最近线段
-  ↓
-计算 crossTrackDistance
-  ↓
-结合历史 progress 防止环线/交叉线跳变
-  ↓
-计算已完成距离 / 剩余距离 / 剩余爬升
-  ↓
-检查下一个航点 / 岔路 / 风险点 / 撤退点
-  ↓
-判断偏航等级
-  ↓
-更新 navigation state
-  ↓
-落库实际轨迹点
-  ↓
-必要时触发通知、震动、语音或 UI 提醒
+你可能偏离路线约 70m
+GPS 仍在确认中，请结合现场路况判断。
 ```
 
-### 8.3 最近线段匹配
+操作：
 
-匹配结果必须包含：
+- 查看最近路线点；
+- 原路返回；
+- 暂不处理。
 
-- nearest point on route。
-- segment index。
-- progress distance。
-- cross-track distance。
-- bearing difference。
+地图：当前位置偏离计划路线，最近路线点高亮，虚线连接当前位置与最近路线点。
 
-路线较长时使用空间索引或分段 bounding box，不要每次定位全量重算大对象。
+### 11.3 确认偏航
 
-### 8.4 环线、往返线、交叉线
-
-- 不得只用“全路线最近点”决定进度。
-- 必须结合最近历史 progress、用户移动方向、候选线段窗口、距离变化趋势。
-- 用户反向行走时识别并提示是否切换反向导航。
-- 往返路线允许相同空间位置对应不同进度。
-
-### 8.5 偏航判断
-
-偏航不要单点触发：
+文案：
 
 ```text
-candidate_off_route:
-  crossTrackDistance > threshold
-  AND locationAccuracy acceptable
-
-confirmed_off_route:
-  candidate_off_route 持续 30–60 秒
-  OR 连续 N 个有效定位点都偏离
+已持续偏离路线约 70m
+最近路线点在西北方向约 110m。请结合实际地形返回，不要直线穿越未知区域。
 ```
 
-默认阈值：
+操作：
 
-```text
-景区/城市公园：30–50m
-普通山路：50–80m
-林区/峡谷/GPS 不稳：80–120m
-高风险岔路：30–50m
-```
-
-允许文案：
-
-```text
-你可能偏离路线约 70m。
-最近路线点在西北方向约 110m。
-请结合实际地形判断返回方式，不要直接穿越未知地形。
-```
+- 查看最近路线点；
+- 原路返回；
+- 打开紧急卡片。
 
 禁止文案：
 
+- 请直行 110m 返回路线；
+- 系统已为你规划安全路线；
+- 穿越树林即可返回；
+- 保证安全抵达。
+
+### 11.4 原路返回
+
+原路返回不是重新规划路线，而是沿已记录轨迹反向展示。
+
+文案：
+
+```text
+原路返回中
+请沿已走轨迹返回。遇到实际地形变化时，以现场安全判断为准。
+```
+
+数据：
+
+- 距离起点；
+- 最近已走轨迹点；
+- 预计返回时间。
+
+地图：已走轨迹反向高亮，计划路线弱化，当前位置和方向箭头突出。
+
+### 11.5 暂停
+
+文案：
+
+```text
+导航已暂停
+轨迹记录暂停，当前位置仍可查看。
+```
+
+操作：继续导航、结束导航、紧急卡片。
+
+---
+
+## 12. 轨迹导航算法要求
+
+沿轨迹导航不依赖商业地图离线底图，核心算法位于 `core.geo` 或等价模块。
+
+### 12.1 输入
+
+- 计划路线 polyline：WGS84 坐标序列；
+- 路线累计距离数组；
+- 海拔数组；
+- 航点数组；
+- 风险点数组；
+- 撤退点数组；
+- 用户当前定位：lat/lng/accuracy/bearing/speed/timestamp；
+- 用户已走轨迹。
+
+### 12.2 计算
+
+每次定位更新：
+
+1. 过滤明显漂移点；
+2. 将当前位置投影到最近路线线段；
+3. 得到横向偏离距离；
+4. 得到沿路线进度；
+5. 计算已完成距离、剩余距离、剩余爬升；
+6. 找下一个航点；
+7. 找最近撤退点；
+8. 判断疑似偏航或确认偏航；
+9. 生成 UI 状态。
+
+### 12.3 偏航阈值
+
+偏航不应单点触发，至少考虑：
+
+- GPS accuracy；
+- 横向距离；
+- 持续时间；
+- 用户速度；
+- 是否靠近高风险岔路；
+- 是否为峡谷、林区、弱 GPS 区。
+
+推荐 baseline：
+
+```text
+疑似偏航：距离路线 > 50–70m 且 GPS 精度可接受
+确认偏航：持续偏离 30–60 秒以上，或连续多个定位点偏离
+```
+
+不同路线可以通过配置调整，不要硬编码一个全局不可变数。
+
+### 12.4 往返线、环线、反向导航
+
+- 支持正向与反向导航；
+- 用户从路线反向起步时，尽量自动识别方向；
+- 环线、交叉线、往返线不得只用最近点导致进度跳变；必要时利用 heading、历史进度和拓扑窗口。
+
+### 12.5 测试
+
+核心几何算法必须有 unit tests，覆盖：
+
+- 最近线段投影；
+- 路线进度计算；
+- 剩余距离；
+- 剩余爬升；
+- GPS 漂移过滤；
+- 偏航状态切换；
+- 反向导航；
+- 原路返回轨迹反向展示；
+- 跨 180 经线或极端坐标时的健壮性，如适用。
+
+---
+
+## 13. GPX/KML 导入要求
+
+GPX/KML 导入位于「路线」页，不创建独立规划页。
+
+导入结果必须展示：
+
+- 文件名；
+- 解析状态；
+- 距离；
+- 累计爬升；
+- 航点数；
+- 轨迹点数；
+- 是否包含海拔数据；
+- 数据质量提示；
+- 开始轨迹导航；
+- 保存到路线；
+- 查看路线详情。
+
+文案必须说明：
+
+```text
+导入文件只包含路线轨迹和航点，用于轨迹导航、偏航判断和进度计算，不包含商业地图底图。
+```
+
+导入处理：
+
+- 大文件流式或后台解析，不阻塞 UI；
+- 坐标统一为 WGS84；
+- 轨迹点过密时生成显示用简化 polyline，同时保留导航计算精度；
+- 轨迹点过稀时提示「数据质量较低，偏航判断可能不稳定」；
+- 海拔缺失时可提示「缺少海拔数据，剩余爬升仅作估计或不可用」。
+
+---
+
+## 14. 地图与离线包策略
+
+### 14.1 地图策略
+
+- MapLibre 只负责地图渲染，不负责导航判断。
+- 不抓商业地图瓦片。
+- 不抓 OSM 官方在线瓦片用于离线。
+- 路线级离线包优先于全国离线底图。
+- App 需要在底图不可用时仍显示计划路线、已走轨迹、当前位置、航点、撤退点和紧急卡片。
+
+### 14.2 路线级离线包
+
+一个路线级离线包可包含：
+
+- route manifest；
+- 计划路线轨迹；
+- 显示用简化轨迹；
+- 累计距离数组；
+- 海拔数组；
+- 航点；
+- 风险点；
+- 撤退点；
+- 关键 POI；
+- 等高线/地形层；
+- 地图包版本；
+- checksum。
+
+不要把「离线包」做成复杂出发前检查页；它应作为路线状态和导航能力的一部分出现。
+
+---
+
+## 15. Android 定位、后台与耗电
+
+### 15.1 权限
+
+- 前台定位、后台定位、通知等权限按场景申请，不要启动时一次性全要。
+- 开始导航或记录时解释为什么需要定位。
+- 需要锁屏/后台继续记录时解释后台定位用途。
+- 权限被拒绝时给出降级体验，而不是崩溃或死循环弹窗。
+
+### 15.2 Foreground Service
+
+- 活跃导航和轨迹记录使用 Foreground Service。
+- 通知必须清楚显示正在记录/导航。
+- 服务与 UI 解耦，UI 重建不应导致轨迹记录丢失。
+- 崩溃或系统杀进程后，能尽量恢复未结束 session。
+
+### 15.3 低功耗
+
+- 低功耗模式应动态降低采样频率，但在岔路、偏航、低速复杂区保持必要精度。
+- 低电量提示不要中断导航主流程。
+- 不要把耗电优化写成牺牲安全提醒的静态开关。
+
+---
+
+## 16. 数据模型建议
+
+核心实体可命名为：
+
+```kotlin
+Route
+RouteGeometry
+RouteWaypoint
+RouteRiskPoint
+RouteExitPoint
+RouteSourceType
+RouteOfflineStatus
+ImportedTrack
+NavigationSession
+TrackPoint
+NavigationSnapshot
+EmergencyCard
+RouteRecord
+RouteFeedback
+PrivacySettings
+OfflineDataSummary
+```
+
+关键字段：
+
+```text
+Route:
+- id
+- name
+- region
+- routeType
+- distanceKm
+- elevationGainM
+- estimatedDuration
+- difficulty
+- confidenceLevel
+- routeVersion
+- lastUpdated
+- recentFeedback
+- riskTags
+- sourceType
+- trackOfflineStatus
+
+NavigationSnapshot:
+- sessionId
+- state
+- currentCoordinate
+- currentElevationM
+- gpsAccuracyM
+- batteryLevel
+- remainingDistanceKm
+- remainingElevationM
+- estimatedRemainingTime
+- nextWaypoint
+- nearestExit
+- deviationDistanceM
+- nearestRoutePointDirection
+- nearestRoutePointDistanceM
+- lastUpdated
+```
+
+原则：
+
+- 不要把 UI 文案作为核心数据存储。
+- 经纬度、海拔、距离、时间戳要使用明确类型/单位。
+- 轨迹数据可能很大，不要全部塞进单个 JSON preference。
+- 隐私字段必须默认 private。
+
+---
+
+## 17. 隐私、安全与文案
+
+### 17.1 默认隐私
+
+- 导入路线默认私密；
+- 个人轨迹默认私密；
+- 收藏默认私密；
+- 导航 session 默认私密；
+- 实时位置分享必须显式开启；
+- 公开或分享轨迹前必须给出明确确认；
+- 起终点隐藏属于隐私保护基础能力。
+
+### 17.2 紧急卡片
+
+紧急卡片显示：
+
+- 当前路线；
+- 当前坐标；
+- 当前海拔；
+- 电量；
+- GPS 状态；
+- 最后更新时间；
+- 最近撤退点；
+- 紧急联系人；
+- 复制求助信息。
+
+必须使用克制文案：
+
+```text
+请将以下信息发送给可信联系人或救援人员。
+```
+
+禁止：
+
+- 已自动联系救援；
+- 救援正在赶来；
+- 自动救援已启动；
+- 保证安全。
+
+### 17.3 偏航文案
+
+偏航时必须强调「结合实际地形判断」，不要承诺直线返回安全。
+
+推荐：
+
+```text
+最近路线点在西北方向约 110m。请结合实际地形返回，不要直线穿越未知区域。
+```
+
+禁止：
+
 ```text
 请直行 110m 返回路线。
-这是一条安全返回路线。
 ```
 
-### 8.6 航点提醒
+---
 
-航点类型：`junction`、`summit`、`water`、`toilet`、`supply`、`risk`、`exit`、`viewpoint`、`transport`、`signal_weak`。
+## 18. 测试要求
 
-规则：
+### 18.1 Android 单元测试
 
-- 只提醒未来方向上的航点。
-- 同一航点不要频繁重复提醒。
-- 岔路、风险点、撤退点优先级高于风景点。
-- 语音/震动可关闭，但风险/偏航视觉提示保留。
+必须覆盖：
 
-### 8.7 剩余爬升与原路返回
+- GPX/KML parsing；
+- route progress computation；
+- nearest point projection；
+- off-route detection；
+- remaining distance/elevation；
+- reverse/on-track return logic；
+- privacy defaults；
+- route import validation；
+- offline package checksum；
+- navigation state reducer。
 
-- 剩余爬升从当前 progress 之后的 elevation array 计算。
-- 过滤海拔小幅噪声，避免累计爬升异常。
-- 缺少 DEM 时显示“海拔数据不可用”，不要伪造。
-- 原路返回使用本次已记录 track points 反向展示，不承诺自动规划安全路线。
+### 18.2 UI / Compose 测试
+
+关键 UI 测试：
+
+- 底部 5 Tab 存在且无「规划」；
+- 发现路线卡进入路线详情；
+- 路线页导入 GPX/KML 显示解析结果；
+- 路线详情开始轨迹导航；
+- 导航页正常/疑似偏航/确认偏航/原路返回/暂停状态；
+- 紧急卡片可打开；
+- 结束导航进入记录复盘；
+- 记录页提交反馈；
+- 我的页不出现装备、社区、商城入口。
+
+### 18.3 手动验证
+
+每次影响导航/定位/后台/离线的改动，至少列出需要人工验证的场景：
+
+- 锁屏 30 分钟继续记录；
+- 切后台再返回；
+- 无网进入路线和导航；
+- GPS 精度差时偏航提示是否过度；
+- 低电量模式；
+- 结束导航后记录是否完整；
+- App 崩溃/重启后 session 恢复；
+- 删除轨迹/导出数据是否符合隐私预期。
 
 ---
 
-## 9. 轨迹记录与 Foreground Service
+## 19. Build / Test / Lint 命令
 
-### 9.1 生产级要求
-
-轨迹记录必须满足：
-
-- 锁屏后继续记录。
-- 切后台后继续记录。
-- 导航页被系统回收后继续记录。
-- 前台服务通知常驻，明确说明正在记录/导航。
-- 通知提供“暂停”“继续”“结束”“回到导航页”。
-- App 崩溃或进程被杀后，重新打开能恢复未完成 session。
-- 每个有效轨迹点尽快本地落库。
-- 网络失败不丢轨迹。
-- 低电量可降采样，但不能静默停止。
-
-### 9.2 前台服务要求
-
-- 活跃导航和轨迹记录必须使用 Foreground Service。
-- manifest 必须声明合适 foreground service type，定位场景使用 `location` 类型。
-- 启动前台服务前必须确保已经获得对应运行时位置权限。
-- 不得在无前台服务的情况下尝试长时间后台定位。
-- WorkManager 只用于下载/上传/清理等后台任务，不用于连续 GPS 采样。
-
-### 9.3 通知要求
-
-通知必须：
-
-- 显示当前状态：正在导航 / 正在记录 / 已暂停 / GPS 弱。
-- 显示路线名或“未命名轨迹”。
-- 提供回到导航页的 PendingIntent。
-- 提供暂停/继续/结束 action。
-- 低电量和 GPS 弱时给出清楚提示。
-- 不承载广告或营销。
-
-Android 13+ 通知权限被拒时，仍要保证前台服务逻辑合规，并在 App 内提示用户开启通知可获得更可靠的导航状态提醒。
-
-### 9.4 轨迹点字段
-
-每个轨迹点至少包含：sessionId、lat/lng、altitude、accuracy、verticalAccuracy、speed、bearing、provider、recordedAt、batteryPercent、isMocked、appState。
-
-### 9.5 采样策略
-
-- 普通直线路段低频采样。
-- 接近岔路、风险点、偏航状态提高频率。
-- GPS 精度差时不要立即偏航报警。
-- 用户静止时降低采样，保留心跳点。
-- 低电量时提示低功耗模式。
-- 支持 Normal、PowerSave、HighAccuracy 三种模式，并有测试。
-
----
-
-## 10. 权限、隐私与安全
-
-### 10.1 权限流程
-
-场景化申请，不要启动即申请全部权限：
-
-```text
-浏览路线：不申请定位
-附近路线：申请前台定位，可接受 approximate location
-开始轨迹导航：申请 precise location
-锁屏继续导航：说明 Foreground Service 和通知用途
-Live Share：单独确认实时位置分享、有效期、可撤销
-后台位置：仅在确需无界面持续追踪时单独申请，并提供关闭入口
-```
-
-用户拒绝后提供降级路径，不因拒绝非必要权限阻断基础路线查看。
-
-### 10.2 隐私默认
-
-- 轨迹默认 `private`。
-- 收藏默认 `private`。
-- 计划路线默认 `private`。
-- 导航 session 默认 `private`。
-- Live Share 默认关闭。
-- 发布前必须预览公开内容。
-- 公开轨迹默认隐藏起终点附近区域。
-- 用户可设置隐私区域：家、公司、常用集合点。
-- 用户可导出、删除轨迹和注销账号。
-
-### 10.3 Live Share
-
-Live Share 必须显式开启、有过期时间、可提前关闭、显示最后同步时间。无信号时显示最后同步状态，不伪装实时。链接不可无限期有效。
-
-### 10.4 敏感个人信息
-
-行踪轨迹、精准定位、实时位置都按敏感个人信息处理：最小必要、单独同意、明确用途、加密传输、严格权限控制。客服和后台不得随意查看完整轨迹；日志和 crash report 不上传完整轨迹；删除账号时清理或匿名化关联轨迹。
-
-### 10.5 安全文案
-
-必须说明：App 不能替代专业 GPS、纸质地图、指南针、卫星通信设备；路线、天气、封路、地质风险会变化；无信号区域无法保证实时位置分享；偏航返回提示不是自动安全路线；高风险路线需结伴、领队或专业装备。
-
----
-
-## 11. Android UI / UX
-
-### 11.1 主导航
-
-建议底部 Tab：
-
-1. 发现：路线搜索、附近路线、主题路线、收藏。
-2. 规划：GPX 导入、自定义路线、离线包准备。
-3. 导航：当前路线、轨迹记录、偏航、撤退、SOS。
-4. 记录：历史轨迹、复盘、私人游记、贡献路况。
-5. 我的：离线包、隐私、设备、会员、客服、数据导出。
-
-不把泛社区信息流放到底部主 Tab。
-
-### 11.2 导航页
-
-导航页核心信息：地图、当前定位点、计划路线、已走轨迹、下一个航点、最近撤退点、风险点、剩余距离、剩余爬升、预计耗时、离线包状态、电量、暂停/结束、原路返回、紧急卡片。
-
-导航页禁止广告弹窗、强会员弹窗、遮挡地图的社区/营销内容、非必要 onboarding。
-
-### 11.3 出发前检查
-
-开始导航前必须显示：路线轨迹、离线地图、等高线、POI/撤退点、GPS 权限、精确定位、前台服务通知、电量、紧急联系人、天气快照、路线置信度、最近路况反馈。
-
-只有关键项通过时，才显示“可离线导航”。
-
-### 11.4 无网体验
-
-无网时必须能打开已验证离线包、查看路线详情、查看地图和轨迹线、查看当前位置、记录轨迹、偏航提醒、原路返回、查看紧急卡片、保存反馈到本地队列。
-
----
-
-## 12. API 与同步
-
-### 12.1 API 原则
-
-- API 必须版本化：`/api/v1/...`
-- 写入必须幂等，尤其是轨迹点批量同步、反馈提交、离线包状态回传。
-- Android 客户端必须离线排队，恢复网络后同步。
-- 同步失败不得丢失本地轨迹。
-- 服务端返回必须包含路线版本、离线包版本、风险提示版本。
-
-### 12.2 关键接口
-
-```text
-GET    /api/v1/routes
-GET    /api/v1/routes/:id
-GET    /api/v1/routes/:id/offline-package
-POST   /api/v1/routes/import-gpx
-POST   /api/v1/tracks
-POST   /api/v1/tracks/:id/points/batch
-POST   /api/v1/feedback/route
-POST   /api/v1/live-share
-PATCH  /api/v1/live-share/:id/stop
-POST   /api/v1/sync/events
-```
-
-### 12.3 本地同步事件
-
-```text
-track_session_started
-track_points_recorded
-track_session_paused
-track_session_resumed
-track_session_finished
-route_feedback_created
-offline_package_downloaded
-offline_package_verified
-live_share_location_updated
-privacy_visibility_changed
-```
-
-每个事件必须有 idempotency key，可重试，可查看失败原因，不阻塞本地导航。
-
----
-
-## 13. 核心数据模型
-
-模型必须稳定、可版本化，并与 API、Room、GIS manifest 对齐。
-
-- `Route`：id、名称、区域、距离、爬升、难度、来源、置信度、可见性、路线版本、离线包版本。
-- `Waypoint`：id、routeId、类型、坐标、距离起点、标题、指令、风险等级、来源。
-- `NavigationSession`：id、routeId、userId、开始/结束时间、状态、方向、离线包版本、最后进度、隐私可见性。
-- `TrackPoint`：sessionId、坐标、海拔、精度、速度、方向、provider、时间、电量、是否 mock、App 状态。
-- `Feedback`：routeId、类型、位置、描述、图片、创建时间、可见性、审核状态。
-
-涉及坐标、海拔、距离、可见性、版本号的字段不得随意改名；改动必须包含迁移、测试和 API 兼容说明。
-
----
-
-## 14. 后台与路线运营
-
-Admin 必须支持：
-
-- 新路线审核。
-- GPX 清洗和质量检测。
-- 路线合并和去重。
-- 路线下架。
-- 风险点新增、确认、关闭。
-- 用户反馈处理。
-- 内容举报处理。
-- 离线包生成状态查看。
-- 离线包发布/回滚。
-- 路线置信度调整。
-- 事故/投诉回溯。
-
-路线置信度至少考虑：来源、最近完成次数、最近有效反馈时间、反馈一致性、封路/危险反馈、轨迹漂移和异常速度比例、是否近期人工审核。
-
-UGC 规则：用户可以贡献路况，不默认公开完整轨迹；公开贡献尽量结构化；私密轨迹不得被后台直接转为公开路线；危险诱导、敏感地点、违法穿越、误导性路线必须可审核和下架。
-
----
-
-## 15. 测试要求
-
-Android unit test 必须覆盖：
-
-- GPX/KML 解析。
-- 路线距离计算。
-- 累计距离表。
-- 最近线段匹配。
-- 环线进度防跳变。
-- 偏航判断阈值。
-- 剩余爬升计算。
-- 航点提醒去重。
-- 离线包 manifest 解析。
-- checksum 校验。
-- 隐私默认值。
-- Live Share 过期逻辑。
-- 同步队列幂等。
-
-Android instrumentation / UI test 至少覆盖：
-
-- 首次打开不强制定位。
-- 开始导航时权限流程正确。
-- 离线包校验失败时不能开始离线导航。
-- 导航页无网可打开。
-- 前台服务通知 action 正常。
-- 结束导航后 session 正确保存。
-- 轨迹默认私密。
-
-后端测试覆盖鉴权、私密轨迹不可被他人读取、Live Share 过期、轨迹点批量写入幂等、离线包版本回滚、风险反馈审核流程。
-
-GIS 测试覆盖 GPX 清洗、路线简化、DEM 海拔采样、路线 buffer 裁剪、manifest/checksum、坐标转换。
-
----
-
-## 16. 构建与测试命令
-
-若 repo 没有这些命令，新增或适配等价命令。
-
-Android：
+Codex 需要优先读取 repo 里的 README、Gradle 和 CI 配置。如果没有现成命令，可优先尝试：
 
 ```bash
-./gradlew assembleDebug
-./gradlew testDebugUnitTest
-./gradlew connectedDebugAndroidTest
-./gradlew lintDebug
+./gradlew :app:assembleDebug
+./gradlew :app:testDebugUnitTest
+./gradlew :app:connectedDebugAndroidTest
+./gradlew ktlintCheck
 ./gradlew detekt
 ```
 
-后端：
+若是多模块 repo，按实际模块路径调整，例如：
 
 ```bash
-pnpm install
-pnpm --filter api lint
-pnpm --filter api typecheck
-pnpm --filter api test
-pnpm --filter api build
+./gradlew :apps:android:app:assembleDebug
+./gradlew :apps:android:app:testDebugUnitTest
 ```
 
-Admin：
-
-```bash
-pnpm --filter admin lint
-pnpm --filter admin typecheck
-pnpm --filter admin test
-pnpm --filter admin build
-```
-
-GIS：
-
-```bash
-python -m pytest pipelines/gis
-```
-
-Codex 不应假设命令一定存在；先检查 repo，再运行最相关命令。
+不要在没有确认的情况下引入新的 lint/format 工具。若 repo 已有 Ktlint、Detekt、Spotless，遵循现有工具。
 
 ---
 
-## 17. 性能、错误与 Done Definition
+## 20. Definition of Done
 
-### 17.1 性能指标
+一个任务完成需要满足：
 
-关注：冷启动、地图首次可交互、离线包打开时间、导航页掉帧、GPS 采样耗电、低电量模式、Foreground Service 存活、轨迹点丢失率、崩溃恢复成功率、离线包下载失败率、checksum 失败率、ANR。
+- 没有新增旧 IA：规划、装备、社区、商城、复杂出发前检查；
+- 代码遵循现有架构和命名；
+- UI 文案为中文，克制、专业、可行动；
+- 导航相关改动不破坏后台记录、隐私默认和离线可用；
+- 核心算法有测试或明确说明无法测试的原因；
+- 已运行相关 build/test/lint；
+- 回复中列出风险和人工验证点；
+- 不承诺实际无法做到的安全、救援、无网实时位置能力。
 
-基本目标：20km 常规路线轨迹匹配稳定运行；导航状态更新不阻塞 UI；定位点落库失败可重试；离线包损坏不导致崩溃；地图加载失败时仍尽量显示路线线和当前位置 fallback。
+---
 
-### 17.2 错误码
+## 21. PR / Commit 约定
 
-必须有明确错误状态：
+如果 repo 没有其他规范，使用：
 
 ```text
-GPS_PERMISSION_DENIED
-PRECISE_LOCATION_DENIED
-BACKGROUND_LOCATION_DENIED
-NOTIFICATION_PERMISSION_DENIED
-FOREGROUND_SERVICE_FAILED
-GPS_ACCURACY_POOR
-OFFLINE_PACKAGE_MISSING
-OFFLINE_PACKAGE_CHECKSUM_FAILED
-OFFLINE_PACKAGE_VERSION_STALE
-MAP_RENDER_FAILED
-ROUTE_GEOMETRY_INVALID
-TRACK_SESSION_RECOVERY_FAILED
-SYNC_FAILED
-LIVE_SHARE_EXPIRED
-LIVE_SHARE_REVOKED
+feat(routes): add GPX import result panel
+feat(navigation): support suspected off-route state
+fix(geo): stabilize progress on loop routes
+test(navigation): cover confirmed off-route transition
+refactor(profile): split offline data settings section
 ```
 
-错误文案应帮助用户行动，例如“离线包校验失败，当前不能保证无网导航。请重新下载。”不要只显示 `Checksum error`。
+PR 描述必须包含：
 
-### 17.3 Done Definition
-
-功能完成必须满足：
-
-- 符合产品边界。
-- 有降级和错误状态。
-- 隐私默认正确。
-- 离线场景不崩溃。
-- 关键逻辑有测试。
-- 相关命令已运行或说明无法运行原因。
-- 文档或注释更新。
+- 用户影响；
+- 修改范围；
+- 测试结果；
+- 安全/隐私/耗电影响；
+- 已知风险。
 
 ---
 
-## 18. 合规与文档
+## 22. 给 Codex 的最终提醒
 
-必须维护：
+TrailMate 当前版本不是「徒步计划工具」，而是「可信轨迹导航工具」。
+
+最重要的是导航闭环：
 
 ```text
-docs/
-  architecture.md
-  android-location.md
-  offline-packages.md
-  navigation-algorithms.md
-  map-compliance.md
-  privacy.md
-  api.md
-  gis-pipeline.md
+发现可信路线
+→ 管理可导航路线
+→ 开始轨迹导航
+→ 判断正常/偏航
+→ 查看最近路线点
+→ 原路返回或打开紧急卡片
+→ 结束后复盘和反馈
 ```
 
-地图合规：不要自行宣称提供全国互联网地图服务；不要自行生产或发布未经合规确认的中国大陆完整底图；自建 OSM/DEM 路线级离线包上线前必须经过地图合规和法务确认；用户上传路线、POI、图片、反馈需要审核和举报通道。
-
-隐私合规：行踪轨迹、精准定位、实时位置按敏感个人信息处理；隐私政策必须覆盖定位、轨迹、离线包、Live Share、UGC、第三方 SDK、日志、删除、导出、注销；第三方 SDK 必须有清单，不得静默采集定位或设备信息。
-
----
-
-## 19. 里程碑
-
-1. 工程骨架：Android 原生工程、Compose、Room/DataStore/Network/DI、MapLibre 空地图、CI。
-2. 路线与 GPX：路线列表/详情、GPX 导入、路线线展示、距离/爬升/bounds 计算。
-3. 离线包：manifest、下载/续传/checksum/版本、本地 PMTiles/MBTiles、出发前检查。
-4. 轨迹导航：Foreground Service、落库、最近线段匹配、进度、偏航、原路返回。
-5. 安全隐私：紧急卡片、Live Share、默认私密、起终点脱敏、删除/导出。
-6. 运营闭环：路线审核、风险反馈、离线包生成发布、事故/投诉回溯。
-
----
-
-## 20. 官方参考资料
-
-- OpenAI Codex AGENTS.md：`https://developers.openai.com/codex/guides/agents-md`
-- Android Foreground Service types：`https://developer.android.com/develop/background-work/services/fgs/service-types`
-- Android location permissions：`https://developer.android.com/develop/sensors-and-location/location/permissions`
-- Android background location：`https://developer.android.com/develop/sensors-and-location/location/background`
-- MapLibre Android PMTiles：`https://www.maplibre.org/maplibre-native/android/examples/data/PMTiles/`
-- 个人信息保护法：`https://www.cac.gov.cn/2021-08/20/c_1631050028355286.htm`
-
----
-
-## 21. 最后提醒
-
-Codex 在任何任务中都应优先维护这些底线：
-
-```text
-Android 原生优先。
-路线级离线包优先。
-沿轨迹导航优先。
-轨迹默认私密。
-后台定位必须显式、可见、可停止。
-离线导航不能依赖在线地图瓦片。
-偏航提醒不能承诺安全穿越。
-导航中不能出现广告或强付费弹窗。
-```
+任何新功能如果不能强化这条闭环，都应默认延后。
