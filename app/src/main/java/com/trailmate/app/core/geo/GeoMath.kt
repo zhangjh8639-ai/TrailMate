@@ -84,3 +84,8 @@ internal data class LocalPoint(
     val x: Double,
     val y: Double,
 )
+
+object GeoDistance {
+    fun between(from: GeoCoordinate, to: GeoCoordinate): Distance =
+        GeoMath.haversineDistance(from, to)
+}
