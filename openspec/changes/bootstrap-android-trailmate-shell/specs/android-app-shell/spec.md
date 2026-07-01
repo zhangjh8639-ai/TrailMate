@@ -31,7 +31,7 @@ The codebase SHALL use Android package or module boundaries that align with Trai
 
 #### Scenario: Allowed feature boundaries exist
 - **WHEN** the Android source tree is inspected
-- **THEN** it contains or reserves boundaries for discover, routes, navigation, records, profile, safety, core model, core geo, core offline, core location, and tracking services
+- **THEN** it contains or documents reserved boundaries for discover, routes, navigation, records, profile, safety, core model, core geo, core offline, core location, and tracking services
 
 #### Scenario: Deprecated feature boundaries are not introduced
 - **WHEN** the Android source tree is inspected
