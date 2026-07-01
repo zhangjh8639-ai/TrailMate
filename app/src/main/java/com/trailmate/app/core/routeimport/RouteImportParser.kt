@@ -12,6 +12,10 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 private const val AccessExternalDtd = "http://javax.xml.XMLConstants/property/accessExternalDTD"
 private const val AccessExternalSchema = "http://javax.xml.XMLConstants/property/accessExternalSchema"
+private val DisallowedXmlDeclaration = Regex(
+    pattern = """<!\s*(DOCTYPE|ENTITY)\b""",
+    option = RegexOption.IGNORE_CASE,
+)
 
 object RouteImportParser {
     fun parse(
@@ -45,8 +49,12 @@ object RouteImportParser {
             else -> null
         }
 
-    private fun parseXml(content: String): Document? =
-        runCatching {
+    private fun parseXml(content: String): Document? {
+        if (DisallowedXmlDeclaration.containsMatchIn(content)) {
+            return null
+        }
+
+        return runCatching {
             val factory = DocumentBuilderFactory.newInstance()
             factory.isNamespaceAware = true
             factory.isXIncludeAware = false
@@ -60,6 +68,7 @@ object RouteImportParser {
                 }
                 .parse(InputSource(StringReader(content)))
         }.getOrNull()
+    }
 }
 
 private fun DocumentBuilderFactory.disableExternalXml() {
@@ -70,11 +79,19 @@ private fun DocumentBuilderFactory.disableExternalXml() {
         "http://apache.org/xml/features/nonvalidating/load-external-dtd" to false,
     )
     disabledFeatures.forEach { (feature, enabled) ->
-        setFeature(feature, enabled)
+        runCatching {
+            setFeature(feature, enabled)
+        }
     }
-    setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true)
-    setAttribute(AccessExternalDtd, "")
-    setAttribute(AccessExternalSchema, "")
+    runCatching {
+        setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true)
+    }
+    runCatching {
+        setAttribute(AccessExternalDtd, "")
+    }
+    runCatching {
+        setAttribute(AccessExternalSchema, "")
+    }
 }
 
 internal fun Document.elementsByLocalName(localName: String): List<Element> {

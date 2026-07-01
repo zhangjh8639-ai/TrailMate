@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.trailmate.app.feature.routes.RoutesScreen
 
 @Composable
 fun TrailMateApp() {
@@ -87,6 +88,13 @@ private fun TabContent(
     tab: TrailMateTab,
     paddingValues: PaddingValues,
 ) {
+    if (tab == TrailMateTab.Routes) {
+        RoutesScreen(
+            modifier = Modifier.padding(paddingValues),
+        )
+        return
+    }
+
     val copy = tab.screenCopy()
 
     Box(
