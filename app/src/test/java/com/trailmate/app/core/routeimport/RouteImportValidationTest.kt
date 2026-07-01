@@ -100,6 +100,28 @@ class RouteImportValidationTest {
     }
 
     @Test
+    fun lowercaseDoctypeXmlIsRejectedBeforePlatformParserConfiguration() {
+        val result = RouteImportParser.parse(
+            fileName = "unsafe-lowercase.gpx",
+            content = """
+            <!doctype gpx [
+              <!entity xxe SYSTEM "file:///etc/passwd">
+            ]>
+            <gpx version="1.1">
+              <trk><trkseg>
+                <trkpt lat="30.0000" lon="120.0000" />
+                <trkpt lat="30.0010" lon="120.0000" />
+              </trkseg></trk>
+            </gpx>
+            """.trimIndent(),
+        )
+
+        assertEquals(RouteImportStatus.InvalidXml, result.status)
+        assertTrue(RouteImportWarning.InvalidXml in result.warnings)
+        assertNull(result.geometry)
+    }
+
+    @Test
     fun missingTrackGeometryReturnsRejectedResult() {
         val result = RouteImportParser.parse(
             fileName = "empty.gpx",
