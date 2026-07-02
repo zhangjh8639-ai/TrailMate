@@ -46,8 +46,11 @@ class NavigationTabStateTest {
         assertTrue(visibleText.contains("+430 m"))
         assertTrue(visibleText.contains("可信度 A"))
         assertTrue(visibleText.contains("雨后湿滑"))
+        assertTrue(visibleText.contains("准备开始轨迹导航"))
+        assertTrue(visibleText.contains("开始轨迹导航"))
+        assertTrue(visibleText.contains("定位权限"))
         assertTrue(visibleText.contains("更换路线"))
-        assertFalse(visibleText.contains("开始导航"))
+        assertFalse(visibleText.contains("已 GPS 匹配"))
     }
 
     @Test
@@ -72,7 +75,27 @@ class NavigationTabStateTest {
         assertTrue(visibleText.contains("导入文件只包含路线轨迹和航点"))
         assertTrue(visibleText.contains("不包含商业地图底图"))
         assertTrue(visibleText.contains("更换路线"))
-        assertFalse(visibleText.contains("开始轨迹导航"))
+        assertTrue(visibleText.contains("开始轨迹导航"))
+        assertFalse(visibleText.contains("模拟轨迹"))
+        assertNoDeprecatedSurfaces(visibleText)
+    }
+
+    @Test
+    fun permissionDeniedCopyKeepsRouteVisibleWithoutFakeNavigation() {
+        val routes = RoutesTabSampleState.build()
+        val platformRoute = routes.assets.first { it.sourceLabel == "平台路线" }
+        val detail = requireNotNull(routes.withRouteDetailOpened(platformRoute).routeDetail)
+
+        val navigation = NavigationTabSampleState.build()
+            .withSelectedRoute(detail)
+            .withTrackingStartState(TrackingStartUiState.permissionDenied())
+        val visibleText = navigation.visibleText().joinToString("\n")
+
+        assertTrue(visibleText.contains(platformRoute.name))
+        assertTrue(visibleText.contains("定位权限未开启"))
+        assertTrue(visibleText.contains("你仍可以查看路线信息"))
+        assertFalse(visibleText.contains("已 GPS 匹配"))
+        assertFalse(visibleText.contains("模拟轨迹"))
         assertNoDeprecatedSurfaces(visibleText)
     }
 

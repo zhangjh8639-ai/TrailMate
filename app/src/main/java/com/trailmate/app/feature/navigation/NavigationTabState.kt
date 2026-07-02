@@ -6,11 +6,15 @@ data class NavigationTabState(
     val title: String,
     val idleState: NavigationIdleState,
     val selectedRoute: NavigationRouteReadyState? = null,
+    val trackingStartState: TrackingStartUiState = TrackingStartUiState.ready(),
 ) {
     fun visibleText(): List<String> =
         buildList {
             add(title)
-            selectedRoute?.let { addAll(it.visibleText()) } ?: addAll(idleState.visibleText())
+            selectedRoute?.let {
+                addAll(it.visibleText())
+                addAll(trackingStartState.visibleText())
+            } ?: addAll(idleState.visibleText())
         }
 }
 
@@ -72,6 +76,9 @@ object NavigationTabSampleState {
 
 fun NavigationTabState.withSelectedRoute(detail: RouteDetailState): NavigationTabState =
     copy(selectedRoute = detail.toNavigationRouteReadyState())
+
+fun NavigationTabState.withTrackingStartState(state: TrackingStartUiState): NavigationTabState =
+    copy(trackingStartState = state)
 
 private fun RouteDetailState.toNavigationRouteReadyState(): NavigationRouteReadyState =
     NavigationRouteReadyState(
