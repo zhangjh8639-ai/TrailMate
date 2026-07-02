@@ -47,6 +47,7 @@ import com.trailmate.app.core.database.SqliteImportedRouteStore
 import com.trailmate.app.core.routeimport.RouteImportParser
 import com.trailmate.app.feature.routes.RouteImportFileReadResult
 import com.trailmate.app.feature.routes.RouteImportFileReader
+import com.trailmate.app.feature.routes.RouteAssetCardState
 import com.trailmate.app.feature.routes.RoutesScreen
 import com.trailmate.app.feature.routes.RoutesTabSampleState
 import com.trailmate.app.feature.routes.RoutesTabState
@@ -56,6 +57,8 @@ import com.trailmate.app.feature.routes.withImportReadFailure
 import com.trailmate.app.feature.routes.withImportResult
 import com.trailmate.app.feature.routes.toPersistentImportedRouteRecord
 import com.trailmate.app.feature.routes.withPersistedImportedRoutes
+import com.trailmate.app.feature.routes.withRouteDetailClosed
+import com.trailmate.app.feature.routes.withRouteDetailOpened
 import com.trailmate.app.feature.routes.withSavedImport
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -160,6 +163,12 @@ fun TrailMateApp() {
                         }
                     }
                 },
+                onRouteDetailClick = { asset ->
+                    routesState = routesState.withRouteDetailOpened(asset)
+                },
+                onRouteDetailBackClick = {
+                    routesState = routesState.withRouteDetailClosed()
+                },
             )
         }
     }
@@ -172,6 +181,8 @@ private fun TabContent(
     routesState: RoutesTabState,
     onRouteImportClick: () -> Unit,
     onSaveImportClick: () -> Unit,
+    onRouteDetailClick: (RouteAssetCardState) -> Unit,
+    onRouteDetailBackClick: () -> Unit,
 ) {
     if (tab == TrailMateTab.Routes) {
         RoutesScreen(
@@ -179,6 +190,8 @@ private fun TabContent(
             state = routesState,
             onImportClick = onRouteImportClick,
             onSaveImportClick = onSaveImportClick,
+            onRouteDetailClick = onRouteDetailClick,
+            onRouteDetailBackClick = onRouteDetailBackClick,
         )
         return
     }

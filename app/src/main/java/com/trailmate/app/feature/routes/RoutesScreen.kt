@@ -21,7 +21,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.CloudDone
@@ -58,7 +60,19 @@ fun RoutesScreen(
     state: RoutesTabState = RoutesTabSampleState.build(),
     onImportClick: () -> Unit = {},
     onSaveImportClick: () -> Unit = {},
+    onRouteDetailClick: (RouteAssetCardState) -> Unit = {},
+    onRouteDetailBackClick: () -> Unit = {},
 ) {
+    state.routeDetail?.let { routeDetail ->
+        BackHandler(onBack = onRouteDetailBackClick)
+        RouteDetailScreen(
+            modifier = modifier,
+            detail = routeDetail,
+            onBackClick = onRouteDetailBackClick,
+        )
+        return
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -74,7 +88,142 @@ fun RoutesScreen(
         ImportStateContent(state, onImportClick, onSaveImportClick)
         SectionLabel("路线资产")
         state.assets.forEach { asset ->
-            RouteAssetCard(asset)
+            RouteAssetCard(
+                asset = asset,
+                onDetailClick = onRouteDetailClick,
+            )
+        }
+    }
+}
+
+@Composable
+private fun RouteDetailScreen(
+    detail: RouteDetailState,
+    onBackClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp)
+            .padding(top = 24.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Surface(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clickable(onClick = onBackClick),
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, Hairline),
+            ) {
+                Icon(
+                    modifier = Modifier.padding(10.dp),
+                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                    contentDescription = detail.backActionLabel,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    text = "路线详情",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = detail.title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = detail.subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MutedText,
+                )
+            }
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, Hairline),
+            tonalElevation = 1.dp,
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    StatusIcon(
+                        icon = if (detail.offlineStatusLabel == "可离线导航") {
+                            Icons.Outlined.CloudDone
+                        } else {
+                            Icons.Outlined.Map
+                        },
+                        tone = if (detail.offlineStatusLabel == "可离线导航") {
+                            SuccessGreen
+                        } else {
+                            InfoBlue
+                        },
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = detail.sourceLabel,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = "${detail.offlineStatusLabel} · ${detail.confidenceLabel}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MutedText,
+                        )
+                    }
+                }
+                RouteDetailMetricGrid(detail.metrics)
+            }
+        }
+
+        if (detail.riskTags.isNotEmpty()) {
+            SectionLabel("风险与状态")
+            QualityNotes(detail.riskTags)
+        }
+
+        SectionLabel("边界说明")
+        detail.boundaryNotes.forEach { note ->
+            RouteOnlyNotice(note)
+        }
+
+        StaticSecondaryAction(
+            label = detail.backActionLabel,
+            modifier = Modifier.fillMaxWidth(),
+            onClick = onBackClick,
+        )
+    }
+}
+
+@Composable
+private fun RouteDetailMetricGrid(metrics: List<RouteDetailMetricState>) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        metrics.chunked(2).forEach { rowMetrics ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                rowMetrics.forEach { metric ->
+                    MetricTile(metric.label, metric.value, Modifier.weight(1f))
+                }
+                if (rowMetrics.size == 1) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
         }
     }
 }
@@ -333,18 +482,22 @@ private fun ImportPreviewCard(
                         modifier = Modifier.weight(1f),
                         onClick = onSaveImportClick,
                     )
-                    StaticSecondaryAction(
-                        label = preview.detailActionLabel,
-                        modifier = Modifier.weight(1f),
+                    preview.detailActionLabel?.let { label ->
+                        StaticSecondaryAction(
+                            label = label,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+                preview.startActionLabel?.let { label ->
+                    StaticPrimaryAction(
+                        label = label,
+                        icon = Icons.Outlined.PlayArrow,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
                     )
                 }
-                StaticPrimaryAction(
-                    label = preview.startActionLabel,
-                    icon = Icons.Outlined.PlayArrow,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                )
             } else {
                 StaticSecondaryAction(
                     label = "重新选择文件",
@@ -443,9 +596,20 @@ private fun RouteOnlyNotice(copy: String) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun RouteAssetCard(asset: RouteAssetCardState) {
+private fun RouteAssetCard(
+    asset: RouteAssetCardState,
+    onDetailClick: (RouteAssetCardState) -> Unit,
+) {
+    val cardModifier = if (asset.detailActionLabel == null) {
+        Modifier.fillMaxWidth()
+    } else {
+        Modifier
+            .fillMaxWidth()
+            .clickable { onDetailClick(asset) }
+    }
+
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = cardModifier,
         shape = RoundedCornerShape(18.dp),
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, Hairline),
@@ -535,6 +699,7 @@ private fun RouteAssetCard(asset: RouteAssetCardState) {
                         StaticSecondaryAction(
                             label = label,
                             modifier = Modifier.weight(1f),
+                            onClick = { onDetailClick(asset) },
                         )
                     }
                 }

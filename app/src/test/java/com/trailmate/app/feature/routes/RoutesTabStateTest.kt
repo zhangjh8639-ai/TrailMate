@@ -59,6 +59,7 @@ class RoutesTabStateTest {
         )
         assertTrue(preview.qualityNotes.contains("未保存，仅本次查看"))
         assertTrue(preview.canUseRouteActions)
+        assertNull(preview.detailActionLabel)
         assertFalse(state.assets.any { it.name == "测试路线" && it.sourceLabel == "GPX 导入" })
     }
 
@@ -132,7 +133,7 @@ class RoutesTabStateTest {
         assertEquals("未验证", saved.difficultyLabel)
         assertEquals("可信度待确认", saved.confidenceLabel)
         assertNull(saved.startActionLabel)
-        assertNull(saved.detailActionLabel)
+        assertEquals("查看详情", saved.detailActionLabel)
         assertTrue(saved.riskTags.contains("导入轨迹"))
         assertTrue(saved.riskTags.contains("未验证"))
         assertTrue(saved.riskTags.contains("不含地图底图"))
@@ -208,6 +209,84 @@ class RoutesTabStateTest {
     }
 
     @Test
+    fun platformAssetCanOpenReadOnlyRouteDetail() {
+        val state = RoutesTabSampleState.build()
+        val platformRoute = state.assets.first { it.sourceLabel == "平台路线" }
+
+        val opened = state.withRouteDetailOpened(platformRoute)
+        val detail = requireNotNull(opened.routeDetail)
+        val visibleText = detail.visibleText()
+
+        assertEquals(platformRoute.name, detail.title)
+        assertEquals("返回路线", detail.backActionLabel)
+        assertNull(detail.startActionLabel)
+        assertTrue(visibleText.contains("平台路线"))
+        assertTrue(visibleText.contains("可离线导航"))
+        assertTrue(visibleText.contains("可信度 A"))
+        assertTrue(visibleText.contains("8.6 km"))
+        assertTrue(visibleText.contains("+430 m"))
+        assertTrue(visibleText.contains("雨后湿滑"))
+        assertTrue(visibleText.contains("路线详情"))
+    }
+
+    @Test
+    fun savedImportedAssetDetailShowsPrivateTrackOnlyBoundaries() {
+        val state = RoutesTabSampleState.build()
+            .withImportResult(RouteImportParser.parse("saved-route.gpx", successfulGpx()))
+            .withSavedImport()
+        val importedRoute = state.assets.first { it.sourceLabel == "GPX 导入" }
+
+        val detail = requireNotNull(state.withRouteDetailOpened(importedRoute).routeDetail)
+        val visibleText = detail.visibleText().joinToString("\n")
+
+        assertEquals("查看详情", importedRoute.detailActionLabel)
+        assertNull(detail.startActionLabel)
+        assertTrue(visibleText.contains("本机私密"))
+        assertTrue(visibleText.contains("仅轨迹可用"))
+        assertTrue(visibleText.contains("未验证"))
+        assertTrue(visibleText.contains("可信度待确认"))
+        assertTrue(visibleText.contains("导入文件只包含路线轨迹和航点"))
+        assertTrue(visibleText.contains("不包含商业地图底图"))
+        assertFalse(visibleText.contains("开始导航"))
+    }
+
+    @Test
+    fun closingRouteDetailPreservesImportPreviewAndAssets() {
+        val withPreview = RoutesTabSampleState.build().withImportResult(
+            RouteImportParser.parse("preview-route.gpx", successfulGpx()),
+        )
+        val opened = withPreview.withRouteDetailOpened(withPreview.assets.first())
+
+        val closed = opened.withRouteDetailClosed()
+
+        assertEquals(withPreview.importPreview, closed.importPreview)
+        assertEquals(withPreview.assets, closed.assets)
+        assertNull(closed.routeDetail)
+    }
+
+    @Test
+    fun routeTabDoesNotExposeFakeStartNavigationBeforeNavigationIsImplemented() {
+        val base = RoutesTabSampleState.build()
+        val imported = base.withImportResult(RouteImportParser.parse("preview-route.gpx", successfulGpx()))
+        val visibleText = listOf(base, imported).flatMap { it.visibleText() }.joinToString("\n")
+
+        assertFalse(visibleText.contains("开始导航"))
+        assertFalse(visibleText.contains("开始轨迹导航"))
+    }
+
+    @Test
+    fun importPreviewDoesNotExposeStaticDetailActionBeforeSavedAsRouteAsset() {
+        val state = RoutesTabSampleState.build().withImportResult(
+            RouteImportParser.parse("preview-route.gpx", successfulGpx()),
+        )
+        val preview = requireNotNull(state.importPreview)
+
+        assertNull(preview.detailActionLabel)
+        assertFalse(preview.visibleText().contains("查看详情"))
+        assertTrue(preview.visibleText().contains("保存到路线"))
+    }
+
+    @Test
     fun visibleTextDoesNotRestoreDeprecatedSurfaces() {
         val base = RoutesTabSampleState.build()
         val states = listOf(
@@ -217,6 +296,10 @@ class RoutesTabStateTest {
             base.withImportResult(RouteImportParser.parse("my-route.gpx", successfulGpx())),
             base.withImportResult(RouteImportParser.parse("my-route.gpx", successfulGpx())).withSavedImport(),
             base.withImportReadFailure("broken.gpx", "文件解析失败"),
+            base.withRouteDetailOpened(base.assets.first()),
+            base.withImportResult(RouteImportParser.parse("my-route.gpx", successfulGpx()))
+                .withSavedImport()
+                .let { it.withRouteDetailOpened(it.assets.first()) },
         )
         val visibleText = states.flatMap { it.visibleText() }.joinToString(separator = "\n")
 

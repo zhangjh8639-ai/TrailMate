@@ -25,6 +25,7 @@ data class RoutesTabState(
     val importPreview: RouteImportPreviewState?,
     val saveableImport: SaveableImportState?,
     val assets: List<RouteAssetCardState>,
+    val routeDetail: RouteDetailState? = null,
 ) {
     fun visibleText(): List<String> =
         buildList {
@@ -36,6 +37,7 @@ data class RoutesTabState(
             addAll(importFlowStatus.visibleText(importEmptyState))
             importPreview?.let { addAll(it.visibleText()) }
             assets.forEach { addAll(it.visibleText()) }
+            routeDetail?.let { addAll(it.visibleText()) }
         }
 }
 
@@ -78,8 +80,8 @@ data class RouteImportPreviewState(
     val routeOnlyCopy: String,
     val canUseRouteActions: Boolean,
     val saveActionLabel: String = "保存到路线",
-    val detailActionLabel: String = "查看详情",
-    val startActionLabel: String = "开始轨迹导航",
+    val detailActionLabel: String? = null,
+    val startActionLabel: String? = null,
 ) {
     fun visibleText(): List<String> =
         listOf(
@@ -93,7 +95,7 @@ data class RouteImportPreviewState(
             routeOnlyCopy,
         ) + qualityNotes +
             if (canUseRouteActions) {
-                listOf(saveActionLabel, detailActionLabel, startActionLabel)
+                listOfNotNull(saveActionLabel, detailActionLabel, startActionLabel)
             } else {
                 listOf("重新选择文件")
             }
@@ -122,7 +124,7 @@ data class RouteAssetCardState(
     val confidenceLabel: String,
     val riskTags: List<String>,
     val lastUsedLabel: String? = null,
-    val startActionLabel: String? = "开始导航",
+    val startActionLabel: String? = null,
     val detailActionLabel: String? = "查看详情",
     val identityKey: String? = null,
 ) {
@@ -143,6 +145,42 @@ data class RouteAssetCardState(
             addAll(riskTags)
         }
 }
+
+data class RouteDetailState(
+    val title: String,
+    val subtitle: String,
+    val sourceLabel: String,
+    val offlineStatusLabel: String,
+    val metrics: List<RouteDetailMetricState>,
+    val confidenceLabel: String,
+    val riskTags: List<String>,
+    val boundaryNotes: List<String>,
+    val backActionLabel: String = "返回路线",
+    val startActionLabel: String? = null,
+) {
+    fun visibleText(): List<String> =
+        buildList {
+            add("路线详情")
+            add(title)
+            add(subtitle)
+            add(sourceLabel)
+            add(offlineStatusLabel)
+            metrics.forEach { metric ->
+                add(metric.label)
+                add(metric.value)
+            }
+            add(confidenceLabel)
+            add(backActionLabel)
+            startActionLabel?.let { add(it) }
+            addAll(riskTags)
+            addAll(boundaryNotes)
+        }
+}
+
+data class RouteDetailMetricState(
+    val label: String,
+    val value: String,
+)
 
 object RoutesTabSampleState {
     fun build(): RoutesTabState {
@@ -275,6 +313,12 @@ fun RoutesTabState.withImportCancelled(): RoutesTabState =
         saveableImport = null,
     )
 
+fun RoutesTabState.withRouteDetailOpened(asset: RouteAssetCardState): RoutesTabState =
+    copy(routeDetail = asset.toRouteDetailState())
+
+fun RoutesTabState.withRouteDetailClosed(): RoutesTabState =
+    copy(routeDetail = null)
+
 fun RoutesTabState.withImportReadFailure(
     fileName: String,
     reason: String,
@@ -386,9 +430,43 @@ internal fun ImportedRouteRecord.toRouteAssetCardState(
         riskTags = listOf("导入轨迹", "未验证", "不含地图底图"),
         lastUsedLabel = lastUsedLabel,
         startActionLabel = null,
-        detailActionLabel = null,
+        detailActionLabel = "查看详情",
         identityKey = id,
     )
+
+private fun RouteAssetCardState.toRouteDetailState(): RouteDetailState =
+    RouteDetailState(
+        title = name,
+        subtitle = region,
+        sourceLabel = sourceLabel,
+        offlineStatusLabel = offlineStatusLabel,
+        metrics = listOf(
+            RouteDetailMetricState("距离", distanceLabel),
+            RouteDetailMetricState("累计爬升", elevationGainLabel),
+            RouteDetailMetricState("预计用时", estimatedDurationLabel),
+            RouteDetailMetricState("难度", difficultyLabel),
+        ),
+        confidenceLabel = confidenceLabel,
+        riskTags = riskTags,
+        boundaryNotes = detailBoundaryNotes(),
+    )
+
+private fun RouteAssetCardState.detailBoundaryNotes(): List<String> {
+    val imported = sourceLabel == "GPX 导入" || sourceLabel == "KML 导入"
+    return if (imported) {
+        listOf(
+            "本机私密",
+            "导入文件只包含路线轨迹和航点，用于轨迹导航、偏航判断和进度计算。",
+            "不包含商业地图底图或完整离线地图。",
+            "路线未经过平台验证，难度、耗时和风险需结合现场判断。",
+        )
+    } else {
+        listOf(
+            "路线信息用于后续轨迹导航、偏航判断和进度计算。",
+            "出发前仍需结合天气、现场开放状态和个人体力判断。",
+        )
+    }
+}
 
 private fun RouteImportFlowStatus.visibleText(emptyState: RouteImportEmptyState): List<String> =
     when (this) {
