@@ -20,9 +20,9 @@ class SqliteImportedRouteStore(
     context: Context,
 ) : SQLiteOpenHelper(
     context,
-    DatabaseName,
+    TrailMateDatabaseSchema.DatabaseName,
     null,
-    DatabaseVersion,
+    TrailMateDatabaseSchema.DatabaseVersion,
 ),
     ImportedRouteStore {
 
@@ -32,42 +32,7 @@ class SqliteImportedRouteStore(
     }
 
     override fun onCreate(db: SQLiteDatabase) {
-        db.execSQL(
-            """
-            CREATE TABLE $RoutesTable (
-                id TEXT PRIMARY KEY NOT NULL,
-                file_name TEXT NOT NULL,
-                source_type TEXT NOT NULL,
-                route_name TEXT NOT NULL,
-                distance_meters REAL NOT NULL,
-                elevation_gain_meters REAL NOT NULL,
-                waypoint_count INTEGER NOT NULL,
-                track_point_count INTEGER NOT NULL,
-                has_elevation INTEGER NOT NULL,
-                imported_at_epoch_millis INTEGER NOT NULL,
-                visibility TEXT NOT NULL,
-                offline_status TEXT NOT NULL,
-                confidence TEXT NOT NULL
-            )
-            """.trimIndent(),
-        )
-        db.execSQL(
-            """
-            CREATE TABLE $PointsTable (
-                route_id TEXT NOT NULL,
-                point_index INTEGER NOT NULL,
-                latitude REAL NOT NULL,
-                longitude REAL NOT NULL,
-                elevation_meters REAL,
-                cumulative_distance_meters REAL NOT NULL,
-                PRIMARY KEY(route_id, point_index),
-                FOREIGN KEY(route_id) REFERENCES $RoutesTable(id) ON DELETE CASCADE
-            )
-            """.trimIndent(),
-        )
-        db.execSQL(
-            "CREATE INDEX index_${PointsTable}_route_id ON $PointsTable(route_id)",
-        )
+        TrailMateDatabaseSchema.createAll(db)
     }
 
     override fun onUpgrade(
@@ -75,7 +40,7 @@ class SqliteImportedRouteStore(
         oldVersion: Int,
         newVersion: Int,
     ) {
-        SqliteImportedRouteStoreSchema.requireExplicitMigration(oldVersion, newVersion)
+        TrailMateDatabaseSchema.migrate(db, oldVersion, newVersion)
     }
 
     override fun loadAll(): List<ImportedRouteRecord> {
@@ -221,10 +186,8 @@ class SqliteImportedRouteStore(
         enumValues<T>().firstOrNull { it.name == value }
 
     private companion object {
-        const val DatabaseName = "trailmate.db"
-        const val DatabaseVersion = 1
-        const val RoutesTable = "imported_routes"
-        const val PointsTable = "imported_route_points"
+        const val RoutesTable = TrailMateDatabaseSchema.ImportedRoutesTable
+        const val PointsTable = TrailMateDatabaseSchema.ImportedRoutePointsTable
 
         val RouteColumns = arrayOf(
             "id",
@@ -257,10 +220,6 @@ object SqliteImportedRouteStoreSchema {
         oldVersion: Int,
         newVersion: Int,
     ) {
-        if (oldVersion == newVersion) return
-
-        throw IllegalStateException(
-            "Missing imported route database migration from $oldVersion to $newVersion.",
-        )
+        TrailMateDatabaseSchema.requireExplicitMigration(oldVersion, newVersion)
     }
 }

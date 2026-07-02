@@ -99,6 +99,21 @@ class NavigationTabStateTest {
         assertNoDeprecatedSurfaces(visibleText)
     }
 
+    @Test
+    fun activeTrackingStateDoesNotOfferRouteChangeAction() {
+        val routes = RoutesTabSampleState.build()
+        val platformRoute = routes.assets.first { it.sourceLabel == "平台路线" }
+        val detail = requireNotNull(routes.withRouteDetailOpened(platformRoute).routeDetail)
+
+        val navigation = NavigationTabSampleState.build()
+            .withSelectedRoute(detail)
+            .withTrackingStartState(TrackingStartUiState.active())
+        val visibleText = navigation.visibleText().joinToString("\n")
+
+        assertFalse(visibleText.contains("更换路线"))
+        assertTrue(visibleText.contains("前台导航服务运行中"))
+    }
+
     private fun assertNoDeprecatedSurfaces(visibleText: String) {
         listOf("规划", "装备", "社区", "商城", "出发前检查", "完成检查后开始").forEach { deprecated ->
             assertFalse("Navigation handoff must not expose $deprecated", visibleText.contains(deprecated))

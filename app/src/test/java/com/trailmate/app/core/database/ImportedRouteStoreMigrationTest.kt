@@ -9,13 +9,13 @@ class ImportedRouteStoreMigrationTest {
     fun missingMigrationFailsInsteadOfDroppingImportedRoutes() {
         val error = assertThrows(IllegalStateException::class.java) {
             SqliteImportedRouteStoreSchema.requireExplicitMigration(
-                oldVersion = 1,
-                newVersion = 2,
+                oldVersion = 2,
+                newVersion = 3,
             )
         }
 
         assertEquals(
-            "Missing imported route database migration from 1 to 2.",
+            "Missing TrailMate database migration from 2 to 3.",
             error.message,
         )
     }
