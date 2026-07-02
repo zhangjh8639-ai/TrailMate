@@ -44,20 +44,25 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.trailmate.app.core.database.SqliteImportedRouteStore
+import com.trailmate.app.core.database.SqliteTrackingRecordingStore
 import com.trailmate.app.core.model.NavigationEvent
 import com.trailmate.app.core.model.NavigationSession
 import com.trailmate.app.core.model.NavigationSessionId
 import com.trailmate.app.core.model.RouteId
 import com.trailmate.app.core.routeimport.RouteImportParser
+import com.trailmate.app.feature.navigation.NavigationRecoveredTrackingSessionState
 import com.trailmate.app.feature.navigation.NavigationScreen
 import com.trailmate.app.feature.navigation.NavigationRouteReadyState
 import com.trailmate.app.feature.navigation.NavigationTabSampleState
 import com.trailmate.app.feature.navigation.NavigationTabState
+import com.trailmate.app.feature.navigation.NavigationTrackingRecoveryReducer
 import com.trailmate.app.feature.navigation.NavigationTrackingStartReducer
+import com.trailmate.app.feature.navigation.TrackingRecoveryEffect
 import com.trailmate.app.feature.navigation.TrackingRuntimePermissions
 import com.trailmate.app.feature.navigation.TrackingStartEffect
 import com.trailmate.app.feature.navigation.TrackingStartMode
 import com.trailmate.app.feature.navigation.TrackingStartUiState
+import com.trailmate.app.feature.navigation.withRecoveredTrackingSession
 import com.trailmate.app.feature.navigation.withSelectedRoute
 import com.trailmate.app.feature.navigation.withTrackingStartState
 import com.trailmate.app.feature.routes.RouteImportFileReadResult
@@ -91,8 +96,11 @@ fun TrailMateApp() {
     var trackingStartMode by rememberSaveable { mutableStateOf(TrackingStartUiState.ready().mode) }
     val trackingStartState = TrackingStartUiState.fromMode(trackingStartMode)
     var routesState by remember { mutableStateOf(RoutesTabSampleState.build()) }
-    val navigationState = remember(routesState, selectedNavigationRouteKey, trackingStartState) {
+    var recoveredTrackingSession by remember { mutableStateOf<NavigationRecoveredTrackingSessionState?>(null) }
+    val navigationState = remember(routesState, selectedNavigationRouteKey, trackingStartState, recoveredTrackingSession) {
         val baseState = NavigationTabSampleState.build()
+            .withTrackingStartState(trackingStartState)
+            .withRecoveredTrackingSession(recoveredTrackingSession)
         val selectedRouteDetail = routesState.routeDetailForNavigationKey(selectedNavigationRouteKey)
         if (selectedRouteDetail == null) {
             baseState
@@ -104,6 +112,7 @@ fun TrailMateApp() {
     }
     val context = LocalContext.current
     val trackingReducer = remember { NavigationTrackingStartReducer() }
+    val trackingRecoveryReducer = remember { NavigationTrackingRecoveryReducer() }
     val trackingServiceLauncher = remember(context.applicationContext) {
         AndroidTrackingServiceLauncher(context.applicationContext)
     }
@@ -111,12 +120,28 @@ fun TrailMateApp() {
     val importedRouteStore = remember(context.applicationContext) {
         SqliteImportedRouteStore(context.applicationContext)
     }
+    val trackingRecordingStore = remember(context.applicationContext) {
+        SqliteTrackingRecordingStore(context.applicationContext)
+    }
     val scope = rememberCoroutineScope()
     LaunchedEffect(importedRouteStore) {
         val persistedRoutes = withContext(Dispatchers.IO) {
             importedRouteStore.loadAll()
         }
         routesState = routesState.withPersistedImportedRoutes(persistedRoutes)
+    }
+    LaunchedEffect(trackingRecordingStore) {
+        recoveredTrackingSession = withContext(Dispatchers.IO) {
+            val activeSession = trackingRecordingStore.findActiveSession()
+            if (activeSession == null) {
+                null
+            } else {
+                NavigationRecoveredTrackingSessionState.from(
+                    record = activeSession,
+                    points = trackingRecordingStore.loadPoints(activeSession.sessionId),
+                )
+            }
+        }
     }
 
     val importLauncher = rememberLauncherForActivityResult(
@@ -245,6 +270,9 @@ fun TrailMateApp() {
                     selectedTab = TrailMateTab.Routes
                 },
                 onStartTrackingClick = {
+                    if (!navigationState.canStartNewTracking()) {
+                        return@TabContent
+                    }
                     val trackingRequest = navigationState.selectedRoute?.toTrackingServiceStartRequest()
                     if (trackingRequest == null) {
                         return@TabContent
@@ -274,6 +302,30 @@ fun TrailMateApp() {
                         trackingServiceLauncher.stop()
                     }
                 },
+                onEndRecoveredTrackingClick = {
+                    val recoveredSession = navigationState.visibleRecoveredSession() ?: return@TabContent
+                    val decision = trackingRecoveryReducer.onEndRecoveredSessionClicked(
+                        sessionId = recoveredSession.sessionId,
+                        endedAt = Instant.now(),
+                    )
+                    if (decision.stopForegroundTrackingService) {
+                        trackingServiceLauncher.stop()
+                    }
+                    when (val effect = decision.effect) {
+                        is TrackingRecoveryEffect.EndRecoveredSession -> {
+                            scope.launch {
+                                withContext(Dispatchers.IO) {
+                                    trackingRecordingStore.markSessionEnded(
+                                        sessionId = effect.sessionId,
+                                        endedAt = effect.endedAt,
+                                    )
+                                }
+                                recoveredTrackingSession = decision.recoveredSession
+                            }
+                        }
+                        null -> Unit
+                    }
+                },
             )
         }
     }
@@ -293,6 +345,7 @@ private fun TabContent(
     onNavigateToRoutesClick: () -> Unit,
     onStartTrackingClick: () -> Unit,
     onStopTrackingClick: () -> Unit,
+    onEndRecoveredTrackingClick: () -> Unit,
 ) {
     if (tab == TrailMateTab.Routes) {
         RoutesScreen(
@@ -314,6 +367,7 @@ private fun TabContent(
             onSelectRouteClick = onNavigateToRoutesClick,
             onStartTrackingClick = onStartTrackingClick,
             onStopTrackingClick = onStopTrackingClick,
+            onEndRecoveredTrackingClick = onEndRecoveredTrackingClick,
         )
         return
     }

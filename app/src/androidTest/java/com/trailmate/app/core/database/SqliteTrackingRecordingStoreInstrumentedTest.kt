@@ -116,6 +116,24 @@ class SqliteTrackingRecordingStoreInstrumentedTest {
     }
 
     @Test
+    fun findActiveSessionReturnsLatestUnfinishedSession() {
+        val store = SqliteTrackingRecordingStore(context)
+        val olderSession = navigatingSession(
+            id = "session-older",
+            startedAt = "2026-07-01T01:00:00Z",
+        )
+        val newerSession = navigatingSession(
+            id = "session-newer",
+            startedAt = "2026-07-01T02:00:00Z",
+        )
+
+        store.upsertSession(TrackingSessionRecord.fromSession(olderSession))
+        store.upsertSession(TrackingSessionRecord.fromSession(newerSession))
+
+        assertEquals(newerSession.id, store.findActiveSession()?.sessionId)
+    }
+
+    @Test
     fun legacyVersionOneImportedRouteDatabaseMigratesTrackingTables() {
         createLegacyVersionOneImportedRouteDatabase()
 
@@ -142,11 +160,15 @@ class SqliteTrackingRecordingStoreInstrumentedTest {
         assertEquals("imported-route", importedStore.loadAll().single().id)
     }
 
-    private fun navigatingSession(): NavigationSession =
+    private fun navigatingSession(
+        id: String = "session-1",
+        routeId: String = "longjing",
+        startedAt: String = "2026-07-01T01:02:03Z",
+    ): NavigationSession =
         NavigationSession.create(
-            id = NavigationSessionId("session-1"),
-            routeId = RouteId("longjing"),
-            startedAt = Instant.parse("2026-07-01T01:02:03Z"),
+            id = NavigationSessionId(id),
+            routeId = RouteId(routeId),
+            startedAt = Instant.parse(startedAt),
         ).reduce(NavigationEvent.StartNavigation)
 
     private fun sampleAt(
