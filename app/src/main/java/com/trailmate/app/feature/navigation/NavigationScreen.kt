@@ -24,7 +24,9 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Navigation
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material.icons.outlined.Terrain
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -49,6 +51,8 @@ fun NavigationScreen(
     modifier: Modifier = Modifier,
     state: NavigationTabState = NavigationTabSampleState.build(),
     onSelectRouteClick: () -> Unit = {},
+    onStartTrackingClick: () -> Unit = {},
+    onStopTrackingClick: () -> Unit = {},
 ) {
     Column(
         modifier = modifier
@@ -58,7 +62,11 @@ fun NavigationScreen(
             .padding(top = 24.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        NavigationHeader(state.title)
+        NavigationHeader(
+            title = state.title,
+            hasSelectedRoute = state.selectedRoute != null,
+            trackingStartState = state.trackingStartState,
+        )
         val selectedRoute = state.selectedRoute
         if (selectedRoute == null) {
             NavigationIdleCard(
@@ -68,14 +76,21 @@ fun NavigationScreen(
         } else {
             NavigationRouteReadyContent(
                 route = selectedRoute,
+                trackingStartState = state.trackingStartState,
                 onChangeRouteClick = onSelectRouteClick,
+                onStartTrackingClick = onStartTrackingClick,
+                onStopTrackingClick = onStopTrackingClick,
             )
         }
     }
 }
 
 @Composable
-private fun NavigationHeader(title: String) {
+private fun NavigationHeader(
+    title: String,
+    hasSelectedRoute: Boolean,
+    trackingStartState: TrackingStartUiState,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
             text = title,
@@ -84,7 +99,11 @@ private fun NavigationHeader(title: String) {
             fontWeight = FontWeight.SemiBold,
         )
         Text(
-            text = "已选择的计划轨迹会在这里展示；尚未启动定位或记录。",
+            text = when {
+                !hasSelectedRoute -> "选择路线后，这里会进入轨迹导航准备状态。"
+                trackingStartState.mode == TrackingStartMode.Active -> "前台导航服务已启动，路线仍以计划轨迹为准。"
+                else -> "已选择计划轨迹，开始时会请求定位权限。"
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = MutedText,
         )
@@ -135,9 +154,17 @@ private fun NavigationIdleCard(
 @Composable
 private fun NavigationRouteReadyContent(
     route: NavigationRouteReadyState,
+    trackingStartState: TrackingStartUiState,
     onChangeRouteClick: () -> Unit,
+    onStartTrackingClick: () -> Unit,
+    onStopTrackingClick: () -> Unit,
 ) {
-    RouteReadyHero(route)
+    RouteReadyHero(route, trackingStartState)
+    TrackingStartSection(
+        state = trackingStartState,
+        onStartClick = onStartTrackingClick,
+        onStopClick = onStopTrackingClick,
+    )
     SecondaryNavigationAction(
         label = route.changeRouteActionLabel,
         icon = Icons.Outlined.Map,
@@ -149,7 +176,10 @@ private fun NavigationRouteReadyContent(
 }
 
 @Composable
-private fun RouteReadyHero(route: NavigationRouteReadyState) {
+private fun RouteReadyHero(
+    route: NavigationRouteReadyState,
+    trackingStartState: TrackingStartUiState,
+) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
@@ -185,10 +215,71 @@ private fun RouteReadyHero(route: NavigationRouteReadyState) {
                 }
             }
             Text(
-                text = "尚未启动定位或记录。此路线已进入导航页，后续流程将以它作为计划轨迹。",
+                text = if (trackingStartState.mode == TrackingStartMode.Active) {
+                    "已启动前台导航服务。真实位置、偏航判断和轨迹记录会在后续版本显示。"
+                } else {
+                    "尚未启动定位或记录。此路线已进入导航页，后续流程将以它作为计划轨迹。"
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MutedText,
             )
+        }
+    }
+}
+
+@Composable
+private fun TrackingStartSection(
+    state: TrackingStartUiState,
+    onStartClick: () -> Unit,
+    onStopClick: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, Hairline),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RoundIcon(
+                    icon = if (state.mode == TrackingStartMode.Active) Icons.Outlined.Navigation else Icons.Outlined.PlayArrow,
+                    tone = if (state.mode == TrackingStartMode.PermissionDenied || state.mode == TrackingStartMode.NotificationDenied) {
+                        WarningOrange
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = state.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = state.body,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MutedText,
+                    )
+                }
+            }
+            state.primaryActionLabel?.let { label ->
+                PrimaryNavigationAction(
+                    label = label,
+                    icon = Icons.Outlined.PlayArrow,
+                    onClick = onStartClick,
+                )
+            }
+            state.secondaryActionLabel?.let { label ->
+                SecondaryNavigationAction(
+                    label = label,
+                    icon = Icons.Outlined.Stop,
+                    onClick = onStopClick,
+                )
+            }
         }
     }
 }
