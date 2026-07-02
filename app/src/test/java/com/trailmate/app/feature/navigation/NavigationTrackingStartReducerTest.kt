@@ -20,9 +20,9 @@ class NavigationTrackingStartReducerTest {
     fun startLaunchesServiceWhenStartPermissionsAreGranted() {
         val decision = reducer.onStartClicked(hasRequiredStartPermissions = true)
 
-        assertEquals(TrackingStartMode.Active, decision.state.mode)
+        assertEquals(TrackingStartMode.Starting, decision.state.mode)
         assertEquals(TrackingStartEffect.StartTrackingService, decision.effect)
-        assertEquals("前台导航服务运行中", decision.state.title)
+        assertEquals("正在请求启动前台导航", decision.state.title)
     }
 
     @Test
@@ -34,7 +34,7 @@ class NavigationTrackingStartReducerTest {
             ),
         )
 
-        assertEquals(TrackingStartMode.Active, decision.state.mode)
+        assertEquals(TrackingStartMode.Starting, decision.state.mode)
         assertEquals(TrackingStartEffect.StartTrackingService, decision.effect)
     }
 
@@ -67,11 +67,12 @@ class NavigationTrackingStartReducerTest {
     }
 
     @Test
-    fun stopSendsStopServiceAndReturnsToReady() {
+    fun stopSendsStopServiceAndWaitsForServiceClear() {
         val decision = reducer.onStopClicked()
 
-        assertEquals(TrackingStartMode.Ready, decision.state.mode)
+        assertEquals(TrackingStartMode.Stopping, decision.state.mode)
         assertEquals(TrackingStartEffect.StopTrackingService, decision.effect)
+        assertEquals("正在结束前台导航", decision.state.title)
     }
 
     @Test
@@ -80,5 +81,14 @@ class NavigationTrackingStartReducerTest {
 
         assertEquals("前台导航服务运行中", state.title)
         assertEquals("停止前台导航", state.secondaryActionLabel)
+    }
+
+    @Test
+    fun startingUiStateDoesNotClaimServiceIsAlreadyRunning() {
+        val state = TrackingStartUiState.fromMode(TrackingStartMode.Starting)
+
+        assertEquals("正在请求启动前台导航", state.title)
+        assertNull(state.primaryActionLabel)
+        assertNull(state.secondaryActionLabel)
     }
 }

@@ -38,6 +38,24 @@ data class TrackingStartUiState(
                 secondaryActionLabel = "停止前台导航",
             )
 
+        fun starting(): TrackingStartUiState =
+            TrackingStartUiState(
+                mode = TrackingStartMode.Starting,
+                title = "正在请求启动前台导航",
+                body = "系统正在启动前台导航服务；确认运行前不会记录为已启动。",
+                primaryActionLabel = null,
+                secondaryActionLabel = null,
+            )
+
+        fun stopping(): TrackingStartUiState =
+            TrackingStartUiState(
+                mode = TrackingStartMode.Stopping,
+                title = "正在结束前台导航",
+                body = "正在停止前台导航服务；完成前不会开始新的轨迹导航。",
+                primaryActionLabel = null,
+                secondaryActionLabel = null,
+            )
+
         fun permissionDenied(): TrackingStartUiState =
             TrackingStartUiState(
                 mode = TrackingStartMode.PermissionDenied,
@@ -59,8 +77,10 @@ data class TrackingStartUiState(
         fun fromMode(mode: TrackingStartMode): TrackingStartUiState =
             when (mode) {
                 TrackingStartMode.Ready -> ready()
+                TrackingStartMode.Starting -> starting()
                 TrackingStartMode.PermissionRequired -> permissionRequired()
                 TrackingStartMode.Active -> active()
+                TrackingStartMode.Stopping -> stopping()
                 TrackingStartMode.PermissionDenied -> permissionDenied()
                 TrackingStartMode.NotificationDenied -> notificationDenied()
             }
@@ -69,8 +89,10 @@ data class TrackingStartUiState(
 
 enum class TrackingStartMode {
     Ready,
+    Starting,
     PermissionRequired,
     Active,
+    Stopping,
     PermissionDenied,
     NotificationDenied,
 }
@@ -90,7 +112,7 @@ class NavigationTrackingStartReducer {
     fun onStartClicked(hasRequiredStartPermissions: Boolean): TrackingStartDecision =
         if (hasRequiredStartPermissions) {
             TrackingStartDecision(
-                state = TrackingStartUiState.active(),
+                state = TrackingStartUiState.starting(),
                 effect = TrackingStartEffect.StartTrackingService,
             )
         } else {
@@ -103,7 +125,7 @@ class NavigationTrackingStartReducer {
     fun onPermissionResult(grantResult: TrackingPermissionGrantResult): TrackingStartDecision =
         when {
             grantResult.canStartTracking -> TrackingStartDecision(
-                state = TrackingStartUiState.active(),
+                state = TrackingStartUiState.starting(),
                 effect = TrackingStartEffect.StartTrackingService,
             )
             !grantResult.hasForegroundLocation -> TrackingStartDecision(
@@ -118,7 +140,7 @@ class NavigationTrackingStartReducer {
 
     fun onStopClicked(): TrackingStartDecision =
         TrackingStartDecision(
-            state = TrackingStartUiState.ready(),
+            state = TrackingStartUiState.stopping(),
             effect = TrackingStartEffect.StopTrackingService,
         )
 }
