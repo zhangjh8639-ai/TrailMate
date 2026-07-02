@@ -8,6 +8,8 @@ object TrackingServiceIntents {
 
 enum class TrackingServiceCommand {
     StartForeground,
+    StartLocationUpdates,
+    StopLocationUpdates,
     StopForeground,
     StopSelf,
 }
@@ -28,11 +30,23 @@ class TrackingServiceController {
     ): TrackingServiceDecision =
         when {
             action == TrackingServiceIntents.ActionStart && canStartLocationForeground ->
-                TrackingServiceDecision(commands = listOf(TrackingServiceCommand.StartForeground))
+                TrackingServiceDecision(
+                    commands = listOf(
+                        TrackingServiceCommand.StartForeground,
+                        TrackingServiceCommand.StartLocationUpdates,
+                    ),
+                )
             action == TrackingServiceIntents.ActionStart ->
-                TrackingServiceDecision(commands = listOf(TrackingServiceCommand.StopSelf))
+                TrackingServiceDecision(
+                    commands = listOf(
+                        TrackingServiceCommand.StopLocationUpdates,
+                        TrackingServiceCommand.StopForeground,
+                        TrackingServiceCommand.StopSelf,
+                    ),
+                )
             else -> TrackingServiceDecision(
                 commands = listOf(
+                    TrackingServiceCommand.StopLocationUpdates,
                     TrackingServiceCommand.StopForeground,
                     TrackingServiceCommand.StopSelf,
                 ),
