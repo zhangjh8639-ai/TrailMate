@@ -66,8 +66,16 @@ fun NavigationScreen(
         NavigationHeader(
             title = state.title,
             hasSelectedRoute = state.selectedRoute != null,
+            hasRunningTrackingSession = state.visibleRunningTrackingSession() != null,
             trackingStartState = state.trackingStartState,
         )
+        state.visibleRunningTrackingSession()?.let { runningSession ->
+            RunningTrackingSessionCard(
+                state = runningSession,
+                trackingStartState = state.trackingStartState,
+                onStopClick = onStopTrackingClick,
+            )
+        }
         state.visibleRecoveredSession()?.let { recoveredSession ->
             RecoveredTrackingSessionCard(
                 state = recoveredSession,
@@ -75,20 +83,79 @@ fun NavigationScreen(
             )
         }
         val selectedRoute = state.selectedRoute
-        if (selectedRoute == null) {
-            NavigationIdleCard(
-                state = state.idleState,
-                onSelectRouteClick = onSelectRouteClick,
-            )
-        } else {
-            NavigationRouteReadyContent(
-                route = selectedRoute,
-                trackingStartState = state.trackingStartState,
-                startBlockedByRecovery = state.visibleRecoveredSession() != null,
-                onChangeRouteClick = onSelectRouteClick,
-                onStartTrackingClick = onStartTrackingClick,
-                onStopTrackingClick = onStopTrackingClick,
-            )
+        when {
+            selectedRoute == null && state.visibleRunningTrackingSession() == null -> {
+                NavigationIdleCard(
+                    state = state.idleState,
+                    onSelectRouteClick = onSelectRouteClick,
+                )
+            }
+            selectedRoute != null -> {
+                NavigationRouteReadyContent(
+                    route = selectedRoute,
+                    trackingStartState = state.trackingStartState,
+                    hasRunningTrackingSession = state.visibleRunningTrackingSession() != null,
+                    startBlockedByExistingTracking = state.visibleRecoveredSession() != null ||
+                        state.visibleRunningTrackingSession() != null,
+                    onChangeRouteClick = onSelectRouteClick,
+                    onStartTrackingClick = onStartTrackingClick,
+                    onStopTrackingClick = onStopTrackingClick,
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RunningTrackingSessionCard(
+    state: NavigationRunningTrackingSessionState,
+    trackingStartState: TrackingStartUiState,
+    onStopClick: () -> Unit,
+) {
+    val isStopping = trackingStartState.mode == TrackingStartMode.Stopping
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = SoftGreen,
+        border = BorderStroke(1.dp, Color(0xFFD4E3DA)),
+        tonalElevation = 1.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RoundIcon(Icons.Outlined.Navigation, MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (isStopping) trackingStartState.title else state.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = if (isStopping) trackingStartState.body else state.body,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MutedText,
+                    )
+                }
+            }
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Pill(state.privacyLabel, MaterialTheme.colorScheme.primary)
+                Pill(state.routeLabel, MaterialTheme.colorScheme.primary)
+            }
+            if (!isStopping) {
+                SecondaryNavigationAction(
+                    label = state.stopActionLabel,
+                    icon = Icons.Outlined.Stop,
+                    onClick = onStopClick,
+                )
+            }
         }
     }
 }
@@ -160,6 +227,7 @@ private fun RecoveredTrackingSessionCard(
 private fun NavigationHeader(
     title: String,
     hasSelectedRoute: Boolean,
+    hasRunningTrackingSession: Boolean,
     trackingStartState: TrackingStartUiState,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -171,8 +239,11 @@ private fun NavigationHeader(
         )
         Text(
             text = when {
+                trackingStartState.mode == TrackingStartMode.Starting -> "正在请求启动前台导航服务，确认前不会显示为运行中。"
+                trackingStartState.mode == TrackingStartMode.Stopping -> "正在结束前台导航服务，完成前不会开始新的轨迹导航。"
+                hasRunningTrackingSession -> "前台导航服务已确认运行，路线仍以计划轨迹为准。"
                 !hasSelectedRoute -> "选择路线后，这里会进入轨迹导航准备状态。"
-                trackingStartState.mode == TrackingStartMode.Active -> "前台导航服务已启动，路线仍以计划轨迹为准。"
+                trackingStartState.mode == TrackingStartMode.Active -> "导航状态正在同步，请以当前页面状态为准。"
                 else -> "已选择计划轨迹，开始时会请求定位权限。"
             },
             style = MaterialTheme.typography.bodyMedium,
@@ -226,14 +297,15 @@ private fun NavigationIdleCard(
 private fun NavigationRouteReadyContent(
     route: NavigationRouteReadyState,
     trackingStartState: TrackingStartUiState,
-    startBlockedByRecovery: Boolean,
+    hasRunningTrackingSession: Boolean,
+    startBlockedByExistingTracking: Boolean,
     onChangeRouteClick: () -> Unit,
     onStartTrackingClick: () -> Unit,
     onStopTrackingClick: () -> Unit,
 ) {
-    RouteReadyHero(route, trackingStartState, startBlockedByRecovery)
-    if (startBlockedByRecovery) {
-        RecoveryBlocksNewTrackingNotice()
+    RouteReadyHero(route, trackingStartState, hasRunningTrackingSession, startBlockedByExistingTracking)
+    if (startBlockedByExistingTracking) {
+        ExistingTrackingBlocksNewTrackingNotice()
     } else {
         TrackingStartSection(
             state = trackingStartState,
@@ -241,7 +313,7 @@ private fun NavigationRouteReadyContent(
             onStopClick = onStopTrackingClick,
         )
     }
-    if (trackingStartState.mode != TrackingStartMode.Active) {
+    if (trackingStartState.mode.allowsRouteChange()) {
         SecondaryNavigationAction(
             label = route.changeRouteActionLabel,
             icon = Icons.Outlined.Map,
@@ -257,7 +329,8 @@ private fun NavigationRouteReadyContent(
 private fun RouteReadyHero(
     route: NavigationRouteReadyState,
     trackingStartState: TrackingStartUiState,
-    startBlockedByRecovery: Boolean,
+    hasRunningTrackingSession: Boolean,
+    startBlockedByExistingTracking: Boolean,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -295,10 +368,19 @@ private fun RouteReadyHero(
             }
             Text(
                 text = when {
-                    trackingStartState.mode == TrackingStartMode.Active -> {
-                        "已启动前台导航服务，正在记录真实定位点；路线仍以计划轨迹为准。"
+                    trackingStartState.mode == TrackingStartMode.Active && hasRunningTrackingSession -> {
+                        "前台导航服务已确认运行，正在记录真实定位点；路线仍以计划轨迹为准。"
                     }
-                    startBlockedByRecovery -> RecoveryBlocksNewTrackingMessage
+                    trackingStartState.mode == TrackingStartMode.Active -> {
+                        "导航状态正在同步，请以当前页面状态为准。"
+                    }
+                    trackingStartState.mode == TrackingStartMode.Starting -> {
+                        "正在请求启动前台导航服务；确认运行前不会显示为已启动。"
+                    }
+                    trackingStartState.mode == TrackingStartMode.Stopping -> {
+                        "正在结束前台导航服务；完成前不会开始新的轨迹导航。"
+                    }
+                    startBlockedByExistingTracking -> ExistingTrackingBlocksNewTrackingMessage
                     else -> "尚未启动定位或记录。此路线已进入导航页，后续流程将以它作为计划轨迹。"
                 },
                 style = MaterialTheme.typography.bodySmall,
@@ -309,7 +391,7 @@ private fun RouteReadyHero(
 }
 
 @Composable
-private fun RecoveryBlocksNewTrackingNotice() {
+private fun ExistingTrackingBlocksNewTrackingNotice() {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -328,7 +410,7 @@ private fun RecoveryBlocksNewTrackingNotice() {
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = RecoveryBlocksNewTrackingMessage,
+                text = ExistingTrackingBlocksNewTrackingMessage,
                 style = MaterialTheme.typography.bodySmall,
                 color = MutedText,
             )
@@ -637,3 +719,8 @@ private fun NavigationMetricState.icon(): ImageVector =
         "预计用时" -> Icons.Outlined.Schedule
         else -> Icons.Outlined.CheckCircle
     }
+
+private fun TrackingStartMode.allowsRouteChange(): Boolean =
+    this != TrackingStartMode.Starting &&
+        this != TrackingStartMode.Active &&
+        this != TrackingStartMode.Stopping

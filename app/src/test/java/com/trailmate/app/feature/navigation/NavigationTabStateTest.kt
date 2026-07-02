@@ -123,6 +123,40 @@ class NavigationTabStateTest {
     }
 
     @Test
+    fun startingTrackingStateBlocksNewStartUntilServiceConfirmsRunning() {
+        val routes = RoutesTabSampleState.build()
+        val platformRoute = routes.assets.first { it.sourceLabel == "平台路线" }
+        val detail = requireNotNull(routes.withRouteDetailOpened(platformRoute).routeDetail)
+
+        val navigation = NavigationTabSampleState.build()
+            .withSelectedRoute(detail)
+            .withTrackingStartState(TrackingStartUiState.starting())
+        val visibleText = navigation.visibleText().joinToString("\n")
+
+        assertFalse(navigation.canStartNewTracking())
+        assertTrue(visibleText.contains("正在请求启动前台导航"))
+        assertFalse(visibleText.contains("前台导航服务运行中"))
+        assertFalse(visibleText.contains("更换路线"))
+    }
+
+    @Test
+    fun stoppingTrackingStateBlocksNewStartUntilServiceClear() {
+        val routes = RoutesTabSampleState.build()
+        val platformRoute = routes.assets.first { it.sourceLabel == "平台路线" }
+        val detail = requireNotNull(routes.withRouteDetailOpened(platformRoute).routeDetail)
+
+        val navigation = NavigationTabSampleState.build()
+            .withSelectedRoute(detail)
+            .withTrackingStartState(TrackingStartUiState.stopping())
+        val visibleText = navigation.visibleText().joinToString("\n")
+
+        assertFalse(navigation.canStartNewTracking())
+        assertTrue(visibleText.contains("正在结束前台导航"))
+        assertTrue(visibleText.contains("完成前不会开始新的轨迹导航"))
+        assertFalse(visibleText.contains("更换路线"))
+    }
+
+    @Test
     fun recoveredLocalSessionCopyIsPrivateAndDoesNotClaimLiveGpsOrRescue() {
         val recoveredSession = NavigationRecoveredTrackingSessionState.from(
             record = unfinishedSessionRecord(sampleCount = 2),
@@ -179,9 +213,62 @@ class NavigationTabStateTest {
 
         assertFalse(navigation.canStartNewTracking())
         assertTrue(visibleText.contains("发现未结束的本地记录"))
-        assertTrue(visibleText.contains("请先结束本地记录，再开始新的轨迹导航"))
+        assertTrue(visibleText.contains("请先结束当前记录，再开始新的轨迹导航"))
         assertTrue(visibleText.contains("结束本地记录"))
         assertFalse(visibleText.contains("开始轨迹导航"))
+    }
+
+    @Test
+    fun runningForegroundSessionTakesPrecedenceOverRecoveredLocalSession() {
+        val recoveredSession = NavigationRecoveredTrackingSessionState.from(
+            record = unfinishedSessionRecord(sampleCount = 2),
+            points = emptyList(),
+        )
+        val runningSession = NavigationRunningTrackingSessionState(
+            sessionId = NavigationSessionId("session-1"),
+            routeId = RouteId("longjing"),
+            title = "前台导航服务运行中",
+            body = "正在保持轨迹导航服务；GPS 定位质量以实际信号为准。",
+            privacyLabel = "本机私密",
+            routeLabel = "路线 ID：longjing",
+            stopActionLabel = "结束前台导航",
+        )
+
+        val navigation = NavigationTabSampleState.build()
+            .withRecoveredTrackingSession(recoveredSession)
+            .withRunningTrackingSession(runningSession)
+        val visibleText = navigation.visibleText().joinToString("\n")
+
+        assertTrue(visibleText.contains("前台导航服务运行中"))
+        assertTrue(visibleText.contains("GPS 定位质量以实际信号为准"))
+        assertTrue(visibleText.contains("结束前台导航"))
+        assertFalse(visibleText.contains("发现未结束的本地记录"))
+        assertFalse(visibleText.contains("已恢复导航"))
+        assertFalse(visibleText.contains("自动救援"))
+        assertFalse(visibleText.contains("公开分享"))
+        assertFalse(visibleText.contains("GPS 已定位"))
+        assertFalse(navigation.canStartNewTracking())
+    }
+
+    @Test
+    fun runningForegroundSessionDoesNotShowIdleNoRoutePrompt() {
+        val runningSession = NavigationRunningTrackingSessionState(
+            sessionId = NavigationSessionId("session-1"),
+            routeId = RouteId("longjing"),
+            title = "前台导航服务运行中",
+            body = "正在保持轨迹导航服务；GPS 定位质量以实际信号为准。",
+            privacyLabel = "本机私密",
+            routeLabel = "路线 ID：longjing",
+            stopActionLabel = "结束前台导航",
+        )
+
+        val navigation = NavigationTabSampleState.build()
+            .withRunningTrackingSession(runningSession)
+        val visibleText = navigation.visibleText().joinToString("\n")
+
+        assertTrue(visibleText.contains("前台导航服务运行中"))
+        assertFalse(visibleText.contains("尚未选择路线"))
+        assertFalse(visibleText.contains("去路线页选择可导航路线"))
     }
 
     private fun assertNoDeprecatedSurfaces(visibleText: String) {

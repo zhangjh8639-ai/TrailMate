@@ -26,6 +26,7 @@ import com.trailmate.app.platform.location.AndroidLocationProvider
 
 class TrackingForegroundService : Service() {
     private val controller = TrackingServiceController()
+    private val runtimeRegistry = TrackingServiceRuntimeRegistry.Default
     private var trackingLocationSession: TrackingLocationSession? = null
     private var trackingStartRequest: TrackingServiceStartRequest? = null
     private var locationHandlerThread: HandlerThread? = null
@@ -74,17 +75,20 @@ class TrackingForegroundService : Service() {
         }
 
         val state = locationSession(request).start()
-        if (!state.requiresTrackingServiceShutdownAfterStart()) return
-
-        stopLocationUpdates(markRecordingEnded = true)
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf(startId)
+        if (state.requiresTrackingServiceShutdownAfterStart()) {
+            stopLocationUpdates(markRecordingEnded = true)
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf(startId)
+            return
+        }
+        runtimeRegistry.markRunning(trackingStartRequest ?: request)
     }
 
     private fun stopLocationUpdates(markRecordingEnded: Boolean) {
         trackingLocationSession?.stop(markRecordingEnded = markRecordingEnded)
         trackingLocationSession = null
         trackingStartRequest = null
+        runtimeRegistry.clearRunning()
         stopLocationHandlerThread()
     }
 
