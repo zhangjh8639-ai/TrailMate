@@ -1,6 +1,11 @@
 package com.trailmate.app.feature.routes
 
+import com.trailmate.app.core.model.PrivacyVisibility
+import com.trailmate.app.core.model.RouteConfidence
+import com.trailmate.app.core.model.RouteId
+import com.trailmate.app.core.model.RouteOfflineStatus
 import com.trailmate.app.core.routeimport.RouteImportParser
+import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -102,6 +107,89 @@ class RoutesTabStateTest {
     }
 
     @Test
+    fun parsedImportCanBeSavedAsPrivateTrackOnlyAsset() {
+        val parsed = RouteImportParser.parse("saved-route.gpx", successfulGpx())
+        val imported = parsed.toImportedRoute(
+            id = RouteId("import-test"),
+            region = "导入路线",
+            importedAt = Instant.parse("2026-07-01T00:00:00Z"),
+        )
+
+        assertEquals(PrivacyVisibility.Private, imported.visibility)
+        assertEquals(RouteOfflineStatus.TrackOnly, imported.offlineStatus)
+        assertEquals(RouteConfidence.Unverified, imported.confidence)
+
+        val state = RoutesTabSampleState.build()
+            .withImportResult(parsed)
+            .withSavedImport()
+
+        val saved = state.assets.first()
+        assertEquals("测试路线", saved.name)
+        assertEquals("导入路线", saved.region)
+        assertEquals("GPX 导入", saved.sourceLabel)
+        assertEquals("仅轨迹可用", saved.offlineStatusLabel)
+        assertEquals("待确认", saved.estimatedDurationLabel)
+        assertEquals("未验证", saved.difficultyLabel)
+        assertEquals("可信度待确认", saved.confidenceLabel)
+        assertNull(saved.startActionLabel)
+        assertNull(saved.detailActionLabel)
+        assertTrue(saved.riskTags.contains("导入轨迹"))
+        assertTrue(saved.riskTags.contains("未验证"))
+        assertTrue(saved.riskTags.contains("不含地图底图"))
+        assertTrue(requireNotNull(state.importPreview).qualityNotes.contains("本次已加入路线列表"))
+        assertFalse(requireNotNull(state.importPreview).qualityNotes.contains("未保存，仅本次查看"))
+    }
+
+    @Test
+    fun parsedKmlImportCanBeSavedWithKmlSourceLabel() {
+        val parsed = RouteImportParser.parse("saved-route.kml", successfulKml())
+
+        val state = RoutesTabSampleState.build()
+            .withImportResult(parsed)
+            .withSavedImport()
+
+        val saved = state.assets.first()
+        assertEquals("测试 KML 路线", saved.name)
+        assertEquals("KML 导入", saved.sourceLabel)
+        assertEquals("仅轨迹可用", saved.offlineStatusLabel)
+        assertTrue(saved.riskTags.contains("不含地图底图"))
+    }
+
+    @Test
+    fun parsedImportPreviewShowsTrackOnlyUnverifiedBoundary() {
+        val state = RoutesTabSampleState.build().withImportResult(
+            RouteImportParser.parse("my-route.gpx", successfulGpx()),
+        )
+        val preview = requireNotNull(state.importPreview)
+
+        assertTrue(preview.qualityNotes.contains("仅轨迹可用"))
+        assertTrue(preview.qualityNotes.contains("未验证"))
+        assertTrue(preview.qualityNotes.contains("未保存，仅本次查看"))
+    }
+
+    @Test
+    fun savingSameImportTwiceDoesNotDuplicateAsset() {
+        val parsed = RouteImportParser.parse("saved-route.gpx", successfulGpx())
+        val state = RoutesTabSampleState.build()
+            .withImportResult(parsed)
+            .withSavedImport()
+            .withSavedImport()
+
+        assertEquals(1, state.assets.count { it.sourceLabel == "GPX 导入" && it.name == "测试路线" })
+        assertEquals("测试路线", state.assets.first().name)
+    }
+
+    @Test
+    fun failedImportCannotBeSaved() {
+        val state = RoutesTabSampleState.build()
+            .withImportReadFailure("broken.gpx", "文件解析失败")
+            .withSavedImport()
+
+        assertFalse(state.assets.any { it.sourceLabel == "GPX 导入" || it.sourceLabel == "KML 导入" })
+        assertFalse(state.visibleText().contains("保存到路线"))
+    }
+
+    @Test
     fun rejectedImportPreviewShowsFailureWithoutCrashingTheRouteTab() {
         val rejected = RouteImportParser.parse(
             fileName = "broken.gpx",
@@ -127,6 +215,7 @@ class RoutesTabStateTest {
             base.withImporting(),
             base.withImportCancelled(),
             base.withImportResult(RouteImportParser.parse("my-route.gpx", successfulGpx())),
+            base.withImportResult(RouteImportParser.parse("my-route.gpx", successfulGpx())).withSavedImport(),
             base.withImportReadFailure("broken.gpx", "文件解析失败"),
         )
         val visibleText = states.flatMap { it.visibleText() }.joinToString(separator = "\n")
@@ -149,5 +238,23 @@ class RoutesTabStateTest {
             </trkseg>
           </trk>
         </gpx>
+        """.trimIndent()
+
+    private fun successfulKml(): String =
+        """
+        <kml xmlns="http://www.opengis.net/kml/2.2">
+          <Document>
+            <name>测试 KML 路线</name>
+            <Placemark>
+              <name>测试 KML 路线</name>
+              <LineString>
+                <coordinates>
+                  120.0000,30.0000,10
+                  120.0010,30.0010,30
+                </coordinates>
+              </LineString>
+            </Placemark>
+          </Document>
+        </kml>
         """.trimIndent()
 }

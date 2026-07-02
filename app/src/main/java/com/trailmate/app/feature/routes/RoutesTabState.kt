@@ -1,6 +1,7 @@
 package com.trailmate.app.feature.routes
 
 import com.trailmate.app.core.routeimport.RouteImportParser
+import com.trailmate.app.core.routeimport.RouteImportFormat
 import com.trailmate.app.core.routeimport.RouteImportResult
 import com.trailmate.app.core.routeimport.RouteImportStatus
 import com.trailmate.app.core.routeimport.RouteImportWarning
@@ -17,6 +18,7 @@ data class RoutesTabState(
     val importFlowStatus: RouteImportFlowStatus,
     val importEmptyState: RouteImportEmptyState,
     val importPreview: RouteImportPreviewState?,
+    val saveableImport: SaveableImportState?,
     val assets: List<RouteAssetCardState>,
 ) {
     fun visibleText(): List<String> =
@@ -92,6 +94,14 @@ data class RouteImportPreviewState(
             }
 }
 
+data class SaveableImportState(
+    val key: String,
+    val routeName: String,
+    val sourceLabel: String,
+    val distanceLabel: String,
+    val elevationGainLabel: String,
+)
+
 data class RouteAssetCardState(
     val name: String,
     val region: String,
@@ -104,8 +114,9 @@ data class RouteAssetCardState(
     val confidenceLabel: String,
     val riskTags: List<String>,
     val lastUsedLabel: String? = null,
-    val startActionLabel: String = "开始导航",
-    val detailActionLabel: String = "查看详情",
+    val startActionLabel: String? = "开始导航",
+    val detailActionLabel: String? = "查看详情",
+    val identityKey: String? = null,
 ) {
     fun visibleText(): List<String> =
         buildList {
@@ -119,8 +130,8 @@ data class RouteAssetCardState(
             add(difficultyLabel)
             add(confidenceLabel)
             lastUsedLabel?.let { add(it) }
-            add(startActionLabel)
-            add(detailActionLabel)
+            startActionLabel?.let { add(it) }
+            detailActionLabel?.let { add(it) }
             addAll(riskTags)
         }
 }
@@ -143,6 +154,7 @@ object RoutesTabSampleState {
             importFlowStatus = RouteImportFlowStatus.Idle,
             importEmptyState = RouteImportEmptyState(),
             importPreview = null,
+            saveableImport = null,
             assets = listOf(
                 RouteAssetCardState(
                     name = "九溪十八涧 · 龙井环线",
@@ -181,6 +193,8 @@ object RoutesTabSampleState {
             } else {
                 add("缺少海拔数据，剩余爬升仅作参考")
             }
+            add("仅轨迹可用")
+            add("未验证")
             add("未保存，仅本次查看")
             result.warnings.mapNotNullTo(this) { it.qualityLabel() }
         }
@@ -199,6 +213,43 @@ object RoutesTabSampleState {
             canUseRouteActions = true,
         )
     }
+
+    internal fun saveableImportFromResult(result: RouteImportResult): SaveableImportState? {
+        val geometry = result.geometry ?: return null
+        val format = result.format ?: return null
+
+        return SaveableImportState(
+            key = listOf(
+                format.name,
+                result.fileName,
+                result.routeName,
+                geometry.totalDistance.meters.roundToInt().toString(),
+                result.trackPointCount.toString(),
+            ).joinToString(separator = "|"),
+            routeName = result.routeName,
+            sourceLabel = format.sourceLabel(),
+            distanceLabel = geometry.totalDistance.kilometersLabel(),
+            elevationGainLabel = geometry.elevationGain.metersLabel(prefixPlus = true),
+        )
+    }
+
+    internal fun savedImportedAsset(saveable: SaveableImportState): RouteAssetCardState =
+        RouteAssetCardState(
+            name = saveable.routeName,
+            region = "导入路线",
+            sourceLabel = saveable.sourceLabel,
+            offlineStatusLabel = "仅轨迹可用",
+            distanceLabel = saveable.distanceLabel,
+            elevationGainLabel = saveable.elevationGainLabel,
+            estimatedDurationLabel = "待确认",
+            difficultyLabel = "未验证",
+            confidenceLabel = "可信度待确认",
+            riskTags = listOf("导入轨迹", "未验证", "不含地图底图"),
+            lastUsedLabel = "本次已加入路线列表",
+            startActionLabel = null,
+            detailActionLabel = null,
+            identityKey = saveable.key,
+        )
 
     private fun rejectedImportPreview(result: RouteImportResult): RouteImportPreviewState =
         RouteImportPreviewState(
@@ -220,12 +271,14 @@ fun RoutesTabState.withImporting(): RoutesTabState =
     copy(
         importFlowStatus = RouteImportFlowStatus.Importing,
         importPreview = null,
+        saveableImport = null,
     )
 
 fun RoutesTabState.withImportCancelled(): RoutesTabState =
     copy(
         importFlowStatus = RouteImportFlowStatus.Cancelled,
         importPreview = null,
+        saveableImport = null,
     )
 
 fun RoutesTabState.withImportReadFailure(
@@ -234,6 +287,7 @@ fun RoutesTabState.withImportReadFailure(
 ): RoutesTabState =
     copy(
         importFlowStatus = RouteImportFlowStatus.Failed,
+        saveableImport = null,
         importPreview = RouteImportPreviewState(
             fileName = fileName.ifBlank { "未知文件" },
             statusLabel = "导入失败",
@@ -255,6 +309,31 @@ fun RoutesTabState.withImportResult(result: RouteImportResult): RoutesTabState {
     return copy(
         importFlowStatus = if (parsed) RouteImportFlowStatus.PreviewReady else RouteImportFlowStatus.Failed,
         importPreview = preview,
+        saveableImport = if (parsed) RoutesTabSampleState.saveableImportFromResult(result) else null,
+    )
+}
+
+fun RoutesTabState.withSavedImport(): RoutesTabState {
+    val saveable = saveableImport ?: return this
+    val savedAsset = RoutesTabSampleState.savedImportedAsset(saveable)
+
+    return copy(
+        importPreview = importPreview?.copy(
+            qualityNotes = importPreview.qualityNotes
+                .filterNot {
+                    it == "未保存，仅本次查看" ||
+                        it == "已保存到路线" ||
+                        it == "本次已加入路线列表"
+                } + "本次已加入路线列表",
+        ),
+        assets = listOf(savedAsset) + assets.filterNot { asset ->
+            asset.identityKey == saveable.key ||
+                (
+                    asset.identityKey == null &&
+                        asset.sourceLabel == savedAsset.sourceLabel &&
+                        asset.name == savedAsset.name
+                )
+        },
     )
 }
 
@@ -293,6 +372,12 @@ private fun RouteImportWarning.rejectedLabel(): String =
         RouteImportWarning.MissingElevation -> "缺少海拔数据"
         RouteImportWarning.SparseTrack -> "轨迹点偏少"
         RouteImportWarning.LargePointGap -> "点间距偏大"
+    }
+
+private fun RouteImportFormat.sourceLabel(): String =
+    when (this) {
+        RouteImportFormat.Gpx -> "GPX 导入"
+        RouteImportFormat.Kml -> "KML 导入"
     }
 
 private fun com.trailmate.app.core.model.Distance.kilometersLabel(): String =

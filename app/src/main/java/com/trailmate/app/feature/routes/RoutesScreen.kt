@@ -57,6 +57,7 @@ fun RoutesScreen(
     modifier: Modifier = Modifier,
     state: RoutesTabState = RoutesTabSampleState.build(),
     onImportClick: () -> Unit = {},
+    onSaveImportClick: () -> Unit = {},
 ) {
     Column(
         modifier = modifier
@@ -70,7 +71,7 @@ fun RoutesScreen(
         ImportActionButton(state.importActionLabel, onImportClick)
         SearchField(state.searchPlaceholder)
         RouteFilterRow(state.filters, state.selectedFilter)
-        ImportStateContent(state, onImportClick)
+        ImportStateContent(state, onImportClick, onSaveImportClick)
         SectionLabel("路线资产")
         state.assets.forEach { asset ->
             RouteAssetCard(asset)
@@ -132,6 +133,7 @@ private fun ImportActionButton(
 private fun ImportStateContent(
     state: RoutesTabState,
     onImportClick: () -> Unit,
+    onSaveImportClick: () -> Unit,
 ) {
     when (state.importFlowStatus) {
         RouteImportFlowStatus.Idle -> ImportEmptyCard(
@@ -150,7 +152,7 @@ private fun ImportStateContent(
         RouteImportFlowStatus.PreviewReady,
         RouteImportFlowStatus.Failed -> {
             state.importPreview?.let { preview ->
-                ImportPreviewCard(preview, onImportClick)
+                ImportPreviewCard(preview, onImportClick, onSaveImportClick)
             }
         }
     }
@@ -289,6 +291,7 @@ private fun RouteFilterRow(
 private fun ImportPreviewCard(
     preview: RouteImportPreviewState,
     onRetryImport: () -> Unit,
+    onSaveImportClick: () -> Unit,
 ) {
     val statusTone = if (preview.canUseRouteActions) SuccessGreen else WarningOrange
     val statusIcon = if (preview.canUseRouteActions) Icons.Outlined.CheckCircle else Icons.Outlined.ErrorOutline
@@ -328,6 +331,7 @@ private fun ImportPreviewCard(
                     StaticSecondaryAction(
                         label = preview.saveActionLabel,
                         modifier = Modifier.weight(1f),
+                        onClick = onSaveImportClick,
                     )
                     StaticSecondaryAction(
                         label = preview.detailActionLabel,
@@ -509,25 +513,31 @@ private fun RouteAssetCard(asset: RouteAssetCardState) {
                     modifier = Modifier.size(22.dp),
                 )
             }
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(Hairline),
-            )
-            Row(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                StaticPrimaryAction(
-                    label = asset.startActionLabel,
-                    icon = Icons.Outlined.PlayArrow,
-                    modifier = Modifier.weight(1f),
+            if (asset.startActionLabel != null || asset.detailActionLabel != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(Hairline),
                 )
-                StaticSecondaryAction(
-                    label = asset.detailActionLabel,
-                    modifier = Modifier.weight(1f),
-                )
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    asset.startActionLabel?.let { label ->
+                        StaticPrimaryAction(
+                            label = label,
+                            icon = Icons.Outlined.PlayArrow,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    asset.detailActionLabel?.let { label ->
+                        StaticSecondaryAction(
+                            label = label,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
             }
         }
     }
