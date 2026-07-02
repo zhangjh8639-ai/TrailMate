@@ -72,7 +72,7 @@ class ImportedRoutePersistenceMapperTest {
         assertEquals("未验证", asset.difficultyLabel)
         assertEquals("可信度待确认", asset.confidenceLabel)
         assertNull(asset.startActionLabel)
-        assertNull(asset.detailActionLabel)
+        assertEquals("查看详情", asset.detailActionLabel)
         assertTrue(asset.riskTags.contains("导入轨迹"))
         assertTrue(asset.riskTags.contains("未验证"))
         assertTrue(asset.riskTags.contains("不含地图底图"))
