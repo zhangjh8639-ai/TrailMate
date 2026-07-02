@@ -53,6 +53,7 @@ fun NavigationScreen(
     onSelectRouteClick: () -> Unit = {},
     onStartTrackingClick: () -> Unit = {},
     onStopTrackingClick: () -> Unit = {},
+    onEndRecoveredTrackingClick: () -> Unit = {},
 ) {
     Column(
         modifier = modifier
@@ -67,6 +68,12 @@ fun NavigationScreen(
             hasSelectedRoute = state.selectedRoute != null,
             trackingStartState = state.trackingStartState,
         )
+        state.visibleRecoveredSession()?.let { recoveredSession ->
+            RecoveredTrackingSessionCard(
+                state = recoveredSession,
+                onEndClick = onEndRecoveredTrackingClick,
+            )
+        }
         val selectedRoute = state.selectedRoute
         if (selectedRoute == null) {
             NavigationIdleCard(
@@ -77,9 +84,73 @@ fun NavigationScreen(
             NavigationRouteReadyContent(
                 route = selectedRoute,
                 trackingStartState = state.trackingStartState,
+                startBlockedByRecovery = state.visibleRecoveredSession() != null,
                 onChangeRouteClick = onSelectRouteClick,
                 onStartTrackingClick = onStartTrackingClick,
                 onStopTrackingClick = onStopTrackingClick,
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RecoveredTrackingSessionCard(
+    state: NavigationRecoveredTrackingSessionState,
+    onEndClick: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = Color(0xFFFFFBF2),
+        border = BorderStroke(1.dp, Color(0xFFF1D3A7)),
+        tonalElevation = 1.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RoundIcon(Icons.Outlined.Info, WarningOrange)
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = state.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = state.body,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MutedText,
+                    )
+                }
+            }
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Pill(state.privacyLabel, MaterialTheme.colorScheme.primary)
+                Pill(state.pointCountLabel, WarningOrange)
+                Pill(state.routeLabel, MaterialTheme.colorScheme.primary)
+            }
+            Text(
+                text = state.startedAtLabel,
+                style = MaterialTheme.typography.bodySmall,
+                color = MutedText,
+            )
+            state.lastRecordedAtLabel?.let { lastRecordedAt ->
+                Text(
+                    text = lastRecordedAt,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MutedText,
+                )
+            }
+            SecondaryNavigationAction(
+                label = state.endActionLabel,
+                icon = Icons.Outlined.Stop,
+                onClick = onEndClick,
             )
         }
     }
@@ -155,16 +226,21 @@ private fun NavigationIdleCard(
 private fun NavigationRouteReadyContent(
     route: NavigationRouteReadyState,
     trackingStartState: TrackingStartUiState,
+    startBlockedByRecovery: Boolean,
     onChangeRouteClick: () -> Unit,
     onStartTrackingClick: () -> Unit,
     onStopTrackingClick: () -> Unit,
 ) {
-    RouteReadyHero(route, trackingStartState)
-    TrackingStartSection(
-        state = trackingStartState,
-        onStartClick = onStartTrackingClick,
-        onStopClick = onStopTrackingClick,
-    )
+    RouteReadyHero(route, trackingStartState, startBlockedByRecovery)
+    if (startBlockedByRecovery) {
+        RecoveryBlocksNewTrackingNotice()
+    } else {
+        TrackingStartSection(
+            state = trackingStartState,
+            onStartClick = onStartTrackingClick,
+            onStopClick = onStopTrackingClick,
+        )
+    }
     if (trackingStartState.mode != TrackingStartMode.Active) {
         SecondaryNavigationAction(
             label = route.changeRouteActionLabel,
@@ -181,6 +257,7 @@ private fun NavigationRouteReadyContent(
 private fun RouteReadyHero(
     route: NavigationRouteReadyState,
     trackingStartState: TrackingStartUiState,
+    startBlockedByRecovery: Boolean,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -217,11 +294,41 @@ private fun RouteReadyHero(
                 }
             }
             Text(
-                text = if (trackingStartState.mode == TrackingStartMode.Active) {
-                    "已启动前台导航服务，正在记录真实定位点；路线仍以计划轨迹为准。"
-                } else {
-                    "尚未启动定位或记录。此路线已进入导航页，后续流程将以它作为计划轨迹。"
+                text = when {
+                    trackingStartState.mode == TrackingStartMode.Active -> {
+                        "已启动前台导航服务，正在记录真实定位点；路线仍以计划轨迹为准。"
+                    }
+                    startBlockedByRecovery -> RecoveryBlocksNewTrackingMessage
+                    else -> "尚未启动定位或记录。此路线已进入导航页，后续流程将以它作为计划轨迹。"
                 },
+                style = MaterialTheme.typography.bodySmall,
+                color = MutedText,
+            )
+        }
+    }
+}
+
+@Composable
+private fun RecoveryBlocksNewTrackingNotice() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xFFF8FAF7),
+        border = BorderStroke(1.dp, Hairline),
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Info,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(17.dp),
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = RecoveryBlocksNewTrackingMessage,
                 style = MaterialTheme.typography.bodySmall,
                 color = MutedText,
             )

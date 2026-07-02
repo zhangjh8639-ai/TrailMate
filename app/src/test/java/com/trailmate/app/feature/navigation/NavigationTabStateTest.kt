@@ -1,5 +1,13 @@
 package com.trailmate.app.feature.navigation
 
+import com.trailmate.app.core.database.TrackingSessionRecord
+import com.trailmate.app.core.database.TrackingTrackPointRecord
+import com.trailmate.app.core.model.GeoCoordinate
+import com.trailmate.app.core.model.GpsAccuracy
+import com.trailmate.app.core.model.NavigationDirection
+import com.trailmate.app.core.model.NavigationSessionId
+import com.trailmate.app.core.model.NavigationState
+import com.trailmate.app.core.model.RouteId
 import com.trailmate.app.core.routeimport.RouteImportParser
 import com.trailmate.app.feature.routes.RoutesTabSampleState
 import com.trailmate.app.feature.routes.withImportResult
@@ -114,11 +122,98 @@ class NavigationTabStateTest {
         assertTrue(visibleText.contains("前台导航服务运行中"))
     }
 
+    @Test
+    fun recoveredLocalSessionCopyIsPrivateAndDoesNotClaimLiveGpsOrRescue() {
+        val recoveredSession = NavigationRecoveredTrackingSessionState.from(
+            record = unfinishedSessionRecord(sampleCount = 2),
+            points = listOf(trackPointAt(index = 0, epochMillis = 1_788_000_003_000)),
+        )
+
+        val navigation = NavigationTabSampleState.build()
+            .withRecoveredTrackingSession(recoveredSession)
+        val visibleText = navigation.visibleText().joinToString("\n")
+
+        assertTrue(visibleText.contains("发现未结束的本地记录"))
+        assertTrue(visibleText.contains("本机私密"))
+        assertTrue(visibleText.contains("已记录 2 个定位点"))
+        assertTrue(visibleText.contains("结束本地记录"))
+        assertTrue(visibleText.contains("不会自动上传或分享"))
+        assertFalse(visibleText.contains("前台导航服务运行中"))
+        assertFalse(visibleText.contains("已恢复导航"))
+        assertFalse(visibleText.contains("已恢复前台服务"))
+        assertFalse(visibleText.contains("自动救援"))
+        assertFalse(visibleText.contains("公开分享"))
+        assertNoDeprecatedSurfaces(visibleText)
+    }
+
+    @Test
+    fun activeTrackingStateSuppressesRecoveredSessionCopy() {
+        val recoveredSession = NavigationRecoveredTrackingSessionState.from(
+            record = unfinishedSessionRecord(sampleCount = 1),
+            points = emptyList(),
+        )
+
+        val navigation = NavigationTabSampleState.build()
+            .withRecoveredTrackingSession(recoveredSession)
+            .withTrackingStartState(TrackingStartUiState.active())
+        val visibleText = navigation.visibleText().joinToString("\n")
+
+        assertFalse(visibleText.contains("发现未结束的本地记录"))
+        assertFalse(visibleText.contains("结束本地记录"))
+    }
+
+    @Test
+    fun recoveredLocalSessionBlocksStartingAnotherTrackingSession() {
+        val routes = RoutesTabSampleState.build()
+        val platformRoute = routes.assets.first { it.sourceLabel == "平台路线" }
+        val detail = requireNotNull(routes.withRouteDetailOpened(platformRoute).routeDetail)
+        val recoveredSession = NavigationRecoveredTrackingSessionState.from(
+            record = unfinishedSessionRecord(sampleCount = 1),
+            points = emptyList(),
+        )
+
+        val navigation = NavigationTabSampleState.build()
+            .withSelectedRoute(detail)
+            .withRecoveredTrackingSession(recoveredSession)
+        val visibleText = navigation.visibleText().joinToString("\n")
+
+        assertFalse(navigation.canStartNewTracking())
+        assertTrue(visibleText.contains("发现未结束的本地记录"))
+        assertTrue(visibleText.contains("请先结束本地记录，再开始新的轨迹导航"))
+        assertTrue(visibleText.contains("结束本地记录"))
+        assertFalse(visibleText.contains("开始轨迹导航"))
+    }
+
     private fun assertNoDeprecatedSurfaces(visibleText: String) {
         listOf("规划", "装备", "社区", "商城", "出发前检查", "完成检查后开始").forEach { deprecated ->
             assertFalse("Navigation handoff must not expose $deprecated", visibleText.contains(deprecated))
         }
     }
+
+    private fun unfinishedSessionRecord(sampleCount: Int): TrackingSessionRecord =
+        TrackingSessionRecord(
+            sessionId = NavigationSessionId("session-1"),
+            routeId = RouteId("longjing"),
+            startedAtEpochMillis = 1_788_000_000_000,
+            endedAtEpochMillis = null,
+            state = NavigationState.Navigating,
+            direction = NavigationDirection.Forward,
+            sampleCount = sampleCount,
+        )
+
+    private fun trackPointAt(
+        index: Int,
+        epochMillis: Long,
+    ): TrackingTrackPointRecord =
+        TrackingTrackPointRecord(
+            sessionId = NavigationSessionId("session-1"),
+            pointIndex = index,
+            coordinate = GeoCoordinate(latitude = 30.245, longitude = 120.116),
+            accuracy = GpsAccuracy(4.5),
+            recordedAtEpochMillis = epochMillis,
+            bearingDegrees = null,
+            speedMetersPerSecond = null,
+        )
 
     private fun successfulGpx(): String =
         """
