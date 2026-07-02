@@ -113,6 +113,7 @@ data class SaveableImportState(
 )
 
 data class RouteAssetCardState(
+    val routeKey: String,
     val name: String,
     val region: String,
     val sourceLabel: String,
@@ -147,6 +148,7 @@ data class RouteAssetCardState(
 }
 
 data class RouteDetailState(
+    val routeKey: String,
     val title: String,
     val subtitle: String,
     val sourceLabel: String,
@@ -156,6 +158,7 @@ data class RouteDetailState(
     val riskTags: List<String>,
     val boundaryNotes: List<String>,
     val backActionLabel: String = "返回路线",
+    val navigationActionLabel: String = "选择为导航路线",
     val startActionLabel: String? = null,
 ) {
     fun visibleText(): List<String> =
@@ -171,6 +174,7 @@ data class RouteDetailState(
             }
             add(confidenceLabel)
             add(backActionLabel)
+            add(navigationActionLabel)
             startActionLabel?.let { add(it) }
             addAll(riskTags)
             addAll(boundaryNotes)
@@ -203,6 +207,7 @@ object RoutesTabSampleState {
             saveableImport = null,
             assets = listOf(
                 RouteAssetCardState(
+                    routeKey = "platform:jiuxi-longjing-loop",
                     name = "九溪十八涧 · 龙井环线",
                     region = "杭州 · 西湖群山",
                     sourceLabel = "平台路线",
@@ -216,6 +221,7 @@ object RoutesTabSampleState {
                     lastUsedLabel = "上次 3 天前",
                 ),
                 RouteAssetCardState(
+                    routeKey = "platform:lingyin-beigaofeng-short",
                     name = "灵隐北高峰短线",
                     region = "杭州 · 灵隐",
                     sourceLabel = "收藏路线",
@@ -319,6 +325,11 @@ fun RoutesTabState.withRouteDetailOpened(asset: RouteAssetCardState): RoutesTabS
 fun RoutesTabState.withRouteDetailClosed(): RoutesTabState =
     copy(routeDetail = null)
 
+fun RoutesTabState.routeDetailForNavigationKey(routeKey: String?): RouteDetailState? =
+    routeKey?.let { key ->
+        assets.firstOrNull { asset -> asset.routeKey == key }?.toRouteDetailState()
+    }
+
 fun RoutesTabState.withImportReadFailure(
     fileName: String,
     reason: String,
@@ -418,6 +429,7 @@ internal fun ImportedRouteRecord.toRouteAssetCardState(
     lastUsedLabel: String? = "已保存到本机",
 ): RouteAssetCardState =
     RouteAssetCardState(
+        routeKey = id,
         name = routeName,
         region = "导入路线",
         sourceLabel = sourceType.importSourceLabel(),
@@ -436,6 +448,7 @@ internal fun ImportedRouteRecord.toRouteAssetCardState(
 
 private fun RouteAssetCardState.toRouteDetailState(): RouteDetailState =
     RouteDetailState(
+        routeKey = routeKey,
         title = name,
         subtitle = region,
         sourceLabel = sourceLabel,

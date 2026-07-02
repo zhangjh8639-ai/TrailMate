@@ -31,6 +31,7 @@ import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Map
+import androidx.compose.material.icons.outlined.Navigation
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Search
@@ -62,6 +63,7 @@ fun RoutesScreen(
     onSaveImportClick: () -> Unit = {},
     onRouteDetailClick: (RouteAssetCardState) -> Unit = {},
     onRouteDetailBackClick: () -> Unit = {},
+    onRouteNavigationReadyClick: (RouteDetailState) -> Unit = {},
 ) {
     state.routeDetail?.let { routeDetail ->
         BackHandler(onBack = onRouteDetailBackClick)
@@ -69,6 +71,7 @@ fun RoutesScreen(
             modifier = modifier,
             detail = routeDetail,
             onBackClick = onRouteDetailBackClick,
+            onNavigationReadyClick = onRouteNavigationReadyClick,
         )
         return
     }
@@ -100,6 +103,7 @@ fun RoutesScreen(
 private fun RouteDetailScreen(
     detail: RouteDetailState,
     onBackClick: () -> Unit,
+    onNavigationReadyClick: (RouteDetailState) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -198,6 +202,13 @@ private fun RouteDetailScreen(
             SectionLabel("风险与状态")
             QualityNotes(detail.riskTags)
         }
+
+        StaticPrimaryAction(
+            label = detail.navigationActionLabel,
+            icon = Icons.Outlined.Navigation,
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { onNavigationReadyClick(detail) },
+        )
 
         SectionLabel("边界说明")
         detail.boundaryNotes.forEach { note ->
@@ -774,9 +785,18 @@ private fun StaticPrimaryAction(
     label: String,
     icon: ImageVector?,
     modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
 ) {
+    val actionModifier = if (onClick == null) {
+        modifier.height(42.dp)
+    } else {
+        modifier
+            .height(42.dp)
+            .clickable(onClick = onClick)
+    }
+
     Surface(
-        modifier = modifier.height(42.dp),
+        modifier = actionModifier,
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.primary,
     ) {
