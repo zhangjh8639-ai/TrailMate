@@ -44,13 +44,19 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.trailmate.app.core.database.SqliteImportedRouteStore
+import com.trailmate.app.core.model.NavigationEvent
+import com.trailmate.app.core.model.NavigationSession
+import com.trailmate.app.core.model.NavigationSessionId
+import com.trailmate.app.core.model.RouteId
 import com.trailmate.app.core.routeimport.RouteImportParser
 import com.trailmate.app.feature.navigation.NavigationScreen
+import com.trailmate.app.feature.navigation.NavigationRouteReadyState
 import com.trailmate.app.feature.navigation.NavigationTabSampleState
 import com.trailmate.app.feature.navigation.NavigationTabState
 import com.trailmate.app.feature.navigation.NavigationTrackingStartReducer
 import com.trailmate.app.feature.navigation.TrackingRuntimePermissions
 import com.trailmate.app.feature.navigation.TrackingStartEffect
+import com.trailmate.app.feature.navigation.TrackingStartMode
 import com.trailmate.app.feature.navigation.TrackingStartUiState
 import com.trailmate.app.feature.navigation.withSelectedRoute
 import com.trailmate.app.feature.navigation.withTrackingStartState
@@ -72,6 +78,8 @@ import com.trailmate.app.feature.routes.withRouteDetailClosed
 import com.trailmate.app.feature.routes.withRouteDetailOpened
 import com.trailmate.app.feature.routes.withSavedImport
 import com.trailmate.app.services.tracking.AndroidTrackingServiceLauncher
+import com.trailmate.app.services.tracking.TrackingServiceStartRequest
+import java.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -99,6 +107,7 @@ fun TrailMateApp() {
     val trackingServiceLauncher = remember(context.applicationContext) {
         AndroidTrackingServiceLauncher(context.applicationContext)
     }
+    var pendingTrackingStartRequest by remember { mutableStateOf<TrackingServiceStartRequest?>(null) }
     val importedRouteStore = remember(context.applicationContext) {
         SqliteImportedRouteStore(context.applicationContext)
     }
@@ -148,7 +157,14 @@ fun TrailMateApp() {
         )
         trackingStartMode = decision.state.mode
         when (decision.effect) {
-            TrackingStartEffect.StartTrackingService -> trackingServiceLauncher.start()
+            TrackingStartEffect.StartTrackingService -> {
+                val request = pendingTrackingStartRequest
+                    ?: navigationState.selectedRoute?.toTrackingServiceStartRequest()
+                if (request != null) {
+                    trackingServiceLauncher.start(request)
+                    pendingTrackingStartRequest = null
+                }
+            }
             TrackingStartEffect.StopTrackingService -> trackingServiceLauncher.stop()
             TrackingStartEffect.RequestPermissions,
             null,
@@ -216,6 +232,11 @@ fun TrailMateApp() {
                     routesState = routesState.withRouteDetailClosed()
                 },
                 onRouteNavigationReadyClick = { detail ->
+                    if (trackingStartMode == TrackingStartMode.Active) {
+                        routesState = routesState.withRouteDetailClosed()
+                        selectedTab = TrailMateTab.Navigation
+                        return@TabContent
+                    }
                     selectedNavigationRouteKey = detail.routeKey
                     routesState = routesState.withRouteDetailClosed()
                     selectedTab = TrailMateTab.Navigation
@@ -224,6 +245,11 @@ fun TrailMateApp() {
                     selectedTab = TrailMateTab.Routes
                 },
                 onStartTrackingClick = {
+                    val trackingRequest = navigationState.selectedRoute?.toTrackingServiceStartRequest()
+                    if (trackingRequest == null) {
+                        return@TabContent
+                    }
+                    pendingTrackingStartRequest = trackingRequest
                     val decision = trackingReducer.onStartClicked(
                         hasRequiredStartPermissions = TrackingRuntimePermissions.hasRequiredStartPermissions(context),
                     )
@@ -232,7 +258,10 @@ fun TrailMateApp() {
                         TrackingStartEffect.RequestPermissions -> trackingPermissionLauncher.launch(
                             TrackingRuntimePermissions.requiredForCurrentDevice(),
                         )
-                        TrackingStartEffect.StartTrackingService -> trackingServiceLauncher.start()
+                        TrackingStartEffect.StartTrackingService -> {
+                            trackingServiceLauncher.start(trackingRequest)
+                            pendingTrackingStartRequest = null
+                        }
                         TrackingStartEffect.StopTrackingService -> trackingServiceLauncher.stop()
                         null -> Unit
                     }
@@ -240,6 +269,7 @@ fun TrailMateApp() {
                 onStopTrackingClick = {
                     val decision = trackingReducer.onStopClicked()
                     trackingStartMode = decision.state.mode
+                    pendingTrackingStartRequest = null
                     if (decision.effect == TrackingStartEffect.StopTrackingService) {
                         trackingServiceLauncher.stop()
                     }
@@ -389,7 +419,7 @@ private fun TrailMateTab.screenCopy(): ScreenCopy =
             eyebrow = "核心导航",
             title = "沿轨迹导航，不迷路",
             body = "导航中会聚焦地图、当前位置、偏航状态、剩余距离、原路返回和紧急卡片。",
-            status = "下一步：模拟导航状态机与地图占位",
+            status = "下一步：接入地图呈现、偏航判断与紧急卡片",
         )
         TrailMateTab.Records -> ScreenCopy(
             eyebrow = "复盘反馈",
@@ -411,3 +441,15 @@ private data class ScreenCopy(
     val body: String,
     val status: String,
 )
+
+private fun NavigationRouteReadyState.toTrackingServiceStartRequest(
+    now: Instant = Instant.now(),
+): TrackingServiceStartRequest {
+    val session = NavigationSession.create(
+        id = NavigationSessionId("nav-$routeKey-${now.toEpochMilli()}"),
+        routeId = RouteId(routeKey),
+        startedAt = now,
+    ).reduce(NavigationEvent.StartNavigation)
+
+    return TrackingServiceStartRequest.fromSession(session)
+}

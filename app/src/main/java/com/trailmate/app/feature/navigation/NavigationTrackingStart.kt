@@ -24,7 +24,7 @@ data class TrackingStartUiState(
             TrackingStartUiState(
                 mode = TrackingStartMode.PermissionRequired,
                 title = "需要定位权限",
-                body = "TrailMate 需要当前位置来判断你是否偏离路线；授权后会启动前台导航服务。",
+                body = "TrailMate 需要当前位置来记录真实轨迹点；后续可用于偏航判断和复盘。",
                 primaryActionLabel = "继续授权",
                 secondaryActionLabel = null,
             )
@@ -33,7 +33,7 @@ data class TrackingStartUiState(
             TrackingStartUiState(
                 mode = TrackingStartMode.Active,
                 title = "前台导航服务运行中",
-                body = "正在保持导航运行状态；当前位置、偏航判断和轨迹记录将在后续版本显示。",
+                body = "正在通过前台服务接收真实定位并记录轨迹点；锁屏后仍会保持运行状态。",
                 primaryActionLabel = null,
                 secondaryActionLabel = "停止前台导航",
             )

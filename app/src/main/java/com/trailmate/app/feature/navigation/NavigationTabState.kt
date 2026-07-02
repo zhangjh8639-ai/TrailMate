@@ -12,7 +12,11 @@ data class NavigationTabState(
         buildList {
             add(title)
             selectedRoute?.let {
-                addAll(it.visibleText())
+                addAll(
+                    it.visibleText(
+                        includeChangeRouteAction = trackingStartState.mode != TrackingStartMode.Active,
+                    ),
+                )
                 addAll(trackingStartState.visibleText())
             } ?: addAll(idleState.visibleText())
         }
@@ -39,7 +43,7 @@ data class NavigationRouteReadyState(
     val boundaryNotes: List<String>,
     val changeRouteActionLabel: String = "更换路线",
 ) {
-    fun visibleText(): List<String> =
+    fun visibleText(includeChangeRouteAction: Boolean = true): List<String> =
         buildList {
             add(statusLabel)
             add(routeName)
@@ -51,7 +55,9 @@ data class NavigationRouteReadyState(
                 add(metric.value)
             }
             add(confidenceLabel)
-            add(changeRouteActionLabel)
+            if (includeChangeRouteAction) {
+                add(changeRouteActionLabel)
+            }
             addAll(riskTags)
             addAll(boundaryNotes)
         }

@@ -37,6 +37,7 @@ class TrackingServiceContractTest {
         val actions = controller.handle(
             action = TrackingServiceIntents.ActionStart,
             canStartLocationForeground = true,
+            hasTrackingStartContext = true,
         )
 
         assertEquals(
@@ -55,6 +56,27 @@ class TrackingServiceContractTest {
         val actions = controller.handle(
             action = TrackingServiceIntents.ActionStart,
             canStartLocationForeground = false,
+            hasTrackingStartContext = true,
+        )
+
+        assertEquals(
+            listOf(
+                TrackingServiceCommand.StopLocationUpdates,
+                TrackingServiceCommand.StopForeground,
+                TrackingServiceCommand.StopSelf,
+            ),
+            actions.commands,
+        )
+        assertEquals(TrackingServiceStartResult.NotSticky, actions.startResult)
+    }
+
+    @Test
+    fun controllerStopsWhenStartActionLacksRouteSessionContext() {
+        val controller = TrackingServiceController()
+        val actions = controller.handle(
+            action = TrackingServiceIntents.ActionStart,
+            canStartLocationForeground = true,
+            hasTrackingStartContext = false,
         )
 
         assertEquals(
@@ -80,6 +102,7 @@ class TrackingServiceContractTest {
             val actions = controller.handle(
                 action = action,
                 canStartLocationForeground = true,
+                hasTrackingStartContext = true,
             )
 
             assertEquals(

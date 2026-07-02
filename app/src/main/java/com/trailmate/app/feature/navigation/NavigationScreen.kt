@@ -165,11 +165,13 @@ private fun NavigationRouteReadyContent(
         onStartClick = onStartTrackingClick,
         onStopClick = onStopTrackingClick,
     )
-    SecondaryNavigationAction(
-        label = route.changeRouteActionLabel,
-        icon = Icons.Outlined.Map,
-        onClick = onChangeRouteClick,
-    )
+    if (trackingStartState.mode != TrackingStartMode.Active) {
+        SecondaryNavigationAction(
+            label = route.changeRouteActionLabel,
+            icon = Icons.Outlined.Map,
+            onClick = onChangeRouteClick,
+        )
+    }
     MetricGrid(route.metrics)
     StatusSection(route)
     BoundarySection(route.boundaryNotes)
@@ -216,7 +218,7 @@ private fun RouteReadyHero(
             }
             Text(
                 text = if (trackingStartState.mode == TrackingStartMode.Active) {
-                    "已启动前台导航服务。真实位置、偏航判断和轨迹记录会在后续版本显示。"
+                    "已启动前台导航服务，正在记录真实定位点；路线仍以计划轨迹为准。"
                 } else {
                     "尚未启动定位或记录。此路线已进入导航页，后续流程将以它作为计划轨迹。"
                 },
