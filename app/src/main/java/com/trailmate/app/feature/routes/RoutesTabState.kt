@@ -1,10 +1,15 @@
 package com.trailmate.app.feature.routes
 
-import com.trailmate.app.core.routeimport.RouteImportParser
+import com.trailmate.app.core.database.ImportedRouteGeometryRecords
+import com.trailmate.app.core.database.ImportedRouteRecord
+import com.trailmate.app.core.model.GeoCoordinate
+import com.trailmate.app.core.model.RouteGeometry
+import com.trailmate.app.core.model.RouteSourceType
 import com.trailmate.app.core.routeimport.RouteImportFormat
 import com.trailmate.app.core.routeimport.RouteImportResult
 import com.trailmate.app.core.routeimport.RouteImportStatus
 import com.trailmate.app.core.routeimport.RouteImportWarning
+import java.security.MessageDigest
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -96,10 +101,13 @@ data class RouteImportPreviewState(
 
 data class SaveableImportState(
     val key: String,
+    val fileName: String,
     val routeName: String,
-    val sourceLabel: String,
-    val distanceLabel: String,
-    val elevationGainLabel: String,
+    val sourceType: RouteSourceType,
+    val waypointCount: Int,
+    val trackPointCount: Int,
+    val hasElevation: Boolean,
+    val geometry: RouteGeometry,
 )
 
 data class RouteAssetCardState(
@@ -225,31 +233,17 @@ object RoutesTabSampleState {
                 result.routeName,
                 geometry.totalDistance.meters.roundToInt().toString(),
                 result.trackPointCount.toString(),
+                geometry.routeIdentityHash(),
             ).joinToString(separator = "|"),
+            fileName = result.fileName,
             routeName = result.routeName,
-            sourceLabel = format.sourceLabel(),
-            distanceLabel = geometry.totalDistance.kilometersLabel(),
-            elevationGainLabel = geometry.elevationGain.metersLabel(prefixPlus = true),
+            sourceType = format.sourceType,
+            waypointCount = result.waypointCount,
+            trackPointCount = result.trackPointCount,
+            hasElevation = result.hasElevation,
+            geometry = geometry,
         )
     }
-
-    internal fun savedImportedAsset(saveable: SaveableImportState): RouteAssetCardState =
-        RouteAssetCardState(
-            name = saveable.routeName,
-            region = "导入路线",
-            sourceLabel = saveable.sourceLabel,
-            offlineStatusLabel = "仅轨迹可用",
-            distanceLabel = saveable.distanceLabel,
-            elevationGainLabel = saveable.elevationGainLabel,
-            estimatedDurationLabel = "待确认",
-            difficultyLabel = "未验证",
-            confidenceLabel = "可信度待确认",
-            riskTags = listOf("导入轨迹", "未验证", "不含地图底图"),
-            lastUsedLabel = "本次已加入路线列表",
-            startActionLabel = null,
-            detailActionLabel = null,
-            identityKey = saveable.key,
-        )
 
     private fun rejectedImportPreview(result: RouteImportResult): RouteImportPreviewState =
         RouteImportPreviewState(
@@ -313,21 +307,29 @@ fun RoutesTabState.withImportResult(result: RouteImportResult): RoutesTabState {
     )
 }
 
-fun RoutesTabState.withSavedImport(): RoutesTabState {
-    val saveable = saveableImport ?: return this
-    val savedAsset = RoutesTabSampleState.savedImportedAsset(saveable)
+fun RoutesTabState.withSavedImport(
+    savedRecord: ImportedRouteRecord? = saveableImport?.toPersistentImportedRouteRecord(),
+): RoutesTabState {
+    val savedAsset = savedRecord?.toRouteAssetCardState(
+        lastUsedLabel = "本次已加入路线列表",
+    ) ?: return this
+    val currentPreviewWasSaved = saveableImport?.key == savedRecord.id
 
     return copy(
-        importPreview = importPreview?.copy(
-            qualityNotes = importPreview.qualityNotes
-                .filterNot {
-                    it == "未保存，仅本次查看" ||
-                        it == "已保存到路线" ||
-                        it == "本次已加入路线列表"
-                } + "本次已加入路线列表",
-        ),
+        importPreview = if (currentPreviewWasSaved) {
+            importPreview?.copy(
+                qualityNotes = importPreview.qualityNotes
+                    .filterNot {
+                        it == "未保存，仅本次查看" ||
+                            it == "已保存到路线" ||
+                            it == "本次已加入路线列表"
+                    } + "本次已加入路线列表",
+            )
+        } else {
+            importPreview
+        },
         assets = listOf(savedAsset) + assets.filterNot { asset ->
-            asset.identityKey == saveable.key ||
+            asset.identityKey == savedRecord.id ||
                 (
                     asset.identityKey == null &&
                         asset.sourceLabel == savedAsset.sourceLabel &&
@@ -336,6 +338,57 @@ fun RoutesTabState.withSavedImport(): RoutesTabState {
         },
     )
 }
+
+fun RoutesTabState.withPersistedImportedRoutes(records: List<ImportedRouteRecord>): RoutesTabState {
+    val persistedAssets = records
+        .associateBy { it.id }
+        .values
+        .map { record -> record.toRouteAssetCardState() }
+    val persistedKeys = persistedAssets.mapNotNull { it.identityKey }.toSet()
+
+    return copy(
+        assets = persistedAssets + assets.filterNot { asset ->
+            asset.identityKey in persistedKeys
+        },
+    )
+}
+
+internal fun SaveableImportState.toPersistentImportedRouteRecord(
+    importedAtEpochMillis: Long = System.currentTimeMillis(),
+): ImportedRouteRecord =
+    ImportedRouteRecord(
+        id = key,
+        fileName = fileName,
+        sourceType = sourceType,
+        routeName = routeName,
+        distanceMeters = geometry.totalDistance.meters,
+        elevationGainMeters = geometry.elevationGain.meters,
+        waypointCount = waypointCount,
+        trackPointCount = trackPointCount,
+        hasElevation = hasElevation,
+        importedAtEpochMillis = importedAtEpochMillis,
+        points = ImportedRouteGeometryRecords.fromGeometry(geometry),
+    )
+
+internal fun ImportedRouteRecord.toRouteAssetCardState(
+    lastUsedLabel: String? = "已保存到本机",
+): RouteAssetCardState =
+    RouteAssetCardState(
+        name = routeName,
+        region = "导入路线",
+        sourceLabel = sourceType.importSourceLabel(),
+        offlineStatusLabel = "仅轨迹可用",
+        distanceLabel = distanceMeters.kilometersLabel(),
+        elevationGainLabel = elevationGainMeters.metersLabel(prefixPlus = true),
+        estimatedDurationLabel = "待确认",
+        difficultyLabel = "未验证",
+        confidenceLabel = "可信度待确认",
+        riskTags = listOf("导入轨迹", "未验证", "不含地图底图"),
+        lastUsedLabel = lastUsedLabel,
+        startActionLabel = null,
+        detailActionLabel = null,
+        identityKey = id,
+    )
 
 private fun RouteImportFlowStatus.visibleText(emptyState: RouteImportEmptyState): List<String> =
     when (this) {
@@ -380,6 +433,13 @@ private fun RouteImportFormat.sourceLabel(): String =
         RouteImportFormat.Kml -> "KML 导入"
     }
 
+private fun RouteSourceType.importSourceLabel(): String =
+    when (this) {
+        RouteSourceType.ImportedGpx -> "GPX 导入"
+        RouteSourceType.ImportedKml -> "KML 导入"
+        RouteSourceType.Platform -> "平台路线"
+    }
+
 private fun com.trailmate.app.core.model.Distance.kilometersLabel(): String =
     String.format(Locale.US, "%.1f km", meters / 1000.0)
 
@@ -387,3 +447,36 @@ private fun com.trailmate.app.core.model.Elevation.metersLabel(prefixPlus: Boole
     val rounded = meters.roundToInt()
     return if (prefixPlus) "+$rounded m" else "$rounded m"
 }
+
+private fun Double.kilometersLabel(): String =
+    String.format(Locale.US, "%.1f km", this / 1000.0)
+
+private fun Double.metersLabel(prefixPlus: Boolean): String {
+    val rounded = roundToInt()
+    return if (prefixPlus) "+$rounded m" else "$rounded m"
+}
+
+private fun RouteGeometry.routeIdentityHash(): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    coordinates.forEachIndexed { index, coordinate ->
+        digest.update(index.toString().toByteArray())
+        digest.update('|'.code.toByte())
+        digest.update(coordinate.identityComponent().toByteArray())
+        digest.update('|'.code.toByte())
+        digest.update(cumulativeDistances[index].meters.roundToInt().toString().toByteArray())
+        digest.update('\n'.code.toByte())
+    }
+    return digest.digest().joinToString(separator = "") { byte ->
+        "%02x".format(byte)
+    }
+}
+
+private fun GeoCoordinate.identityComponent(): String =
+    listOf(
+        latitude.roundToMicroDegrees(),
+        longitude.roundToMicroDegrees(),
+        elevation?.meters?.roundToInt()?.toString().orEmpty(),
+    ).joinToString(separator = ",")
+
+private fun Double.roundToMicroDegrees(): String =
+    (this * 1_000_000.0).roundToInt().toString()

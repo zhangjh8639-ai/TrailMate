@@ -36,12 +36,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import com.trailmate.app.core.database.SqliteImportedRouteStore
 import com.trailmate.app.core.routeimport.RouteImportParser
 import com.trailmate.app.feature.routes.RouteImportFileReadResult
 import com.trailmate.app.feature.routes.RouteImportFileReader
@@ -52,6 +54,8 @@ import com.trailmate.app.feature.routes.withImportCancelled
 import com.trailmate.app.feature.routes.withImporting
 import com.trailmate.app.feature.routes.withImportReadFailure
 import com.trailmate.app.feature.routes.withImportResult
+import com.trailmate.app.feature.routes.toPersistentImportedRouteRecord
+import com.trailmate.app.feature.routes.withPersistedImportedRoutes
 import com.trailmate.app.feature.routes.withSavedImport
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -62,7 +66,17 @@ fun TrailMateApp() {
     var selectedTab by rememberSaveable { mutableStateOf(TrailMateTab.Discover) }
     var routesState by remember { mutableStateOf(RoutesTabSampleState.build()) }
     val context = LocalContext.current
+    val importedRouteStore = remember(context.applicationContext) {
+        SqliteImportedRouteStore(context.applicationContext)
+    }
     val scope = rememberCoroutineScope()
+    LaunchedEffect(importedRouteStore) {
+        val persistedRoutes = withContext(Dispatchers.IO) {
+            importedRouteStore.loadAll()
+        }
+        routesState = routesState.withPersistedImportedRoutes(persistedRoutes)
+    }
+
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
     ) { uri ->
@@ -134,7 +148,17 @@ fun TrailMateApp() {
                     importLauncher.launch(RouteImportPickerMimeTypes)
                 },
                 onSaveImportClick = {
-                    routesState = routesState.withSavedImport()
+                    val saveableImport = routesState.saveableImport
+                    if (saveableImport != null) {
+                        scope.launch {
+                            val record = withContext(Dispatchers.IO) {
+                                val record = saveableImport.toPersistentImportedRouteRecord()
+                                importedRouteStore.upsert(record)
+                                record
+                            }
+                            routesState = routesState.withSavedImport(record)
+                        }
+                    }
                 },
             )
         }
