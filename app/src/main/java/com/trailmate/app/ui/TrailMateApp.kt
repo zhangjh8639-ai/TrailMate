@@ -52,6 +52,7 @@ import com.trailmate.app.feature.routes.withImportCancelled
 import com.trailmate.app.feature.routes.withImporting
 import com.trailmate.app.feature.routes.withImportReadFailure
 import com.trailmate.app.feature.routes.withImportResult
+import com.trailmate.app.feature.routes.withSavedImport
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -132,6 +133,9 @@ fun TrailMateApp() {
                 onRouteImportClick = {
                     importLauncher.launch(RouteImportPickerMimeTypes)
                 },
+                onSaveImportClick = {
+                    routesState = routesState.withSavedImport()
+                },
             )
         }
     }
@@ -143,12 +147,14 @@ private fun TabContent(
     paddingValues: PaddingValues,
     routesState: RoutesTabState,
     onRouteImportClick: () -> Unit,
+    onSaveImportClick: () -> Unit,
 ) {
     if (tab == TrailMateTab.Routes) {
         RoutesScreen(
             modifier = Modifier.padding(paddingValues),
             state = routesState,
             onImportClick = onRouteImportClick,
+            onSaveImportClick = onSaveImportClick,
         )
         return
     }
