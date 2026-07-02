@@ -218,7 +218,9 @@ class RoutesTabStateTest {
         val visibleText = detail.visibleText()
 
         assertEquals(platformRoute.name, detail.title)
+        assertEquals(platformRoute.routeKey, detail.routeKey)
         assertEquals("返回路线", detail.backActionLabel)
+        assertEquals("选择为导航路线", detail.navigationActionLabel)
         assertNull(detail.startActionLabel)
         assertTrue(visibleText.contains("平台路线"))
         assertTrue(visibleText.contains("可离线导航"))
@@ -227,6 +229,18 @@ class RoutesTabStateTest {
         assertTrue(visibleText.contains("+430 m"))
         assertTrue(visibleText.contains("雨后湿滑"))
         assertTrue(visibleText.contains("路线详情"))
+    }
+
+    @Test
+    fun routeDetailCanBeRecoveredByStableRouteKey() {
+        val state = RoutesTabSampleState.build()
+        val platformRoute = state.assets.first { it.sourceLabel == "平台路线" }
+
+        val recovered = requireNotNull(state.routeDetailForNavigationKey(platformRoute.routeKey))
+
+        assertEquals(platformRoute.routeKey, recovered.routeKey)
+        assertEquals(platformRoute.name, recovered.title)
+        assertEquals(platformRoute.sourceLabel, recovered.sourceLabel)
     }
 
     @Test
@@ -240,6 +254,7 @@ class RoutesTabStateTest {
         val visibleText = detail.visibleText().joinToString("\n")
 
         assertEquals("查看详情", importedRoute.detailActionLabel)
+        assertEquals(importedRoute.routeKey, detail.routeKey)
         assertNull(detail.startActionLabel)
         assertTrue(visibleText.contains("本机私密"))
         assertTrue(visibleText.contains("仅轨迹可用"))

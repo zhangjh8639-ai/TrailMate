@@ -45,12 +45,18 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.trailmate.app.core.database.SqliteImportedRouteStore
 import com.trailmate.app.core.routeimport.RouteImportParser
+import com.trailmate.app.feature.navigation.NavigationScreen
+import com.trailmate.app.feature.navigation.NavigationTabSampleState
+import com.trailmate.app.feature.navigation.NavigationTabState
+import com.trailmate.app.feature.navigation.withSelectedRoute
 import com.trailmate.app.feature.routes.RouteImportFileReadResult
 import com.trailmate.app.feature.routes.RouteImportFileReader
 import com.trailmate.app.feature.routes.RouteAssetCardState
+import com.trailmate.app.feature.routes.RouteDetailState
 import com.trailmate.app.feature.routes.RoutesScreen
 import com.trailmate.app.feature.routes.RoutesTabSampleState
 import com.trailmate.app.feature.routes.RoutesTabState
+import com.trailmate.app.feature.routes.routeDetailForNavigationKey
 import com.trailmate.app.feature.routes.withImportCancelled
 import com.trailmate.app.feature.routes.withImporting
 import com.trailmate.app.feature.routes.withImportReadFailure
@@ -67,7 +73,17 @@ import kotlinx.coroutines.withContext
 @Composable
 fun TrailMateApp() {
     var selectedTab by rememberSaveable { mutableStateOf(TrailMateTab.Discover) }
+    var selectedNavigationRouteKey by rememberSaveable { mutableStateOf<String?>(null) }
     var routesState by remember { mutableStateOf(RoutesTabSampleState.build()) }
+    val navigationState = remember(routesState, selectedNavigationRouteKey) {
+        val baseState = NavigationTabSampleState.build()
+        val selectedRouteDetail = routesState.routeDetailForNavigationKey(selectedNavigationRouteKey)
+        if (selectedRouteDetail == null) {
+            baseState
+        } else {
+            baseState.withSelectedRoute(selectedRouteDetail)
+        }
+    }
     val context = LocalContext.current
     val importedRouteStore = remember(context.applicationContext) {
         SqliteImportedRouteStore(context.applicationContext)
@@ -147,6 +163,7 @@ fun TrailMateApp() {
                 tab = selectedTab,
                 paddingValues = innerPadding,
                 routesState = routesState,
+                navigationState = navigationState,
                 onRouteImportClick = {
                     importLauncher.launch(RouteImportPickerMimeTypes)
                 },
@@ -169,6 +186,14 @@ fun TrailMateApp() {
                 onRouteDetailBackClick = {
                     routesState = routesState.withRouteDetailClosed()
                 },
+                onRouteNavigationReadyClick = { detail ->
+                    selectedNavigationRouteKey = detail.routeKey
+                    routesState = routesState.withRouteDetailClosed()
+                    selectedTab = TrailMateTab.Navigation
+                },
+                onNavigateToRoutesClick = {
+                    selectedTab = TrailMateTab.Routes
+                },
             )
         }
     }
@@ -179,10 +204,13 @@ private fun TabContent(
     tab: TrailMateTab,
     paddingValues: PaddingValues,
     routesState: RoutesTabState,
+    navigationState: NavigationTabState,
     onRouteImportClick: () -> Unit,
     onSaveImportClick: () -> Unit,
     onRouteDetailClick: (RouteAssetCardState) -> Unit,
     onRouteDetailBackClick: () -> Unit,
+    onRouteNavigationReadyClick: (RouteDetailState) -> Unit,
+    onNavigateToRoutesClick: () -> Unit,
 ) {
     if (tab == TrailMateTab.Routes) {
         RoutesScreen(
@@ -192,6 +220,16 @@ private fun TabContent(
             onSaveImportClick = onSaveImportClick,
             onRouteDetailClick = onRouteDetailClick,
             onRouteDetailBackClick = onRouteDetailBackClick,
+            onRouteNavigationReadyClick = onRouteNavigationReadyClick,
+        )
+        return
+    }
+
+    if (tab == TrailMateTab.Navigation) {
+        NavigationScreen(
+            modifier = Modifier.padding(paddingValues),
+            state = navigationState,
+            onSelectRouteClick = onNavigateToRoutesClick,
         )
         return
     }
