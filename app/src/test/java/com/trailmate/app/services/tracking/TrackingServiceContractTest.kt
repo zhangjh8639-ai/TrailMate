@@ -32,7 +32,7 @@ class TrackingServiceContractTest {
     }
 
     @Test
-    fun controllerStartsForegroundOnlyWhenPermissionIsReady() {
+    fun controllerStartsForegroundThenLocationUpdatesWhenPermissionIsReady() {
         val controller = TrackingServiceController()
         val actions = controller.handle(
             action = TrackingServiceIntents.ActionStart,
@@ -40,8 +40,11 @@ class TrackingServiceContractTest {
         )
 
         assertEquals(
-            TrackingServiceCommand.StartForeground,
-            actions.commands.single(),
+            listOf(
+                TrackingServiceCommand.StartForeground,
+                TrackingServiceCommand.StartLocationUpdates,
+            ),
+            actions.commands,
         )
         assertEquals(TrackingServiceStartResult.NotSticky, actions.startResult)
     }
@@ -55,7 +58,11 @@ class TrackingServiceContractTest {
         )
 
         assertEquals(
-            listOf(TrackingServiceCommand.StopSelf),
+            listOf(
+                TrackingServiceCommand.StopLocationUpdates,
+                TrackingServiceCommand.StopForeground,
+                TrackingServiceCommand.StopSelf,
+            ),
             actions.commands,
         )
         assertEquals(TrackingServiceStartResult.NotSticky, actions.startResult)
@@ -77,6 +84,7 @@ class TrackingServiceContractTest {
 
             assertEquals(
                 listOf(
+                    TrackingServiceCommand.StopLocationUpdates,
                     TrackingServiceCommand.StopForeground,
                     TrackingServiceCommand.StopSelf,
                 ),

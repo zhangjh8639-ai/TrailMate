@@ -9,15 +9,18 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.trailmate.app.MainActivity
 import com.trailmate.app.R
+import com.trailmate.app.platform.location.AndroidLocationProvider
 
 class TrackingForegroundService : Service() {
     private val controller = TrackingServiceController()
+    private var trackingLocationSession: TrackingLocationSession? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -34,11 +37,43 @@ class TrackingForegroundService : Service() {
         decision.commands.forEach { command ->
             when (command) {
                 TrackingServiceCommand.StartForeground -> startTrackingForeground()
+                TrackingServiceCommand.StartLocationUpdates -> startLocationUpdatesOrStop(startId)
+                TrackingServiceCommand.StopLocationUpdates -> stopLocationUpdates()
                 TrackingServiceCommand.StopForeground -> stopForeground(STOP_FOREGROUND_REMOVE)
                 TrackingServiceCommand.StopSelf -> stopSelf(startId)
             }
         }
         return START_NOT_STICKY
+    }
+
+    override fun onDestroy() {
+        stopLocationUpdates()
+        super.onDestroy()
+    }
+
+    private fun startLocationUpdatesOrStop(startId: Int) {
+        val state = locationSession().start()
+        if (!state.requiresTrackingServiceShutdownAfterStart()) return
+
+        stopLocationUpdates()
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf(startId)
+    }
+
+    private fun stopLocationUpdates() {
+        trackingLocationSession?.stop()
+        trackingLocationSession = null
+    }
+
+    private fun locationSession(): TrackingLocationSession {
+        val existingSession = trackingLocationSession
+        if (existingSession != null) return existingSession
+
+        return TrackingLocationSession(
+            AndroidLocationProvider(
+                getSystemService(Context.LOCATION_SERVICE) as LocationManager,
+            ),
+        ).also { trackingLocationSession = it }
     }
 
     private fun startTrackingForeground() {
